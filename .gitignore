@@ -1,0 +1,15 @@
+# Generated upstream checkout and build output.
+/third_party/src/
+/site/
+/ui-asset/
+
+# Local recordings. Add reviewed, sanitized examples explicitly when ready.
+*.pftrace
+*.perfetto-trace
+*.agentprof
+/traces/
+
+# Local tooling.
+__pycache__/
+.venv/
+.DS_Store

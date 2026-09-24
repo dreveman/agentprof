@@ -1,0 +1,6 @@
+# Initial upstream Perfetto pin; not yet validated with Pi traces.
+# This configuration will be consumed by the future tools/perfetto manager.
+[perfetto]
+url = "https://github.com/google/perfetto.git"
+pin = "fff30e83b5af315d311a3f18626d70b458631fc5"
+fetch_depth = 300
