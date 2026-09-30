@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Sun, 27 Sep 2026 15:49:11 -0400
+Subject: [PATCH 6/6] Center embedder search between equal navigation regions
+
+---
+ ui/src/frontend/topbar.scss | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/ui/src/frontend/topbar.scss b/ui/src/frontend/topbar.scss
+index b848b8f8..256973d7 100644
+--- a/ui/src/frontend/topbar.scss
++++ b/ui/src/frontend/topbar.scss
+@@ -28,8 +28,11 @@
+ 
+   &--navigation {
+     display: grid;
+-    grid-template-columns: auto minmax(0, 1fr) auto;
+-    gap: 20px;
++    grid-template-columns: minmax(0, 1fr) minmax(0, min(42%, 600px)) minmax(
++        0,
++        1fr
++      );
++    gap: 12px;
+     padding: 4px 14px;
+     box-sizing: border-box;
+ 
+@@ -45,6 +48,8 @@
+ 
+     > .pf-topbar__right {
+       position: static;
++      min-width: 0;
++      justify-content: flex-end;
+     }
+ 
+     .pf-omnibox--query-mode {
+@@ -53,7 +58,7 @@
+ 
+     @media (max-width: 760px) {
+       gap: 6px 10px;
+-      grid-template-columns: minmax(0, 1fr) auto;
++      grid-template-columns: max-content minmax(0, 1fr);
+       > .pf-omnibox {
+         grid-row: 2;
+         grid-column: 1 / -1;

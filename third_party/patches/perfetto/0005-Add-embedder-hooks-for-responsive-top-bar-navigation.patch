@@ -1,0 +1,119 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Sun, 27 Sep 2026 15:30:42 -0400
+Subject: [PATCH 5/6] Add embedder hooks for responsive top-bar navigation
+
+---
+ ui/src/core/app_impl.ts          |  4 ++--
+ ui/src/core/embedder/embedder.ts |  6 ++++++
+ ui/src/frontend/topbar.scss      | 36 ++++++++++++++++++++++++++++++++
+ ui/src/frontend/topbar.ts        |  4 ++++
+ 4 files changed, 48 insertions(+), 2 deletions(-)
+
+diff --git a/ui/src/core/app_impl.ts b/ui/src/core/app_impl.ts
+index 0bbb751e..eadc946e 100644
+--- a/ui/src/core/app_impl.ts
++++ b/ui/src/core/app_impl.ts
+@@ -154,11 +154,11 @@ export class AppImpl implements App {
+     this.testingMode =
+       self.location !== undefined &&
+       self.location.search.indexOf('testing=1') >= 0;
++    this.embedder = createEmbedder();
+     this.sidebar = new SidebarManagerImpl({
+-      disabled: this.embeddedMode,
++      disabled: this.embeddedMode || this.embedder.topbar !== undefined,
+       hidden: this.initialRouteArgs.hideSidebar,
+     });
+-    this.embedder = createEmbedder();
+     this.plugins = new PluginManagerImpl(this.embedder.defaultPlugins);
+     this.analytics = initAnalytics(
+       this.testingMode,
+diff --git a/ui/src/core/embedder/embedder.ts b/ui/src/core/embedder/embedder.ts
+index f485a616..8deef447 100644
+--- a/ui/src/core/embedder/embedder.ts
++++ b/ui/src/core/embedder/embedder.ts
+@@ -54,6 +54,12 @@ export interface Embedder {
+   readonly title?: string;
+   readonly brandLogo?: {readonly src: string; readonly alt: string};
+   readonly homePage?: m.ComponentTypes<{app: App}>;
++  // Optional deployment navigation replacing the persistent sidebar. The shell
++  // retains the omnibox and trace-health controls between these two slots.
++  readonly topbar?: {
++    readonly navigation: m.ComponentTypes<{app: App}>;
++    readonly actions: m.ComponentTypes<{app: App}>;
++  };
+ 
+   // Returns the Google Analytics measurement ID, or undefined if analytics
+   // should not be enabled for this embedder.
+diff --git a/ui/src/frontend/topbar.scss b/ui/src/frontend/topbar.scss
+index 1cf62a32..b848b8f8 100644
+--- a/ui/src/frontend/topbar.scss
++++ b/ui/src/frontend/topbar.scss
+@@ -26,6 +26,42 @@
+   align-items: center;
+   border-bottom: 1px solid var(--pf-color-border);
+ 
++  &--navigation {
++    display: grid;
++    grid-template-columns: auto minmax(0, 1fr) auto;
++    gap: 20px;
++    padding: 4px 14px;
++    box-sizing: border-box;
++
++    > .pf-omnibox {
++      width: 100%;
++      min-width: 0;
++      justify-self: center;
++      grid-template-columns: 34px minmax(0, 1fr) max-content;
++      input {
++        min-width: 0;
++      }
++    }
++
++    > .pf-topbar__right {
++      position: static;
++    }
++
++    .pf-omnibox--query-mode {
++      padding-left: 0;
++    }
++
++    @media (max-width: 760px) {
++      gap: 6px 10px;
++      grid-template-columns: minmax(0, 1fr) auto;
++      > .pf-omnibox {
++        grid-row: 2;
++        grid-column: 1 / -1;
++        max-width: none;
++      }
++    }
++  }
++
+   &--hide-sidebar {
+     .pf-omnibox--query-mode {
+       padding-left: 48px;
+diff --git a/ui/src/frontend/topbar.ts b/ui/src/frontend/topbar.ts
+index 88e090c0..a324bd93 100644
+--- a/ui/src/frontend/topbar.ts
++++ b/ui/src/frontend/topbar.ts
+@@ -104,16 +104,20 @@ export class Topbar implements m.ClassComponent<TopbarAttrs> {
+   view({attrs}: m.Vnode<TopbarAttrs>) {
+     const {trace} = attrs;
+     const app = AppImpl.instance;
++    const topbar = app.embeddedMode ? undefined : app.embedder.topbar;
+     return m(
+       '.pf-topbar',
+       {
+         className: classNames(
+           !app.sidebar.visible && 'pf-topbar--hide-sidebar',
++          topbar !== undefined && 'pf-topbar--navigation',
+         ),
+       },
++      topbar && m('.pf-topbar__navigation', m(topbar.navigation, {app})),
+       m(Omnibox, {trace}),
+       m(
+         '.pf-topbar__right',
++        topbar && m(topbar.actions, {app}),
+         trace && m(TraceErrorIcon, {trace}),
+         renderSidePanelToggle(app.sidePanel),
+       ),

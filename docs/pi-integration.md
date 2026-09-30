@@ -1,37 +1,55 @@
 # Pi tracing integration
 
-The existing Pi harness tracing is the starting point for Agentprof's recorder
-integration. Its source and sample output have not yet been added here.
+The recorder lives in [packages/pi-tracing](../packages/pi-tracing/), imported
+from the supplied extension. It retains its package name, Pi entry point,
+zero runtime npm dependencies, and MIT license declaration.
 
-## Establish the contract from the implementation
+## Recording
 
-Before designing UI queries, inspect the recorder and one sanitized trace to
-document:
+```bash
+pi -e ./packages/pi-tracing --tracing
+```
 
-- How tracing is enabled, where output is written, and how it is finalized.
-- The output encoding and its compatibility with the pinned Perfetto reader.
-- Track organization and stable identifiers for sessions, agents, and turns.
-- Event names and argument fields for model requests and tool calls.
-- How parent/child agents and asynchronous operations are connected.
-- Clock units and clock alignment, especially across processes.
-- Which usage counters exist and whether values are incremental or cumulative.
-- What is recorded for failures, cancellations, retries, and incomplete runs.
+Normal Pi exit automatically finalizes the recording and prints its file path
+to stderr, including in interactive and headless modes. Optionally use
+`Ctrl+Shift+T` to manually start or stop recording.
 
-These are questions for the existing integration, not a new required schema.
-Reuse its conventions wherever possible. Document missing information before
-adding instrumentation or making the UI depend on it.
+Autostart also accepts `PI_TRACING=1`. Interactive commands include
+`/tracing start [name]`, `/tracing stop`, `/tracing status`, and
+`/tracing categories`. See the package README for configuration and inheritance.
 
-## First fixture and validation
+Each top-level recording publishes one `.pftrace` and JSON manifest under
+`<agentDir>/pi-tracing/`, including its local child processes. Children inherit
+the recording directory; existing per-process writers flush private spools,
+which the owner merges when tracing stops. Failed finalization retains spools
+and any parseable `.pftrace.part`. The UI exposes dropped events, lane overflows, and incomplete
+spans rather than treating truncated work as completed.
 
-Add a small, sanitized run containing a model request and a tool call. Include
-a delegated agent if the harness supports recording one. Store its provenance,
-recording command, harness revision, and expected visible events alongside it.
+## Integration changes
 
-First confirm that upstream Perfetto opens the recording and exposes the
-expected slices and arguments. Then verify Agentprof's grouping and links
-against those same events. Do not infer parentage solely from overlapping
-timestamps or report unrecorded token counts as zero.
+- Added schema/capture metadata at the beginning of each recording.
+- Added structured turn indices, tool IDs/outcomes, provider phase/status,
+  context counts, stream timings, model metadata, and reported usage.
+- Preserved missing usage values and opt-in content capture.
+- Added query validation against Trace Processor and a browser smoke test.
+- Fixed the imported TypeScript setup and environment override type.
+- Used standard TAR packaging for multi-trace tests. REALTIME is the primary
+  trace clock; tests verify same-machine and cross-machine wall-time alignment.
 
-Keep trace emission in the harness. Decide whether this repository needs an
-adapter only after inspecting the existing format; avoid a conversion step
-when the trace is already usable directly.
+The bundled example is a real Pi 0.87.1 parent with three Opus 5 subagents,
+recorded through this extension on 2026-09-27. Implementation and test workers
+run concurrently, followed by a reviewer and parent-side integration. All 39 tests
+pass. All four traces finalize without incomplete operations or dropped events,
+and cumulative usage matches Pi's JSON events. Native and browser checks validate
+individual files and merged archives, including session identity, parent/child
+links, context estimates, and timestamp offsets. The longer workflow exercises
+periodic clock snapshots. The bundled example uses the same merge code as runtime
+recordings, producing one trace with all three native delegation flows.
+See [the recording notes](../examples/pi-opus-5/README.md) to reproduce it.
+
+A separate synthetic fixture covers overlap, missing usage, and interrupted work.
+Real retry and cancellation behavior still needs validation.
+
+Use real recordings to refine the [data contract](trace-data.md). Next priorities
+are stable operation/request IDs, explicit retry and cancellation outcomes, and
+measured user-wait spans. Keep fields optional so older recordings remain useful.

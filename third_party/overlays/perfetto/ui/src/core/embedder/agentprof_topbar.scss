@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: Apache-2.0
+.ap-navigation,
+.ap-navigation-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.ap-navigation {
+  width: max-content;
+  > * {
+    flex-shrink: 0;
+  }
+  &__brand {
+    display: flex;
+    align-items: center;
+    margin-right: 4px;
+  }
+  &__open.pf-button {
+    width: max-content;
+    overflow: visible;
+    .pf-button__label {
+      overflow: visible;
+      text-overflow: clip;
+    }
+  }
+  &__link {
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    color: var(--pf-color-text-muted);
+    text-decoration: none;
+    .pf-icon {
+      font-size: 20px;
+    }
+    &:hover {
+      background: var(--pf-color-background);
+      color: var(--pf-color-text);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--pf-color-primary);
+      outline-offset: 2px;
+    }
+    &[aria-current="page"] {
+      color: var(--pf-color-primary);
+      background: color-mix(in srgb, var(--pf-color-primary) 10%, transparent);
+    }
+  }
+  @media (max-width: 1350px) {
+    &__open.pf-button {
+      width: 32px;
+      height: 32px;
+      padding: 4px;
+      justify-content: center;
+      .pf-button__label {
+        display: none;
+      }
+    }
+  }
+  @media (max-width: 1100px) {
+    &__brand .ap-brand {
+      width: 148px;
+    }
+  }
+  @media (max-width: 1000px) {
+    &__brand {
+      width: 30px;
+      overflow: hidden;
+      .ap-brand {
+        flex: 0 0 174px;
+      }
+    }
+  }
+}
+.ap-navigation-actions {
+  flex: 1;
+  min-width: 32px;
+  justify-content: flex-end;
+  > .pf-button .pf-icon {
+    font-size: 18px;
+  }
+  > .pf-button,
+  > .pf-popup > .pf-button {
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    padding: 4px;
+  }
+}

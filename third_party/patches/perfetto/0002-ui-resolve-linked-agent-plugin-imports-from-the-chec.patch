@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Fri, 25 Sep 2026 16:00:10 -0400
+Subject: [PATCH 2/6] ui: resolve linked agent plugin imports from the checkout
+
+---
+ ui/vite.config.mjs | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/ui/vite.config.mjs b/ui/vite.config.mjs
+index 88698c98..f6f9258c 100644
+--- a/ui/vite.config.mjs
++++ b/ui/vite.config.mjs
+@@ -255,6 +255,27 @@ const BUNDLE_CONFIGS = {
+ // frontend index.html drives the module graph.
+ const BUNDLE = process.env.BUNDLE;
+ 
++// Resolve imports in Agentprof's linked source files from their checkout paths.
++// Preserve pnpm's normal realpath behavior for third-party dependencies.
++function pluginAgentprofOverlays() {
++  const directory = path.join(SRC, 'plugins/dev.agentprof.Agentprof');
++  const importers = new Map();
++  for (const name of fs.readdirSync(directory)) {
++    const logical = path.join(directory, name);
++    if (fs.statSync(logical).isFile()) {
++      importers.set(fs.realpathSync(logical), logical);
++    }
++  }
++  return {
++    name: 'agentprof-overlay-imports',
++    enforce: 'pre',
++    resolveId(source, importer) {
++      const logical = importers.get(importer?.split('?')[0]);
++      return logical ? this.resolve(source, logical, {skipSelf: true}) : null;
++    },
++  };
++}
++
+ export default defineConfig(({command}) => {
+   const isBuild = command === 'build';
+   if (isBuild && !BUNDLE) {
+@@ -281,6 +302,7 @@ export default defineConfig(({command}) => {
+     // magic "publicDir" handling so it doesn't try to serve it at /.
+     publicDir: false,
+     plugins: [
++      pluginAgentprofOverlays(),
+       pluginPerfettoVersion(),
+       // Compiles *.grammar files (lezer parser definitions) on import. Replaces
+       // the old "manually run lezer-generator and commit gen/*.js" workflow.

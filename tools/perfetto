@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Manage the pinned upstream Perfetto checkout without discarding local work."""
+
+import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import tomllib
+
+ROOT = Path(__file__).resolve().parents[1]
+CHECKOUT = ROOT / "third_party/src/perfetto"
+OVERLAYS = ROOT / "third_party/overlays/perfetto"
+PATCHES = ROOT / "third_party/patches/perfetto"
+OUT = CHECKOUT / "out/agentprof"
+
+
+def run(*args, cwd=CHECKOUT):
+    subprocess.run([str(arg) for arg in args], cwd=cwd, check=True)
+
+
+def output(*args):
+    return subprocess.check_output(args, cwd=CHECKOUT, text=True).strip()
+
+
+def pin():
+    return tomllib.loads((ROOT / "third_party/perfetto.toml").read_text())["perfetto"]["pin"]
+
+
+def patch_id(data):
+    result = subprocess.run(["git", "patch-id", "--stable"], input=data,
+                            stdout=subprocess.PIPE, check=True)
+    return result.stdout.split()[0]
+
+
+def capture():
+    if output("git", "diff", "HEAD", "--name-only"):
+        sys.exit("Commit upstream-file edits in the Perfetto checkout before capture.")
+    changed = set(output("git", "diff", "--name-only", f"{pin()}..HEAD").splitlines())
+    overlays = {str(p.relative_to(OVERLAYS)) for p in OVERLAYS.rglob("*") if p.is_file()}
+    if changed & overlays:
+        sys.exit("Overlay files must not be committed into the upstream patch series.")
+    if not output("git", "rev-list", f"{pin()}..HEAD"):
+        sys.exit("No commits above the pin to capture.")
+    # Generate successfully before replacing the old series.
+    with tempfile.TemporaryDirectory(prefix="agentprof-patches-") as temporary:
+        run("git", "format-patch", "--zero-commit", "--no-signature",
+            f"{pin()}..HEAD", "-o", temporary)
+        PATCHES.mkdir(parents=True, exist_ok=True)
+        generated = list(Path(temporary).glob("*.patch"))
+        names = {p.name for p in generated}
+        for patch in generated:
+            (PATCHES / patch.name).write_bytes(patch.read_bytes())
+        for old in PATCHES.glob("*.patch"):
+            if old.name not in names:
+                old.unlink()
+    print(f"Captured {len(generated)} patches")
+
+
+def setup():
+    cfg = tomllib.loads((ROOT / "third_party/perfetto.toml").read_text())["perfetto"]
+    pin = cfg["pin"]
+    CHECKOUT.mkdir(parents=True, exist_ok=True)
+    fresh = not (CHECKOUT / ".git").exists()
+    if fresh:
+        if any(CHECKOUT.iterdir()):
+            sys.exit(f"Refusing to initialize a nonempty directory: {CHECKOUT}")
+        run("git", "init", "--quiet")
+        run("git", "remote", "add", "origin", cfg["url"])
+    has_head = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"], cwd=CHECKOUT,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode == 0
+    if not has_head:
+        run("git", "fetch", "--depth=1", "origin", pin)
+        run("git", "checkout", "--detach", pin)
+    else:
+        if subprocess.run(["git", "merge-base", "--is-ancestor", pin, "HEAD"],
+                          cwd=CHECKOUT).returncode:
+            sys.exit("Checkout does not descend from the configured pin. Preserve your "
+                     "work and move it aside before setting up a new revision.")
+        if (CHECKOUT / ".git/rebase-apply").exists():
+            sys.exit("Resolve the pending git-am operation before continuing.")
+    patches = sorted(PATCHES.glob("*.patch"))
+    commits = output("git", "rev-list", "--reverse", f"{pin}..HEAD").splitlines()
+    for commit, patch in zip(commits, patches):
+        actual = subprocess.check_output(["git", "show", "--pretty=format:", commit], cwd=CHECKOUT)
+        if patch_id(actual) != patch_id(patch.read_bytes()):
+            sys.exit("Checkout differs from the saved patch series. Capture intentional "
+                     "changes or preserve this checkout and move it aside.")
+    if len(commits) < len(patches):
+        if output("git", "diff", "HEAD", "--name-only"):
+            sys.exit("Commit or save local changes before applying new patches.")
+        for patch in patches[len(commits):]:
+            run("git", "-c", "user.name=Agentprof", "-c",
+                "user.email=agentprof@localhost", "-c", "commit.gpgsign=false", "am", patch)
+    # Never replace an upstream file or an unrelated local file with an overlay.
+    sources = sorted(p for p in OVERLAYS.rglob("*") if p.is_file())
+    for source in sources:
+        dest = CHECKOUT / source.relative_to(OVERLAYS)
+        if dest.is_symlink() and dest.resolve() == source.resolve():
+            continue
+        if os.path.lexists(dest):
+            sys.exit(f"Overlay collision; preserve or relocate this file first: {dest}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.symlink_to(os.path.relpath(source, dest.parent))
+    print(f"Perfetto ready: {CHECKOUT}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["setup", "capture", "build-ui", "dev-server", "check-ui", "smoke-ui"])
+    parser.add_argument("--skip-deps", action="store_true")
+    parser.add_argument("--existing-server", action="store_true",
+                        help="smoke-ui: test a server already running on port 10000")
+    args, extra = parser.parse_known_args()
+    if extra and args.command not in ("build-ui", "dev-server"):
+        parser.error(f"unexpected arguments: {' '.join(extra)}")
+    if args.command == "capture":
+        capture()
+        return
+    setup()
+    if args.command == "setup":
+        return
+    if args.command == "smoke-ui":
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(ROOT / "artifacts/browsers")
+        run("ui/node_modules/.bin/playwright", "install", "chromium")
+        run("node", ROOT / "tools/check-ui.mjs",
+            *(["--existing-server"] if args.existing_server else []), cwd=ROOT)
+        return
+    if not args.skip_deps:
+        run(sys.executable, "tools/install-build-deps", "--ui")
+    if args.command == "check-ui":
+        run("ui/node_modules/.bin/tsc", "--project", "ui/tsconfig.json", "--noEmit")
+    elif args.command == "build-ui":
+        run("ui/build", "--out", OUT, *extra)
+    else:
+        run("ui/run-dev-server", "--out", OUT, *extra)
+
+
+if __name__ == "__main__":
+    main()

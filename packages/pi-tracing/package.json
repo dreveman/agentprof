@@ -1,0 +1,32 @@
+{
+  "name": "pi-tracing",
+  "version": "0.1.0",
+  "description": "Self-controlled Perfetto capture for Pi (pi-tracing). Local .pftrace recording with categories; system-traced join reserved as follow-up.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-tracing",
+    "perfetto",
+    "tracing"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "bun test extensions/pi-tracing/*.test.ts"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/pi-tracing/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "^0.87.1",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "@types/node": "^22.19.19",
+    "typescript": "^5.9.3"
+  }
+}

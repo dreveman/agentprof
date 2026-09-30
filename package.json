@@ -1,0 +1,23 @@
+{
+  "name": "agentprof",
+  "private": true,
+  "pi": {
+    "extensions": [
+      "./packages/pi-tracing/extensions/pi-tracing/index.ts"
+    ]
+  },
+  "workspaces": [
+    "packages/pi-tracing"
+  ],
+  "scripts": {
+    "check": "npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json",
+    "test": "npm run test --workspace pi-tracing",
+    "trace:example": "bun tools/bundle-example.ts",
+    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts",
+    "trace:fixture": "bun tools/generate-example.ts",
+    "trace:record": "python3 tools/record-example.py"
+  },
+  "devDependencies": {
+    "bun": "1.4.2"
+  }
+}

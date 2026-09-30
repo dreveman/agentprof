@@ -1,0 +1,7 @@
+Fix summarizeIntervals in intervals.mjs. It accepts finite half-open [start, end) intervals with end >= start and must return their union duration as activeMs and peak simultaneous nonempty intervals as peakConcurrency, without mutating input.
+
+Use a delegated workflow:
+1. Read the source and existing tests briefly. Use the subagent tool to launch an implementation worker that owns only intervals.mjs and a tests worker that owns only additional.test.mjs. Launch both before waiting, so they work concurrently. Give each a concrete task. The tests worker should add boundary/regression cases, including simultaneous starts/ends and duplicated intervals; it must not edit the implementation or existing tests and need not wait for the implementation to pass.
+2. Use wait_subagents to collect both results. Then launch a reviewer subagent with read/bash access to inspect the implementation and all tests, run node --test, and report any correctness issues. Wait for that report.
+3. Address any issues yourself and run node --test for final verification. Briefly summarize what each worker contributed and the final test result.
+Work only in this scratch directory. Use subagent for delegation, not bash to start other Pi sessions. Do not delegate again after the three workers above.

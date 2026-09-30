@@ -1,56 +1,116 @@
-# Agentprof
+# Agent Profiler
+
+Agent Profiler uses `agentprof` as its code name and repository identifier.
 
 See where the time went in an AI coding agent run.
 
 [Getting started](#getting-started) · [Investigation guide](docs/investigating-agents.md) · [Development](CONTRIBUTING.md)
 
-## What is Agentprof?
+## What is Agent Profiler?
 
-Agentprof is a project to build an agent-focused Perfetto UI: every turn,
-model request, tool call, and subagent on one interactive timeline. The first
-integration will use the existing Perfetto tracing in the Pi harness.
+Agent Profiler is an agent-focused Perfetto UI with a Pi tracing extension. Explore
+turns, provider requests, tool calls, and child-agent launches on a timeline.
 
-The goal is to make it easy to:
+The first integration lets you:
 
-- See how a run divides its time between model requests, tools, and other work.
-- Follow parent and child agents and understand which work overlaps.
-- Inspect slow turns and tool calls in the context of the whole run.
-- Explore token usage and other counters when the harness records them.
+- Group timeline tracks by agent session and inspect overlapping tool calls.
+- Query slow tools, recorded failures, and incomplete operations.
+- Inspect model response timing and token usage when the harness reports it.
+- Inspect child-launch identifiers and recording health.
 
-**Status:** initial project scaffolding. The Pi tracing code has not been
-imported into this repository, and the agent-specific UI is not implemented
-yet. There is no Agentprof installer, CLI, hosted UI, or demo trace yet.
+**Status:** development preview. The Pi recorder, initial UI plugin, and
+real Pi–Opus-5 example recordings are included. There is no hosted UI yet.
+Automatic child-trace discovery in the UI remains future work. Multiple files
+can be opened together with clock alignment from the recorded snapshots.
 
 ## Getting started
 
-The intended workflow is to record a run with Pi's existing tracing, then open
-the resulting trace in Agentprof. Recording commands and supported trace fields
-will be documented after the Pi integration is available here.
+Install the tracing extension for your Pi account from the published Git repository:
 
-For now, existing Perfetto-compatible traces can be opened in the
+```bash
+pi install git:github.com/dreveman/agentprof
+pi --tracing
+```
+
+Run a task, then exit Pi to finalize the trace and print its path. Use
+`Ctrl+Shift+T` to start or stop manually, or use `/tracing start`,
+`/tracing stop`, `/tracing status`, and `/tracing categories` for finer control.
+To try the extension from a local checkout without installing it, run
+`pi -e ./packages/pi-tracing --tracing`. See the
+[extension guide](packages/pi-tracing/README.md) for options.
+
+Build and serve the UI (Python 3.11+, Git, and a C/C++ build environment;
+Perfetto downloads its pinned build dependencies):
+
+```bash
+python3 tools/perfetto build-ui
+python3 tools/perfetto dev-server --skip-deps
+```
+
+Open `http://localhost:10000` and choose **Open recordings**. Pi recordings
+automatically open **Overview**, with activity, model, tool, concurrency, and
+capture-health summaries. The top bar provides **Overview** and **Timeline** navigation.
+Use the overview tabs for details or **Open timeline** to explore
+the **Agent Profiler** workspace. Use **More options → Query (SQL)** for custom analysis or use the
+command palette (`Ctrl+Shift+P`) to run the built-in `Agent Profiler:` queries.
+
+Choose **Open pi-claude-opus-5 workflow example** on the home page to explore a real delegated
+coding task using Anthropic's `claude-opus-5` with high effort. A parent launches
+implementation and test workers concurrently, then a reviewer. All four sessions
+are included, with parent/child identifiers and individual usage counters. Reloading reopens the bundled
+recordings, so you can iterate on the UI without uploading files each time.
+
+To rebuild the bundle from the checked-in recordings without calling a model:
+
+```bash
+npm ci
+npm run trace:example
+```
+
+This updates `artifacts/examples/agentprof-example.pftrace` and its UI bundle.
+The original recordings, task, prompt, and provenance are in
+[examples/pi-opus-5](examples/pi-opus-5/README.md). Open its `workflow-*.pftrace` files
+with **Open trace file** to compare independent file import with the unified example.
+
+To record another real run with your configured Pi credentials:
+
+```bash
+npm run trace:record -- --name opus-5-workflow --workflow
+```
+
+This invokes Opus 5, creates a scratch workspace under `artifacts/live-pi`, and
+copies the single finalized recording (including subagents) there after verifying the task's tests. It does not
+replace the reviewed bundled recordings automatically.
+
+`npm run check:example` validates the real recordings and their merged forms,
+and also generates a separate synthetic fixture for deterministic edge-case tests.
+The real example includes reported token counters, context estimates, runtime
+counters, and model/effort metadata. Anthropic reports cached input separately;
+input counters preserve its reported input values without adding cache counts.
+
+Recordings can also be opened in the
 [upstream Perfetto UI](https://ui.perfetto.dev/) using **Open trace file**.
-This provides the generic timeline; Agentprof's planned views are described in
+This provides the generic timeline; Agent Profiler's views are described in
 the [investigation guide](docs/investigating-agents.md).
 
-## Why Agentprof?
+## Why Agent Profiler?
 
 A conversation transcript describes what an agent said and did. A timeline
 helps explain how long it took, which operations overlapped, and what delayed
-the next step. Agentprof aims to connect those timing questions to the agent's
+the next step. Agent Profiler aims to connect those timing questions to the agent's
 turns, tools, and delegated work.
 
-## How it will work
+## How it works
 
 ```text
-Pi harness              Perfetto trace               Agentprof UI
+Pi harness              Perfetto trace               Agent Profiler UI
 existing tracing   ->   recorded run on disk    ->   timeline and analysis
 ```
 
 Pi remains responsible for recording events. Perfetto supplies the trace
-format, query engine, and timeline foundation. Agentprof will add agent-specific
-tracks, details, and queries. Available analysis will depend on what the harness
-actually records; the initial integration will establish that contract from
-real traces.
+format, query engine, and timeline foundation. Agent Profiler adds session grouping
+and queries. The [trace data contract](docs/trace-data.md) documents available
+fields, timing semantics, and the next instrumentation priorities.
 
 The repository maintains a specialized Perfetto UI with an upstream revision pin,
 a small patch series, and permanent overlay files. See the
@@ -58,12 +118,13 @@ a small patch series, and permanent overlay files. See the
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the repository layout and initial
-implementation steps, and [the Pi integration notes](docs/pi-integration.md)
-for what is needed from the existing recorder.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and validation commands,
+and [the Pi integration notes](docs/pi-integration.md) for recorder details.
 
 ## License and acknowledgments
 
-Agentprof is licensed under [Apache 2.0](LICENSE) and built around
+Agent Profiler is licensed under [Apache 2.0](LICENSE) and built around
 [Perfetto](https://github.com/google/perfetto). Upstream code retains its own
 copyright and license notices.
+The imported [Pi extension](packages/pi-tracing/package.json) retains its MIT
+license declaration.

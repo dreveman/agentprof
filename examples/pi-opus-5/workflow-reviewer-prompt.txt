@@ -1,0 +1,20 @@
+Work ONLY in the current scratch directory: /home/example/github/agentprof/examples/artifacts/live-pi/opus-5-workflow-a3d7f647
+
+You are a REVIEWER. Do NOT modify any file (no edit/write). Use read and bash (read-only commands) only.
+
+Review these files: intervals.mjs, intervals.test.mjs, additional.test.mjs.
+
+Contract that intervals.mjs must satisfy:
+- summarizeIntervals(intervals) takes an array of finite half-open [start, end) intervals in ms, end >= start, possibly fractional, unsorted, nested, overlapping, duplicated, zero-length.
+- Returns {activeMs, peakConcurrency}: activeMs = union duration (overlaps counted once); peakConcurrency = max number of simultaneously active NONEMPTY intervals (zero-length intervals never count; half-open means an interval ending at t and one starting at t are NOT concurrent). Empty input => {activeMs: 0, peakConcurrency: 0}.
+- Must not mutate the input array or inner arrays (may be frozen), and must not reorder them.
+
+Do this:
+1. Read all three files carefully.
+2. Run `node --test` and report the results.
+3. Independently audit correctness of the implementation: look for bugs in sorting comparators, event tie-breaking (ends before starts at equal coordinates), handling of zero-length intervals, floating-point accumulation, mutation of inputs (including whether it sorts the caller's array or inner arrays), empty input, negative coordinates, and duplicated intervals.
+4. Audit the tests: are any EXPECTED VALUES WRONG relative to the contract above? Are the brute-force/randomized reference implementations in additional.test.mjs actually correct (e.g. does the ms-bucket reference handle fractional or negative coordinates, off-by-one at bucket boundaries)? Are there gaps in coverage?
+5. Write your own throwaway ad-hoc checks by running `node -e '...'` one-liners (this does not modify files) to probe edge cases: frozen/deeply-frozen input, very large arrays, intervals with equal start and end at the same coordinate as other boundaries, unsorted input order preservation, huge and tiny fractional values, many duplicates, a case with peak in the middle.
+
+Report a concise list of any correctness issues found (with concrete failing inputs and expected vs actual), or state clearly that you found none. Do not fix anything.
+Work only in the current scratch directory. Keep your final report concise.
