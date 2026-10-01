@@ -1,0 +1,87 @@
+name: Deploy UI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Pages environment to deploy
+        type: choice
+        options: [preview, production]
+        default: preview
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ui
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test and deploy UI
+    if: github.event_name == 'workflow_dispatch' || vars.CLOUDFLARE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: ${{ github.event_name == 'push' && 'production' || inputs.target }}
+    env:
+      PERFETTO_TRACE_PROCESSOR: ${{ github.workspace }}/third_party/src/perfetto/tools/trace_processor
+      PERFETTO_VERSION_HEADER_OVERRIDE_SCM_REVISION: ${{ github.sha }}
+      UI_DIST: third_party/src/perfetto/out/agentprof/ui/dist
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - name: Set up pinned Perfetto checkout
+        run: python3 tools/perfetto setup
+      - name: Check recorder and examples
+        run: |
+          npm run check
+          npm test
+          npm run check:example
+          git diff --exit-code -- third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/example_trace.ts
+      - name: Cache Perfetto UI dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/src/perfetto/buildtools
+            third_party/src/perfetto/third_party/pnpm
+            third_party/src/perfetto/ui/node_modules
+            artifacts/browsers
+          key: perfetto-ui-${{ runner.os }}-${{ hashFiles('third_party/perfetto.toml') }}
+      - name: Build UI and Trace Processor WASM
+        run: python3 tools/perfetto build-ui
+      - name: Typecheck UI
+        run: python3 tools/perfetto check-ui --skip-deps
+      - name: Install Chromium and system dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/artifacts/browsers
+        run: third_party/src/perfetto/ui/node_modules/.bin/playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: python3 tools/perfetto smoke-ui
+      - name: Retain previous production assets
+        if: github.event_name == 'push' || inputs.target == 'production'
+        run: python3 tools/prepare-pages-release.py "$UI_DIST" --previous-site https://ui.agentprof.dev
+      - name: Add Pages cache headers
+        run: cp infra/pages/_headers "$UI_DIST/_headers"
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy ${{ env.UI_DIST }} --project-name=agentprof-ui --branch=${{ github.event_name == 'push' && 'main' || inputs.target == 'production' && 'main' || 'preview' }}
+      - name: Upload browser screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentprof-deploy-screenshots
+          path: artifacts/screenshots/
+          if-no-files-found: ignore
