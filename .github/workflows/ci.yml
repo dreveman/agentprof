@@ -58,6 +58,8 @@ jobs:
       - run: npm ci
       - name: Set up pinned Perfetto checkout
         run: python3 tools/perfetto setup
+      - name: Generate browser trace fixtures
+        run: npm run check:example
       # Restore caches after setup: the checkout manager refuses a nonempty
       # directory without its own .git metadata.
       - name: Cache Perfetto UI dependencies
