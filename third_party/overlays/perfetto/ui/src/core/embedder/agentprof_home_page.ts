@@ -88,15 +88,22 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
             onclick: () =>
               app.commands.runCommand('dev.agentprof.Agentprof.OpenExample'),
           },
-          m('span.ap-home__example-title', 'Open pi-claude-opus-5 workflow example'),
+          m('span.ap-home__example-title', 'Open workflow example'),
           m(
             'span',
-            'A real coding task with a primary agent, parallel implementation and test workers, and a reviewer.',
+            'Coding task with a primary agent, parallel implementation and test workers, and a reviewer.',
           ),
           m(
             'span.ap-home__example-meta',
             'Pi · Anthropic Opus 5 · High effort · 4 sessions',
           ),
+        ),
+        m('button.ap-home__example', {
+          type: 'button', onclick: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenCodemodeExample'),
+        },
+          m('span.ap-home__example-title', 'Open direct vs codemode example'),
+          m('span', 'Auditing task for 192 synthetic CI failures, run twice to compare direct tool calls with scripted tool calls in codemode.'),
+          m('span.ap-home__example-meta', 'Pi · Anthropic Opus 5 · High effort · 2 sessions'),
         ),
       ),
       m(

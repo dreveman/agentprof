@@ -1,0 +1,3085 @@
+[
+  {
+    "sessionId": "b4ac674a-74c8-410e-b466-86f16260056a",
+    "eventsSha256": "bcf378afe03cabba5a11293592f2683b7739cdc12f9d8cb63935884f657c94ae",
+    "calls": [
+      {
+        "toolCallId": "toolu_01Vk8oGC6g5fQoNRc4wByrqD",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98"
+        }
+      },
+      {
+        "toolCallId": "toolu_01MZLZ7GCgdKPUCrMCqMMQwK",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 48
+        }
+      },
+      {
+        "toolCallId": "toolu_01Gr93fHXJSkZCWY6r29GSMP",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 96
+        }
+      },
+      {
+        "toolCallId": "toolu_015En1kDUXjznox6XoFFmc2o",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 144
+        }
+      },
+      {
+        "toolCallId": "toolu_01MK58x68jLxNU22fWTmnjT7",
+        "toolName": "bash",
+        "args": {
+          "command": "mkdir -p /tmp/ci && cat > /tmp/ci/failures.json <<'EOF'\n[\n{\"id\":\"c52c3f84fc81\",\"owner\":\"platform\",\"duration_ms\":73434},\n{\"id\":\"a7b1345dc257\",\"owner\":\"runtime\",\"duration_ms\":62620},\n{\"id\":\"03f563e4195d\",\"owner\":\"runtime\",\"duration_ms\":19844},\n{\"id\":\"3468097a2e11\",\"owner\":\"editor\",\"duration_ms\":6863},\n{\"id\":\"0be6defbf250\",\"owner\":\"editor\",\"duration_ms\":102134},\n{\"id\":\"647c968df9e7\",\"owner\":\"compiler\",\"duration_ms\":66491},\n{\"id\":\"b6167f8fd158\",\"owner\":\"runtime\",\"duration_ms\":19924},\n{\"id\":\"fe1bab21583e\",\"owner\":\"compiler\",\"duration_ms\":30014},\n{\"id\":\"f898a46da87b\",\"owner\":\"editor\",\"duration_ms\":47908},\n{\"id\":\"2f1089a80470\",\"owner\":\"runtime\",\"duration_ms\":111738},\n{\"id\":\"8d98424353e5\",\"owner\":\"platform\",\"duration_ms\":64305},\n{\"id\":\"4126729b7eea\",\"owner\":\"platform\",\"duration_ms\":79423},\n{\"id\":\"e0470641e7b3\",\"owner\":\"compiler\",\"duration_ms\":69161},\n{\"id\":\"3604cc9424a3\",\"owner\":\"runtime\",\"duration_ms\":50032},\n{\"id\":\"30eb467eaa10\",\"owner\":\"compiler\",\"duration_ms\":16441},\n{\"id\":\"c4f5c1e91234\",\"owner\":\"runtime\",\"duration_ms\":27039},\n{\"id\":\"ad0732a163d0\",\"owner\":\"compiler\",\"duration_ms\":43439},\n{\"id\":\"bd76e38e3db6\",\"owner\":\"runtime\",\"duration_ms\":53919},\n{\"id\":\"bbf07e8880f3\",\"owner\":\"compiler\",\"duration_ms\":12816},\n{\"id\":\"4a5a9559d165\",\"owner\":\"platform\",\"duration_ms\":76838},\n{\"id\":\"ab5478426559\",\"owner\":\"editor\",\"duration_ms\":4247},\n{\"id\":\"e2505f55bf9e\",\"owner\":\"compiler\",\"duration_ms\":60068},\n{\"id\":\"af630451ef7c\",\"owner\":\"platform\",\"duration_ms\":48782},\n{\"id\":\"9747c72f1373\",\"owner\":\"runtime\",\"duration_ms\":52620},\n{\"id\":\"53c004f632e6\",\"owner\":\"compiler\",\"duration_ms\":74974},\n{\"id\":\"3f1af1a53173\",\"owner\":\"platform\",\"duration_ms\":115641},\n{\"id\":\"e1f7be9fa747\",\"owner\":\"platform\",\"duration_ms\":81560},\n{\"id\":\"55fc268080a6\",\"owner\":\"platform\",\"duration_ms\":50638},\n{\"id\":\"8a66e9bd1145\",\"owner\":\"platform\",\"duration_ms\":44466},\n{\"id\":\"add1926af150\",\"owner\":\"platform\",\"duration_ms\":89798},\n{\"id\":\"5f62804c7bcd\",\"owner\":\"editor\",\"duration_ms\":11192},\n{\"id\":\"98affe857d68\",\"owner\":\"runtime\",\"duration_ms\":82009},\n{\"id\":\"b1d4ec85f896\",\"owner\":\"editor\",\"duration_ms\":14844},\n{\"id\":\"698adf876ade\",\"owner\":\"platform\",\"duration_ms\":56815},\n{\"id\":\"7c25ece834e4\",\"owner\":\"editor\",\"duration_ms\":45832},\n{\"id\":\"ad86b7d909e0\",\"owner\":\"editor\",\"duration_ms\":99515},\n{\"id\":\"f7bda0fa4362\",\"owner\":\"runtime\",\"duration_ms\":79486},\n{\"id\":\"4b7cd9821088\",\"owner\":\"editor\",\"duration_ms\":79500},\n{\"id\":\"5c4768030ef3\",\"owner\":\"editor\",\"duration_ms\":5911},\n{\"id\":\"b5b0f6bc8542\",\"owner\":\"editor\",\"duration_ms\":95900},\n{\"id\":\"a37285c5a9a5\",\"owner\":\"compiler\",\"duration_ms\":31207},\n{\"id\":\"6645bbfc6eac\",\"owner\":\"editor\",\"duration_ms\":72482},\n{\"id\":\"ec14f17714f2\",\"owner\":\"runtime\",\"duration_ms\":98448},\n{\"id\":\"b3b4391c1e1c\",\"owner\":\"editor\",\"duration_ms\":63277},\n{\"id\":\"c8c03d43d012\",\"owner\":\"runtime\",\"duration_ms\":59594},\n{\"id\":\"83445ee46239\",\"owner\":\"runtime\",\"duration_ms\":96411},\n{\"id\":\"44eef6bb004d\",\"owner\":\"compiler\",\"duration_ms\":52185},\n{\"id\":\"6b297080b4e0\",\"owner\":\"runtime\",\"duration_ms\":116862},\n{\"id\":\"6c70a61e51f9\",\"owner\":\"platform\",\"duration_ms\":118156},\n{\"id\":\"220e9c880371\",\"owner\":\"runtime\",\"duration_ms\":78906},\n{\"id\":\"8aca0ab88846\",\"owner\":\"platform\",\"duration_ms\":10767},\n{\"id\":\"b7cf4aa9444a\",\"owner\":\"editor\",\"duration_ms\":67227},\n{\"id\":\"6f3549a1f0da\",\"owner\":\"compiler\",\"duration_ms\":84644},\n{\"id\":\"bd7fb9c4ba5a\",\"owner\":\"editor\",\"duration_ms\":76992},\n{\"id\":\"ac2208e06917\",\"owner\":\"platform\",\"duration_ms\":43092},\n{\"id\":\"9f674d9addb5\",\"owner\":\"compiler\",\"duration_ms\":46794},\n{\"id\":\"833cfc476e50\",\"owner\":\"runtime\",\"duration_ms\":35331},\n{\"id\":\"c2c0841e3354\",\"owner\":\"platform\",\"duration_ms\":1372},\n{\"id\":\"1db02524996e\",\"owner\":\"platform\",\"duration_ms\":102555},\n{\"id\":\"eb78dc44fbf6\",\"owner\":\"compiler\",\"duration_ms\":85214},\n{\"id\":\"868395b8586d\",\"owner\":\"runtime\",\"duration_ms\":37423},\n{\"id\":\"80dd1ae1240b\",\"owner\":\"platform\",\"duration_ms\":56959},\n{\"id\":\"a1221ec792ed\",\"owner\":\"platform\",\"duration_ms\":10508},\n{\"id\":\"7e25e386fb6d\",\"owner\":\"compiler\",\"duration_ms\":91478},\n{\"id\":\"ea6328e0d0df\",\"owner\":\"compiler\",\"duration_ms\":2586},\n{\"id\":\"d50600c9aca1\",\"owner\":\"platform\",\"duration_ms\":69736},\n{\"id\":\"0046acbad83f\",\"owner\":\"platform\",\"duration_ms\":35741},\n{\"id\":\"65e3992a9025\",\"owner\":\"platform\",\"duration_ms\":101188},\n{\"id\":\"44287edde3c6\",\"owner\":\"compiler\",\"duration_ms\":118011},\n{\"id\":\"1168cafe6ab5\",\"owner\":\"editor\",\"duration_ms\":47849},\n{\"id\":\"4c3798ab0859\",\"owner\":\"platform\",\"duration_ms\":72172},\n{\"id\":\"aa5feb7d7b97\",\"owner\":\"editor\",\"duration_ms\":113685},\n{\"id\":\"ebe543664dbc\",\"owner\":\"runtime\",\"duration_ms\":16640},\n{\"id\":\"6f7634ea4dd9\",\"owner\":\"platform\",\"duration_ms\":28974},\n{\"id\":\"abb665616beb\",\"owner\":\"runtime\",\"duration_ms\":90348},\n{\"id\":\"41d684cad882\",\"owner\":\"platform\",\"duration_ms\":35297},\n{\"id\":\"8358222436e4\",\"owner\":\"runtime\",\"duration_ms\":99588},\n{\"id\":\"2ccdd92c95ef\",\"owner\":\"platform\",\"duration_ms\":88718},\n{\"id\":\"3f072a16051e\",\"owner\":\"editor\",\"duration_ms\":107956},\n{\"id\":\"feb96230b099\",\"owner\":\"editor\",\"duration_ms\":95637},\n{\"id\":\"dd4b077df872\",\"owner\":\"compiler\",\"duration_ms\":59300},\n{\"id\":\"665a0e767adc\",\"owner\":\"compiler\",\"duration_ms\":116356},\n{\"id\":\"5d85af6e83df\",\"owner\":\"platform\",\"duration_ms\":74739},\n{\"id\":\"e156ef8038ef\",\"owner\":\"compiler\",\"duration_ms\":107231},\n{\"id\":\"c0d3791d8c8b\",\"owner\":\"editor\",\"duration_ms\":74696},\n{\"id\":\"ec5936f45b83\",\"owner\":\"runtime\",\"duration_ms\":98876},\n{\"id\":\"389dc80c8a83\",\"owner\":\"compiler\",\"duration_ms\":62216},\n{\"id\":\"90e2e2ed5fac\",\"owner\":\"compiler\",\"duration_ms\":57154},\n{\"id\":\"d0109f55f45c\",\"owner\":\"compiler\",\"duration_ms\":16727},\n{\"id\":\"ba917d814d95\",\"owner\":\"compiler\",\"duration_ms\":32382},\n{\"id\":\"15fc3fc76818\",\"owner\":\"compiler\",\"duration_ms\":103646},\n{\"id\":\"7046e5728382\",\"owner\":\"platform\",\"duration_ms\":21023},\n{\"id\":\"95681303927a\",\"owner\":\"compiler\",\"duration_ms\":41938},\n{\"id\":\"4e1167ffa256\",\"owner\":\"platform\",\"duration_ms\":90676},\n{\"id\":\"0ebf2d1397f3\",\"owner\":\"platform\",\"duration_ms\":32725},\n{\"id\":\"7aa9f9b199ed\",\"owner\":\"platform\",\"duration_ms\":119169},\n{\"id\":\"6c50a1ff89bc\",\"owner\":\"editor\",\"duration_ms\":118906},\n{\"id\":\"e3fbede3f1cc\",\"owner\":\"platform\",\"duration_ms\":81982},\n{\"id\":\"86f4399281bc\",\"owner\":\"compiler\",\"duration_ms\":81420},\n{\"id\":\"eea727dae26c\",\"owner\":\"runtime\",\"duration_ms\":51356},\n{\"id\":\"bfd0b7575e63\",\"owner\":\"platform\",\"duration_ms\":59473},\n{\"id\":\"9f2efb0effa7\",\"owner\":\"editor\",\"duration_ms\":115490},\n{\"id\":\"f43b2b426c42\",\"owner\":\"editor\",\"duration_ms\":84094},\n{\"id\":\"476fa2c3530e\",\"owner\":\"runtime\",\"duration_ms\":13546},\n{\"id\":\"eeb1dac3a462\",\"owner\":\"compiler\",\"duration_ms\":100091},\n{\"id\":\"856d50d4bb4e\",\"owner\":\"runtime\",\"duration_ms\":33246},\n{\"id\":\"9e03e8866778\",\"owner\":\"runtime\",\"duration_ms\":65436},\n{\"id\":\"a274ff77dc17\",\"owner\":\"runtime\",\"duration_ms\":74441},\n{\"id\":\"6d3e06b29866\",\"owner\":\"runtime\",\"duration_ms\":88813},\n{\"id\":\"d6f80ce81357\",\"owner\":\"runtime\",\"duration_ms\":112870},\n{\"id\":\"be2d1edabff8\",\"owner\":\"editor\",\"duration_ms\":98188},\n{\"id\":\"261b65cbd171\",\"owner\":\"platform\",\"duration_ms\":85277},\n{\"id\":\"a7e95d709831\",\"owner\":\"editor\",\"duration_ms\":4941},\n{\"id\":\"c4aaba841dbd\",\"owner\":\"compiler\",\"duration_ms\":99025},\n{\"id\":\"91b9db2a6ce9\",\"owner\":\"compiler\",\"duration_ms\":76910},\n{\"id\":\"45a0605c0206\",\"owner\":\"platform\",\"duration_ms\":82672},\n{\"id\":\"cf347679475e\",\"owner\":\"runtime\",\"duration_ms\":80889},\n{\"id\":\"29a95ddf0053\",\"owner\":\"platform\",\"duration_ms\":28125},\n{\"id\":\"5078f770c7d5\",\"owner\":\"compiler\",\"duration_ms\":101398},\n{\"id\":\"9167db9dc791\",\"owner\":\"platform\",\"duration_ms\":65356},\n{\"id\":\"e2904559c7fc\",\"owner\":\"runtime\",\"duration_ms\":41136},\n{\"id\":\"94bf4a6b7bd3\",\"owner\":\"editor\",\"duration_ms\":80385},\n{\"id\":\"c895cd41a809\",\"owner\":\"editor\",\"duration_ms\":44814},\n{\"id\":\"bb22e505b77d\",\"owner\":\"platform\",\"duration_ms\":45013},\n{\"id\":\"75f7c47f2265\",\"owner\":\"compiler\",\"duration_ms\":82781},\n{\"id\":\"38b452985480\",\"owner\":\"platform\",\"duration_ms\":72688},\n{\"id\":\"05c680fe4e5b\",\"owner\":\"editor\",\"duration_ms\":88114},\n{\"id\":\"50bade5dcc04\",\"owner\":\"editor\",\"duration_ms\":20077},\n{\"id\":\"2a027e60fda3\",\"owner\":\"editor\",\"duration_ms\":81665},\n{\"id\":\"dfef470c9cb0\",\"owner\":\"runtime\",\"duration_ms\":48476},\n{\"id\":\"ed5bdb8b86c6\",\"owner\":\"compiler\",\"duration_ms\":3276},\n{\"id\":\"0e7aeb294b49\",\"owner\":\"editor\",\"duration_ms\":11667},\n{\"id\":\"be9e22070100\",\"owner\":\"compiler\",\"duration_ms\":10793},\n{\"id\":\"198fa3a02d9b\",\"owner\":\"compiler\",\"duration_ms\":46211},\n{\"id\":\"092d3f8b0f7b\",\"owner\":\"runtime\",\"duration_ms\":33286},\n{\"id\":\"4228f5e77e50\",\"owner\":\"editor\",\"duration_ms\":110852},\n{\"id\":\"72644df46627\",\"owner\":\"compiler\",\"duration_ms\":46454},\n{\"id\":\"544b407037d2\",\"owner\":\"compiler\",\"duration_ms\":93334},\n{\"id\":\"a0ec95fc8283\",\"owner\":\"editor\",\"duration_ms\":91489},\n{\"id\":\"d7c69022b6f3\",\"owner\":\"platform\",\"duration_ms\":12300},\n{\"id\":\"080a8143bc4b\",\"owner\":\"compiler\",\"duration_ms\":108159},\n{\"id\":\"cfb8d4bf553f\",\"owner\":\"compiler\",\"duration_ms\":27093},\n{\"id\":\"b950c378aacc\",\"owner\":\"platform\",\"duration_ms\":9483},\n{\"id\":\"8e985a3593f6\",\"owner\":\"editor\",\"duration_ms\":94413},\n{\"id\":\"d22eef1a51aa\",\"owner\":\"editor\",\"duration_ms\":10126},\n{\"id\":\"9f423c548f09\",\"owner\":\"compiler\",\"duration_ms\":46581},\n{\"id\":\"ae3d5e8f4c4a\",\"owner\":\"runtime\",\"duration_ms\":83538},\n{\"id\":\"173ee440c35c\",\"owner\":\"editor\",\"duration_ms\":53749},\n{\"id\":\"ab2cb55debc7\",\"owner\":\"editor\",\"duration_ms\":20778},\n{\"id\":\"bd2fad2a0ce2\",\"owner\":\"compiler\",\"duration_ms\":108567},\n{\"id\":\"38c84a7f7b7e\",\"owner\":\"runtime\",\"duration_ms\":26349},\n{\"id\":\"4de7d63ffbc2\",\"owner\":\"editor\",\"duration_ms\":39846},\n{\"id\":\"53458ed7af3d\",\"owner\":\"runtime\",\"duration_ms\":116349},\n{\"id\":\"eeb69f79a6a5\",\"owner\":\"runtime\",\"duration_ms\":87654},\n{\"id\":\"8ce9aea6af30\",\"owner\":\"platform\",\"duration_ms\":99634},\n{\"id\":\"d3ff8baf6aa7\",\"owner\":\"compiler\",\"duration_ms\":14334},\n{\"id\":\"7a389732ae62\",\"owner\":\"compiler\",\"duration_ms\":30619},\n{\"id\":\"e73165322755\",\"owner\":\"editor\",\"duration_ms\":94720},\n{\"id\":\"fcb665132312\",\"owner\":\"compiler\",\"duration_ms\":60494},\n{\"id\":\"2c97e511e678\",\"owner\":\"editor\",\"duration_ms\":75070},\n{\"id\":\"e72aa2cfdb2a\",\"owner\":\"editor\",\"duration_ms\":76701},\n{\"id\":\"6537730d1114\",\"owner\":\"platform\",\"duration_ms\":58186},\n{\"id\":\"ce35b8741e53\",\"owner\":\"platform\",\"duration_ms\":46575},\n{\"id\":\"be63ae2cbd63\",\"owner\":\"editor\",\"duration_ms\":98658},\n{\"id\":\"86c1bd1bb9a2\",\"owner\":\"editor\",\"duration_ms\":17348},\n{\"id\":\"7c9229ba74f1\",\"owner\":\"runtime\",\"duration_ms\":83266},\n{\"id\":\"63af4cc7cf7b\",\"owner\":\"editor\",\"duration_ms\":102597},\n{\"id\":\"c63c3918dd10\",\"owner\":\"platform\",\"duration_ms\":21238},\n{\"id\":\"2dd76c3df7af\",\"owner\":\"editor\",\"duration_ms\":112061},\n{\"id\":\"47cd3b4c24a3\",\"owner\":\"compiler\",\"duration_ms\":14321},\n{\"id\":\"fa886e58f325\",\"owner\":\"runtime\",\"duration_ms\":78692},\n{\"id\":\"eaa887264f92\",\"owner\":\"compiler\",\"duration_ms\":36414},\n{\"id\":\"5a01f690331c\",\"owner\":\"compiler\",\"duration_ms\":37808},\n{\"id\":\"c0563ef8b454\",\"owner\":\"platform\",\"duration_ms\":74955},\n{\"id\":\"24e9ba4543c5\",\"owner\":\"compiler\",\"duration_ms\":63645},\n{\"id\":\"903dd25df170\",\"owner\":\"compiler\",\"duration_ms\":50182},\n{\"id\":\"a9cd66f79789\",\"owner\":\"compiler\",\"duration_ms\":93290},\n{\"id\":\"44b7c755b1ae\",\"owner\":\"platform\",\"duration_ms\":117391},\n{\"id\":\"ea5baa7c6dda\",\"owner\":\"runtime\",\"duration_ms\":43766},\n{\"id\":\"5cdf8fac9877\",\"owner\":\"editor\",\"duration_ms\":93596},\n{\"id\":\"c1a5199f2cb3\",\"owner\":\"compiler\",\"duration_ms\":94098},\n{\"id\":\"ae7eb8ec7f47\",\"owner\":\"editor\",\"duration_ms\":7306},\n{\"id\":\"500bc9450dfa\",\"owner\":\"editor\",\"duration_ms\":91819},\n{\"id\":\"0f98da6177dd\",\"owner\":\"editor\",\"duration_ms\":77759},\n{\"id\":\"a066c738a1f2\",\"owner\":\"platform\",\"duration_ms\":55446},\n{\"id\":\"a3a4399480ee\",\"owner\":\"compiler\",\"duration_ms\":87994},\n{\"id\":\"e55e02e246d4\",\"owner\":\"editor\",\"duration_ms\":88467},\n{\"id\":\"d2967b8d20e6\",\"owner\":\"editor\",\"duration_ms\":85031},\n{\"id\":\"254af5805686\",\"owner\":\"platform\",\"duration_ms\":28929},\n{\"id\":\"c05cb189e17f\",\"owner\":\"compiler\",\"duration_ms\":50394},\n{\"id\":\"75d89ab403f7\",\"owner\":\"editor\",\"duration_ms\":44389},\n{\"id\":\"9e592a814dc4\",\"owner\":\"editor\",\"duration_ms\":116041}\n]\nEOF\npython3 -c \"\nimport json;d=json.load(open('/tmp/ci/failures.json'));print(len(d),len({x['id'] for x in d}))\"",
+          "timeout": 30
+        }
+      },
+      {
+        "toolCallId": "toolu_01KLNRpiDZg5ceA2wxxkpyjM",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c52c3f84fc81"
+        }
+      },
+      {
+        "toolCallId": "toolu_01NEZAuc61EmgCtpCcCqS2Zz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a7b1345dc257"
+        }
+      },
+      {
+        "toolCallId": "toolu_01CEvvRkjgWz4CFTLciPEcHs",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "03f563e4195d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01KmPBPKNjHWZNkZ74jjmast",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3468097a2e11"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JAMqbqP2MyCFRbpP4iNmQ7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0be6defbf250"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PLBNv5MKnccqAScyUN3hAP",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "647c968df9e7"
+        }
+      },
+      {
+        "toolCallId": "toolu_01VV3BdmpM1xcaGFa1vUkNj1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b6167f8fd158"
+        }
+      },
+      {
+        "toolCallId": "toolu_017AteZ7rBigS7fYr5oHDTdG",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fe1bab21583e"
+        }
+      },
+      {
+        "toolCallId": "toolu_016Epr5ER4WucZjDznJEAKKx",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f898a46da87b"
+        }
+      },
+      {
+        "toolCallId": "toolu_018KdCc6RKKDTaMEUpE163Jn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2f1089a80470"
+        }
+      },
+      {
+        "toolCallId": "toolu_01L8niSbDUfLdTC1cmEVegYB",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8d98424353e5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01SwBygg6uLf6AP93xJYf53H",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4126729b7eea"
+        }
+      },
+      {
+        "toolCallId": "toolu_01BW4Z1jTkMsSLF3eeE7Xph5",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e0470641e7b3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QsuF9KYpt26AyYShQPCQn2",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3604cc9424a3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JD8FgjuRfKu8FY4EWyAAf4",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "30eb467eaa10"
+        }
+      },
+      {
+        "toolCallId": "toolu_01NzfVheGnWrwdrKntLkzsnN",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c4f5c1e91234"
+        }
+      },
+      {
+        "toolCallId": "toolu_01SzvkDGqTa9XmhKuiYXkPah",
+        "toolName": "bash",
+        "args": {
+          "command": "cat > /tmp/ci/hist.txt <<'EOF'\nc52c3f84fc81 intermittent\na7b1345dc257 intermittent\n03f563e4195d new\n3468097a2e11 persistent\n0be6defbf250 intermittent\n647c968df9e7 intermittent\nb6167f8fd158 intermittent\nfe1bab21583e intermittent\nf898a46da87b intermittent\n2f1089a80470 intermittent\n8d98424353e5 intermittent\n4126729b7eea intermittent\ne0470641e7b3 new\n3604cc9424a3 intermittent\n30eb467eaa10 intermittent\nc4f5c1e91234 new\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01Jecd5hBopRaass8bCTgFFu",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ad0732a163d0"
+        }
+      },
+      {
+        "toolCallId": "toolu_016HV3LxqUnmrZwVihQQLSde",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd76e38e3db6"
+        }
+      },
+      {
+        "toolCallId": "toolu_01WbKeHsRcqdXTLnDUcrfeJS",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bbf07e8880f3"
+        }
+      },
+      {
+        "toolCallId": "toolu_011Zosm7thbt1HKMfiA58Fd7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4a5a9559d165"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Fk4R1yrhLqM3Aq7q73RjG7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ab5478426559"
+        }
+      },
+      {
+        "toolCallId": "toolu_019zpuxwWrEQnJUMSnWjYom1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e2505f55bf9e"
+        }
+      },
+      {
+        "toolCallId": "toolu_01W7PXzn8hE39AvHz9qVL4kF",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "af630451ef7c"
+        }
+      },
+      {
+        "toolCallId": "toolu_012XKqJFNP7QXiQZu2vZUZ8z",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9747c72f1373"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LbBZmKMspHShgARwFHWeBe",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "53c004f632e6"
+        }
+      },
+      {
+        "toolCallId": "toolu_01L3rRemBR4xzNECAoUrHWY1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3f1af1a53173"
+        }
+      },
+      {
+        "toolCallId": "toolu_01MQsJdoaPN1g8BDRevPCCnn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e1f7be9fa747"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Cf2tFQc4XzNR4z9QUX3AM7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "55fc268080a6"
+        }
+      },
+      {
+        "toolCallId": "toolu_017aYbpjxuT9Daq2tKUFH8BF",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8a66e9bd1145"
+        }
+      },
+      {
+        "toolCallId": "toolu_01RAETsuvGzSwsdbPb3NDDyR",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "add1926af150"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Af5SGv8JgCyC6u1LdsFc92",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5f62804c7bcd"
+        }
+      },
+      {
+        "toolCallId": "toolu_01J1zKSnVR6m5VCq7DdG5yzY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "98affe857d68"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LEGYSETY6sx2PTDJe7PmUQ",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\nad0732a163d0 intermittent\nbd76e38e3db6 intermittent\nbbf07e8880f3 intermittent\n4a5a9559d165 intermittent\nab5478426559 intermittent\ne2505f55bf9e intermittent\naf630451ef7c new\n9747c72f1373 intermittent\n53c004f632e6 intermittent\n3f1af1a53173 intermittent\ne1f7be9fa747 intermittent\n55fc268080a6 intermittent\n8a66e9bd1145 intermittent\nadd1926af150 intermittent\n5f62804c7bcd intermittent\n98affe857d68 persistent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01S8nRRXn6zfJstxRCAoPSc3",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b1d4ec85f896"
+        }
+      },
+      {
+        "toolCallId": "toolu_015pAVpxdCvyydiqa4puGVVv",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "698adf876ade"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QNdnPCRuJjxhhgAeeGAF15",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7c25ece834e4"
+        }
+      },
+      {
+        "toolCallId": "toolu_01YQgTfjxZDx9RJ34YgFiTfa",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ad86b7d909e0"
+        }
+      },
+      {
+        "toolCallId": "toolu_012ejutfSgqqWG6JxwyhVWhU",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f7bda0fa4362"
+        }
+      },
+      {
+        "toolCallId": "toolu_01T6jr3TXnX5immnBkhxaUDz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4b7cd9821088"
+        }
+      },
+      {
+        "toolCallId": "toolu_0194S8s4eh3W6Jo3GtNXJZkj",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5c4768030ef3"
+        }
+      },
+      {
+        "toolCallId": "toolu_015S9vRYQTiQrHs6jZSAPtsb",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b5b0f6bc8542"
+        }
+      },
+      {
+        "toolCallId": "toolu_01NHqT1YTEetAxaHMbV6iUK6",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a37285c5a9a5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LNwvJwqDaLMQUfPA744ZUe",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6645bbfc6eac"
+        }
+      },
+      {
+        "toolCallId": "toolu_01A5dAF1AseNUzVMFSr5SHqp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ec14f17714f2"
+        }
+      },
+      {
+        "toolCallId": "toolu_0181LEJuVjhiDAmg7uXwCZtx",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b3b4391c1e1c"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Dg9rNGsVsjWp7kpWrwseaT",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c8c03d43d012"
+        }
+      },
+      {
+        "toolCallId": "toolu_019BBV2s7LNcchsCGdLrbGUN",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "83445ee46239"
+        }
+      },
+      {
+        "toolCallId": "toolu_01XUKFQePCmV3jhtzinWPnzV",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44eef6bb004d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01AHMfrsu2QAG5jZi6T9gykJ",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6b297080b4e0"
+        }
+      },
+      {
+        "toolCallId": "toolu_014BFAqPUrN6WdJyJWS48GnH",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\nb1d4ec85f896 intermittent\n698adf876ade persistent\n7c25ece834e4 intermittent\nad86b7d909e0 intermittent\nf7bda0fa4362 intermittent\n4b7cd9821088 intermittent\n5c4768030ef3 intermittent\nb5b0f6bc8542 intermittent\na37285c5a9a5 intermittent\n6645bbfc6eac intermittent\nec14f17714f2 new\nb3b4391c1e1c intermittent\nc8c03d43d012 intermittent\n83445ee46239 intermittent\n44eef6bb004d intermittent\n6b297080b4e0 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01C8pbRN7Xp21zuvJEmWXNfp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6c70a61e51f9"
+        }
+      },
+      {
+        "toolCallId": "toolu_01U4QBjREwWmRrjNwjYNAisj",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "220e9c880371"
+        }
+      },
+      {
+        "toolCallId": "toolu_01H64H1ZRTcw6t8H5KPpwCdT",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8aca0ab88846"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JwTUxkKjJBHeQGQwuT86mc",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b7cf4aa9444a"
+        }
+      },
+      {
+        "toolCallId": "toolu_012TfyiuQpw4jSFSuuwkD5hV",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6f3549a1f0da"
+        }
+      },
+      {
+        "toolCallId": "toolu_01SXPBb9fjzJ3iZKvxyd8Tmy",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd7fb9c4ba5a"
+        }
+      },
+      {
+        "toolCallId": "toolu_01MAS3LUW9cfHnz5BXEzFtN2",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ac2208e06917"
+        }
+      },
+      {
+        "toolCallId": "toolu_01D1C2fJajpEbg4SRJFrt7p4",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f674d9addb5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01UQY49bC9uCsfHorJDDDwhy",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "833cfc476e50"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PbJj3GPCaZmZ1iDyQzwjn3",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c2c0841e3354"
+        }
+      },
+      {
+        "toolCallId": "toolu_01ApvmBK8XEeHtDhdG44xqmr",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "1db02524996e"
+        }
+      },
+      {
+        "toolCallId": "toolu_01S62QQ4qwb3TvrooL1zWxD4",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eb78dc44fbf6"
+        }
+      },
+      {
+        "toolCallId": "toolu_01CctdZALZzhVHvy6uV5BziE",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "868395b8586d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PkH3J2aZYyVYzpjNtjC6CC",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "80dd1ae1240b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JX3G5RiVR8ZyLXJVUTfMwt",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a1221ec792ed"
+        }
+      },
+      {
+        "toolCallId": "toolu_018Co4e2wE69CbmvAQN1Sj5y",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7e25e386fb6d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01BCysh5Q1y8CMSfKFvUVDEA",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\n6c70a61e51f9 persistent\n220e9c880371 intermittent\n8aca0ab88846 intermittent\nb7cf4aa9444a intermittent\n6f3549a1f0da intermittent\nbd7fb9c4ba5a intermittent\nac2208e06917 intermittent\n9f674d9addb5 intermittent\n833cfc476e50 intermittent\nc2c0841e3354 intermittent\n1db02524996e intermittent\neb78dc44fbf6 intermittent\n868395b8586d intermittent\n80dd1ae1240b intermittent\na1221ec792ed intermittent\n7e25e386fb6d intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_012tZiJZAHgRBSK3hs6C7V3J",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ea6328e0d0df"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HduBLpfnsvzhZDy2uwVP3J",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d50600c9aca1"
+        }
+      },
+      {
+        "toolCallId": "toolu_01VHvyLeGySwaby9Q2WMYkjg",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0046acbad83f"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HsmGmruxLA4tZ7x5cCCTTB",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "65e3992a9025"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Ce1PMJ4CKyEWpibun8P9ye",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44287edde3c6"
+        }
+      },
+      {
+        "toolCallId": "toolu_019Vav3sCQE4J4BwyHFCuxjp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "1168cafe6ab5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Mb9QN3Qj8wqiDYX1NgzpVs",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4c3798ab0859"
+        }
+      },
+      {
+        "toolCallId": "toolu_011b8b1CHi5xyeQ1uXru8FLd",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "aa5feb7d7b97"
+        }
+      },
+      {
+        "toolCallId": "toolu_011nh2LBt8ju3bedn939Xcb8",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ebe543664dbc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01CYpptAcnd5iwQRVAPu5ksb",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6f7634ea4dd9"
+        }
+      },
+      {
+        "toolCallId": "toolu_01B7iCsdWyDya349EAwfFymz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "abb665616beb"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Ss7e9GWG1CX2uxDvvvveFc",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "41d684cad882"
+        }
+      },
+      {
+        "toolCallId": "toolu_017Vs8wyRhwfqgAsA9D3hoNY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8358222436e4"
+        }
+      },
+      {
+        "toolCallId": "toolu_0171o9DcmNuaDvDjCnqrdbEu",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2ccdd92c95ef"
+        }
+      },
+      {
+        "toolCallId": "toolu_01VwPwAA9uWoGprrwQjMXBRY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3f072a16051e"
+        }
+      },
+      {
+        "toolCallId": "toolu_017Az7hLmi6igJGX4TaeKZR1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "feb96230b099"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HEoe8GX4TNC5fLyiQchVyt",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\nea6328e0d0df intermittent\nd50600c9aca1 persistent\n0046acbad83f intermittent\n65e3992a9025 new\n44287edde3c6 intermittent\n1168cafe6ab5 intermittent\n4c3798ab0859 new\naa5feb7d7b97 intermittent\nebe543664dbc intermittent\n6f7634ea4dd9 intermittent\nabb665616beb intermittent\n41d684cad882 intermittent\n8358222436e4 intermittent\n2ccdd92c95ef intermittent\n3f072a16051e intermittent\nfeb96230b099 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01EJZTG1cotd7Ce89aXKjH8C",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "dd4b077df872"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GChEvweRTdsuLjysh5p5cV",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "665a0e767adc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GXwFtzKsgVmQkZrGisnqn1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5d85af6e83df"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JhdMXw35KvunAf568ACyEj",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e156ef8038ef"
+        }
+      },
+      {
+        "toolCallId": "toolu_01715AEW3HJwp3ZZShPkwoLY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c0d3791d8c8b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01D4hu8TLNsKGgWAphvQ7Wd5",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ec5936f45b83"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Lew7RxeggtXpRnJr89RX7j",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "389dc80c8a83"
+        }
+      },
+      {
+        "toolCallId": "toolu_01T8AyCFQJ5LhCzdduH2q8Hp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "90e2e2ed5fac"
+        }
+      },
+      {
+        "toolCallId": "toolu_01U4hw9deYs5RkzH6UAgzNJA",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d0109f55f45c"
+        }
+      },
+      {
+        "toolCallId": "toolu_01F5Sg74XbEtUTMsvkmaHG3u",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ba917d814d95"
+        }
+      },
+      {
+        "toolCallId": "toolu_01NP3zFdmEDXKD3B5HLo9zzw",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "15fc3fc76818"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Lc4rfN8BEXdxKcndTYfkCv",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7046e5728382"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Dk9w3bcf3JvYjEzWWZxxsq",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "95681303927a"
+        }
+      },
+      {
+        "toolCallId": "toolu_011n7Jz1GRsXoEGYobj21fCp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4e1167ffa256"
+        }
+      },
+      {
+        "toolCallId": "toolu_01FTodhZmanpGgHADrbyd1hg",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0ebf2d1397f3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01P1qasiVQJKSYmi1eGuxUMY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7aa9f9b199ed"
+        }
+      },
+      {
+        "toolCallId": "toolu_01AvJhkiPkQ5c5hpEegNkssA",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\ndd4b077df872 intermittent\n665a0e767adc intermittent\n5d85af6e83df intermittent\ne156ef8038ef intermittent\nc0d3791d8c8b intermittent\nec5936f45b83 intermittent\n389dc80c8a83 intermittent\n90e2e2ed5fac intermittent\nd0109f55f45c intermittent\nba917d814d95 intermittent\n15fc3fc76818 intermittent\n7046e5728382 intermittent\n95681303927a intermittent\n4e1167ffa256 intermittent\n0ebf2d1397f3 new\n7aa9f9b199ed intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01KCUbw4hAN9L7HKmjzPz5fp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6c50a1ff89bc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01McPXzwF2k6uYUPctw2sD7h",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e3fbede3f1cc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01FeNitC8QVedFh8BK7VwytZ",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "86f4399281bc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01ThegBBn3a5wPcQHCu5zHfh",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eea727dae26c"
+        }
+      },
+      {
+        "toolCallId": "toolu_017vqRvfmb7EubyFKZ3aKWtY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bfd0b7575e63"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Q1YhCFY2KaHUo4YUf7vnEh",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f2efb0effa7"
+        }
+      },
+      {
+        "toolCallId": "toolu_0191sDFyjaEse3SA7stno9Dr",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f43b2b426c42"
+        }
+      },
+      {
+        "toolCallId": "toolu_01WS2QEz6NPXX2gx4g5U2Fk8",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "476fa2c3530e"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HuHronZvvegRS5Lz1NR9rb",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eeb1dac3a462"
+        }
+      },
+      {
+        "toolCallId": "toolu_01E2CGd4Hf7bAPuy55QXwEUn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "856d50d4bb4e"
+        }
+      },
+      {
+        "toolCallId": "toolu_0112jdGeXnAZwCgkNb9FZD8e",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9e03e8866778"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QukjxweDwghtb5wuc1RepM",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a274ff77dc17"
+        }
+      },
+      {
+        "toolCallId": "toolu_01XEEo6bp5PzRb5XXueYXzk2",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6d3e06b29866"
+        }
+      },
+      {
+        "toolCallId": "toolu_01FU4Kfybo62gSvxLgJvtrjr",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d6f80ce81357"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PQH2fTpUqqKBSWJzZUjnnp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be2d1edabff8"
+        }
+      },
+      {
+        "toolCallId": "toolu_01G62Av7u7F7awDKQNeTVCsp",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "261b65cbd171"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PWMiMiMT5A8NzkDNumcy6t",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\n6c50a1ff89bc intermittent\ne3fbede3f1cc intermittent\n86f4399281bc intermittent\neea727dae26c intermittent\nbfd0b7575e63 intermittent\n9f2efb0effa7 intermittent\nf43b2b426c42 persistent\n476fa2c3530e intermittent\neeb1dac3a462 intermittent\n856d50d4bb4e intermittent\n9e03e8866778 persistent\na274ff77dc17 intermittent\n6d3e06b29866 persistent\nd6f80ce81357 intermittent\nbe2d1edabff8 intermittent\n261b65cbd171 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_018eFamo9RWtAxLnfCSiCJwb",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a7e95d709831"
+        }
+      },
+      {
+        "toolCallId": "toolu_01B5XdWNoEoLw33MebVcnC1M",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c4aaba841dbd"
+        }
+      },
+      {
+        "toolCallId": "toolu_017k2GrBwaczynDVDRPTHVY4",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "91b9db2a6ce9"
+        }
+      },
+      {
+        "toolCallId": "toolu_011GzZLdcx7oc6b76HMUNicw",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "45a0605c0206"
+        }
+      },
+      {
+        "toolCallId": "toolu_01L3H3LKEEJqzSVgUNWRCB5j",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "cf347679475e"
+        }
+      },
+      {
+        "toolCallId": "toolu_013i1d4fCUFgd7iCtNhFUEtE",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "29a95ddf0053"
+        }
+      },
+      {
+        "toolCallId": "toolu_01BrM6DWz3CxczoGirRobsPt",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5078f770c7d5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01WbXkmqNVRxfjobQUXf56DW",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9167db9dc791"
+        }
+      },
+      {
+        "toolCallId": "toolu_014SjDWMnhX8zLq7KuqUfjor",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e2904559c7fc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QnypV1bHUw6kEL4KnD6C1f",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "94bf4a6b7bd3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01BpfZhc7zNqERcVckGXnaL7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c895cd41a809"
+        }
+      },
+      {
+        "toolCallId": "toolu_01BLRgT48QEwZ8ntMr4LfZ4b",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bb22e505b77d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01RcmXzzWsCvXQbSH6PACh5N",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "75f7c47f2265"
+        }
+      },
+      {
+        "toolCallId": "toolu_01RbS3h6ArUBL8jn3hr1iY1R",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "38b452985480"
+        }
+      },
+      {
+        "toolCallId": "toolu_01EBTksLWKDLuoCtAGAvXFhr",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "05c680fe4e5b"
+        }
+      },
+      {
+        "toolCallId": "toolu_015FPootvchoF9mB1dLzzwNB",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "50bade5dcc04"
+        }
+      },
+      {
+        "toolCallId": "toolu_01K5fEiMWEVZHKzNUjxGAU7Z",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\na7e95d709831 intermittent\nc4aaba841dbd intermittent\n91b9db2a6ce9 new\n45a0605c0206 intermittent\ncf347679475e intermittent\n29a95ddf0053 intermittent\n5078f770c7d5 intermittent\n9167db9dc791 intermittent\ne2904559c7fc intermittent\n94bf4a6b7bd3 intermittent\nc895cd41a809 intermittent\nbb22e505b77d intermittent\n75f7c47f2265 intermittent\n38b452985480 intermittent\n05c680fe4e5b intermittent\n50bade5dcc04 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_019EF5zbrZYTd7MnXX5QCAh2",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2a027e60fda3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DjKokSvRJn5g4pMRCahhVT",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "dfef470c9cb0"
+        }
+      },
+      {
+        "toolCallId": "toolu_01SDM5ZYxeTAJMxLLc3ZCwhz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ed5bdb8b86c6"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LisHfynd3jxA926vgm6jJ6",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0e7aeb294b49"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GFcQhyBcfisWhK1H9q37Ek",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be9e22070100"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LbBVoVmk1DB36H5PpK3HSa",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "198fa3a02d9b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GVzpYH9fJsYs9FXCKTkWjR",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "092d3f8b0f7b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01EowhyaMZ5nzXeW3FtGncav",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4228f5e77e50"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GMfBgD46ppd6waaaNNqLTR",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "72644df46627"
+        }
+      },
+      {
+        "toolCallId": "toolu_01CfzgSVRG6vWDEYqgG53FeX",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "544b407037d2"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DcwhupWpTxtDFVpiiSx7rT",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a0ec95fc8283"
+        }
+      },
+      {
+        "toolCallId": "toolu_017TEBDD7UoQF847UQcjHnB9",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d7c69022b6f3"
+        }
+      },
+      {
+        "toolCallId": "toolu_018DQkUUo5cXzZE4K6UzNiYo",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "080a8143bc4b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DunBNovaxBfFwdvrm9C8ir",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "cfb8d4bf553f"
+        }
+      },
+      {
+        "toolCallId": "toolu_014UVkUynafLoTE7qhVRYWYi",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b950c378aacc"
+        }
+      },
+      {
+        "toolCallId": "toolu_01K7zbVUqrfhaBeSEWuTJohy",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8e985a3593f6"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JG5qeuwTkhgB4WYTQUBiGL",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\n2a027e60fda3 intermittent\ndfef470c9cb0 new\ned5bdb8b86c6 intermittent\n0e7aeb294b49 intermittent\nbe9e22070100 intermittent\n198fa3a02d9b intermittent\n092d3f8b0f7b new\n4228f5e77e50 intermittent\n72644df46627 intermittent\n544b407037d2 intermittent\na0ec95fc8283 new\nd7c69022b6f3 intermittent\n080a8143bc4b intermittent\ncfb8d4bf553f intermittent\nb950c378aacc intermittent\n8e985a3593f6 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01Ud6bDXhKG36rgCwfq5Jp3M",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d22eef1a51aa"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DYUHwnZRp1KgpzeHaNc8NG",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f423c548f09"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DcpUNbsDFG2Dtcr31yX1bq",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ae3d5e8f4c4a"
+        }
+      },
+      {
+        "toolCallId": "toolu_01JbX1iM1vyacNR5Pf4LdtCG",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "173ee440c35c"
+        }
+      },
+      {
+        "toolCallId": "toolu_0114hUhqLHd1keAA9Qab9NvC",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ab2cb55debc7"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HpQYJaGhnGdHJmjDBsYe7s",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd2fad2a0ce2"
+        }
+      },
+      {
+        "toolCallId": "toolu_017sZ3WXSKL63K9kgij19Dio",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "38c84a7f7b7e"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Wr9p1kpuHKgZiqG11bcaHV",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4de7d63ffbc2"
+        }
+      },
+      {
+        "toolCallId": "toolu_014yhApLDsLyqkw2bchec9ky",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "53458ed7af3d"
+        }
+      },
+      {
+        "toolCallId": "toolu_01XqUfmBpws3U2VekW9YSxyu",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eeb69f79a6a5"
+        }
+      },
+      {
+        "toolCallId": "toolu_01AEN7H69RG8pzXgJnQ6vWwN",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8ce9aea6af30"
+        }
+      },
+      {
+        "toolCallId": "toolu_01RZ84cJVtDUmTDWTRrYAR5g",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d3ff8baf6aa7"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PAmkbEo2LwXLCfwE5D1pdn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7a389732ae62"
+        }
+      },
+      {
+        "toolCallId": "toolu_015zMwv2W4RKgE83jYi2tMhL",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e73165322755"
+        }
+      },
+      {
+        "toolCallId": "toolu_0113ikBuziJjjw3wMJsjcy6s",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fcb665132312"
+        }
+      },
+      {
+        "toolCallId": "toolu_01K4Jg568cy9oLxifpFAFMYu",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2c97e511e678"
+        }
+      },
+      {
+        "toolCallId": "toolu_01WuKnTDkL6oF5UYddrMXsJY",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\nd22eef1a51aa intermittent\n9f423c548f09 intermittent\nae3d5e8f4c4a intermittent\n173ee440c35c intermittent\nab2cb55debc7 intermittent\nbd2fad2a0ce2 new\n38c84a7f7b7e intermittent\n4de7d63ffbc2 intermittent\n53458ed7af3d intermittent\neeb69f79a6a5 intermittent\n8ce9aea6af30 intermittent\nd3ff8baf6aa7 intermittent\n7a389732ae62 intermittent\ne73165322755 intermittent\nfcb665132312 intermittent\n2c97e511e678 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01NxRUGNb2ew3RQ5otBswHkH",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e72aa2cfdb2a"
+        }
+      },
+      {
+        "toolCallId": "toolu_018QhgrfG43Nk7GPAoZR5gec",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6537730d1114"
+        }
+      },
+      {
+        "toolCallId": "toolu_01TeZVAiXq7rdXTB7XA23EjR",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ce35b8741e53"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PdvkcUGGFkHvfHHrfuw3kz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be63ae2cbd63"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HvUogtE4ceqTt6Fh7RVaTt",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "86c1bd1bb9a2"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LJL7WzfSFSZaFZ66ULLxii",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7c9229ba74f1"
+        }
+      },
+      {
+        "toolCallId": "toolu_01TU8hGJj5jkqwVjpfHkdbHc",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "63af4cc7cf7b"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QGA4xR5S2H44emuxzBVLRY",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c63c3918dd10"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Q8SrseA8fZufELTJaxeKVH",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2dd76c3df7af"
+        }
+      },
+      {
+        "toolCallId": "toolu_01AbxxHLJKdGiks2pdRXgYW9",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "47cd3b4c24a3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01DWmDJwrKTPjJUoTea1y4nn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fa886e58f325"
+        }
+      },
+      {
+        "toolCallId": "toolu_01XWHHcybrnrkN5ZeTMRmk8e",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eaa887264f92"
+        }
+      },
+      {
+        "toolCallId": "toolu_017sW7D13Ba5ygHqQKQPeWMq",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5a01f690331c"
+        }
+      },
+      {
+        "toolCallId": "toolu_01VNhZJncMsHKhZBTWEFGeB5",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c0563ef8b454"
+        }
+      },
+      {
+        "toolCallId": "toolu_015cEbjhonvPH7y2WQVdvnnB",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "24e9ba4543c5"
+        }
+      },
+      {
+        "toolCallId": "toolu_012EjJiy4kNBy1wDUj6oCNjn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "903dd25df170"
+        }
+      },
+      {
+        "toolCallId": "toolu_01QDEsvyEYtXDpuwFGAwJiRt",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\ne72aa2cfdb2a intermittent\n6537730d1114 intermittent\nce35b8741e53 intermittent\nbe63ae2cbd63 intermittent\n86c1bd1bb9a2 persistent\n7c9229ba74f1 intermittent\n63af4cc7cf7b intermittent\nc63c3918dd10 intermittent\n2dd76c3df7af persistent\n47cd3b4c24a3 intermittent\nfa886e58f325 intermittent\neaa887264f92 new\n5a01f690331c intermittent\nc0563ef8b454 intermittent\n24e9ba4543c5 intermittent\n903dd25df170 intermittent\nEOF\nwc -l /tmp/ci/hist.txt",
+          "timeout": 20
+        }
+      },
+      {
+        "toolCallId": "toolu_01KrzdVAMwU5fUHUYSWKkdFz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a9cd66f79789"
+        }
+      },
+      {
+        "toolCallId": "toolu_018sZhWSs57XDRpSD9zzym9U",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44b7c755b1ae"
+        }
+      },
+      {
+        "toolCallId": "toolu_01EWotAKx5PmpagG6u6q5VPV",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ea5baa7c6dda"
+        }
+      },
+      {
+        "toolCallId": "toolu_01WPcwryPYj4A1GY3t8b1ymX",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5cdf8fac9877"
+        }
+      },
+      {
+        "toolCallId": "toolu_01PKEWr5m13LUcfskHmA3bfu",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c1a5199f2cb3"
+        }
+      },
+      {
+        "toolCallId": "toolu_01LZbkcV6qiXvB7qwviMPB6L",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ae7eb8ec7f47"
+        }
+      },
+      {
+        "toolCallId": "toolu_01VjuXfmA7dLKH9d2ugsVdfn",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "500bc9450dfa"
+        }
+      },
+      {
+        "toolCallId": "toolu_01A7LoXQgYH5USzdKqF7fjjm",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0f98da6177dd"
+        }
+      },
+      {
+        "toolCallId": "toolu_01FsnWSw13ZzaLc8ZuUijNcm",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a066c738a1f2"
+        }
+      },
+      {
+        "toolCallId": "toolu_013j9H5c9EkgZJ3isgneRPMb",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a3a4399480ee"
+        }
+      },
+      {
+        "toolCallId": "toolu_016LWYzguXy8HfMvu94kQCQq",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e55e02e246d4"
+        }
+      },
+      {
+        "toolCallId": "toolu_01Ue72sPQs75yUn4HxR6hWHz",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d2967b8d20e6"
+        }
+      },
+      {
+        "toolCallId": "toolu_0125uhsoabfin7XbvfRChxeG",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "254af5805686"
+        }
+      },
+      {
+        "toolCallId": "toolu_0197EyLzMRCTCNoxPiJmqfq7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c05cb189e17f"
+        }
+      },
+      {
+        "toolCallId": "toolu_01HPwNUoRpCNCdEnVTkt3P5w",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "75d89ab403f7"
+        }
+      },
+      {
+        "toolCallId": "toolu_01A7FGX6M7FpHPsNvi2jow2D",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9e592a814dc4"
+        }
+      },
+      {
+        "toolCallId": "toolu_01GuQSmA7nFxic5jsmpkDtME",
+        "toolName": "bash",
+        "args": {
+          "command": "cat >> /tmp/ci/hist.txt <<'EOF'\na9cd66f79789 intermittent\n44b7c755b1ae intermittent\nea5baa7c6dda persistent\n5cdf8fac9877 intermittent\nc1a5199f2cb3 intermittent\nae7eb8ec7f47 intermittent\n500bc9450dfa intermittent\n0f98da6177dd intermittent\na066c738a1f2 intermittent\na3a4399480ee intermittent\ne55e02e246d4 intermittent\nd2967b8d20e6 intermittent\n254af5805686 intermittent\nc05cb189e17f intermittent\n75d89ab403f7 intermittent\n9e592a814dc4 intermittent\nEOF\npython3 - <<'PY'\nimport json,collections\nfails=json.load(open('/tmp/ci/failures.json'))\ncls={}\nfor line in open('/tmp/ci/hist.txt'):\n    i,c=line.split()\n    cls[i]=c\nassert len(cls)==192, len(cls)\nassert set(cls)=={f['id'] for f in fails}\nowners=collections.defaultdict(lambda: collections.Counter())\nfor f in fails:\n    owners[f['owner']][cls[f['id']]]+=1\nout={\"total\":len(fails),\n\"owners\":[{\"owner\":o,\"new\":owners[o]['new'],\"persistent\":owners[o]['persistent'],\"intermittent\":owners[o]['intermittent']} for o in sorted(owners)],\n\"slowest_new\":[{\"id\":f['id'],\"duration_ms\":f['duration_ms']} for f in sorted([f for f in fails if cls[f['id']]=='new'],key=lambda x:(-x['duration_ms'],x['id']))[:5]]}\nprint(json.dumps(out))\nprint(sum(sum(c.values()) for c in owners.values()))\nPY",
+          "timeout": 30
+        }
+      }
+    ]
+  },
+  {
+    "sessionId": "66ed1911-b099-498d-b309-c2f14d738432",
+    "eventsSha256": "33984f1dd2b8934a41b42ec011e37855393e431644918fa5314753d199e03898",
+    "calls": [
+      {
+        "toolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp",
+        "toolName": "codemode",
+        "args": {
+          "code": "\nlet cursor = 0, failures = [], run_id = \"nightly-98\";\nwhile (true) {\n  const r = await tools.ci_list_failures(cursor === 0 ? { run_id } : { run_id, cursor });\n  failures.push(...r.failures);\n  if (r.next_cursor === null || r.next_cursor === undefined) break;\n  cursor = r.next_cursor;\n}\nstore(\"failures\", failures);\nconsole.log(failures.length);\nconsole.log(JSON.stringify(failures[0]));\n"
+        }
+      },
+      {
+        "toolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp/1",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98"
+        },
+        "parentToolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp"
+      },
+      {
+        "toolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp/2",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 48
+        },
+        "parentToolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp"
+      },
+      {
+        "toolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp/3",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 96
+        },
+        "parentToolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp"
+      },
+      {
+        "toolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp/4",
+        "toolName": "ci_list_failures",
+        "args": {
+          "run_id": "nightly-98",
+          "cursor": 144
+        },
+        "parentToolCallId": "toolu_01L2Ziy6vmxiXHo9ospn6Kyp"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f",
+        "toolName": "codemode",
+        "args": {
+          "code": "\nconst failures = load(\"failures\");\nconst results = {};\nconst limit = 16;\nlet i = 0;\nasync function worker() {\n  while (i < failures.length) {\n    const f = failures[i++];\n    for (let attempt = 0; attempt < 3; attempt++) {\n      try { const r = await tools.ci_get_failure_history({ failure_id: f.id }); results[f.id] = r.history; break; }\n      catch (e) { if (attempt === 2) results[f.id] = { error: String(e) }; }\n    }\n  }\n}\nawait Promise.all(Array.from({length: limit}, worker));\nstore(\"hist\", results);\nconst bad = Object.entries(results).filter(([k,v]) => !Array.isArray(v) || v.length !== 4);\nconsole.log(\"bad:\", JSON.stringify(bad).slice(0,500));\nconsole.log(\"count\", Object.keys(results).length);\nconsole.log(JSON.stringify(results[failures[0].id]));\n"
+        }
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/1",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c52c3f84fc81"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/2",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a7b1345dc257"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/3",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "03f563e4195d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/4",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3468097a2e11"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/5",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0be6defbf250"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/6",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "647c968df9e7"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/7",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b6167f8fd158"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/8",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fe1bab21583e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/9",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f898a46da87b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/10",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2f1089a80470"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/11",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8d98424353e5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/12",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4126729b7eea"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/13",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e0470641e7b3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/14",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3604cc9424a3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/15",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "30eb467eaa10"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/16",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c4f5c1e91234"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/17",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ad0732a163d0"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/18",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd76e38e3db6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/19",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bbf07e8880f3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/20",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4a5a9559d165"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/21",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ab5478426559"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/22",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e2505f55bf9e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/23",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "af630451ef7c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/24",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9747c72f1373"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/25",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "53c004f632e6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/26",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3f1af1a53173"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/27",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e1f7be9fa747"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/28",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "55fc268080a6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/29",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8a66e9bd1145"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/30",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "add1926af150"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/31",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5f62804c7bcd"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/32",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "98affe857d68"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/33",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b1d4ec85f896"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/34",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "698adf876ade"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/35",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7c25ece834e4"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/36",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ad86b7d909e0"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/37",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f7bda0fa4362"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/38",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4b7cd9821088"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/39",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5c4768030ef3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/40",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b5b0f6bc8542"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/41",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a37285c5a9a5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/42",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6645bbfc6eac"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/43",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ec14f17714f2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/44",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b3b4391c1e1c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/45",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c8c03d43d012"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/46",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "83445ee46239"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/47",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44eef6bb004d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/48",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6b297080b4e0"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/49",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6c70a61e51f9"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/50",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "220e9c880371"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/51",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8aca0ab88846"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/52",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b7cf4aa9444a"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/53",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6f3549a1f0da"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/54",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd7fb9c4ba5a"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/55",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ac2208e06917"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/56",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f674d9addb5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/57",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "833cfc476e50"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/58",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c2c0841e3354"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/59",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "1db02524996e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/60",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eb78dc44fbf6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/61",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "868395b8586d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/62",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "80dd1ae1240b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/63",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a1221ec792ed"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/64",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7e25e386fb6d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/65",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ea6328e0d0df"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/66",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d50600c9aca1"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/67",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0046acbad83f"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/68",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "65e3992a9025"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/69",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44287edde3c6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/70",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "1168cafe6ab5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/71",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4c3798ab0859"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/72",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "aa5feb7d7b97"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/73",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ebe543664dbc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/74",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6f7634ea4dd9"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/75",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "abb665616beb"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/76",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "41d684cad882"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/77",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8358222436e4"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/78",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2ccdd92c95ef"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/79",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "3f072a16051e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/80",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "feb96230b099"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/81",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "dd4b077df872"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/82",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "665a0e767adc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/83",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5d85af6e83df"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/84",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e156ef8038ef"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/85",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c0d3791d8c8b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/86",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ec5936f45b83"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/87",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "389dc80c8a83"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/88",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "90e2e2ed5fac"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/89",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d0109f55f45c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/90",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ba917d814d95"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/91",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "15fc3fc76818"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/92",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7046e5728382"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/93",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "95681303927a"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/94",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4e1167ffa256"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/95",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0ebf2d1397f3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/96",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7aa9f9b199ed"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/97",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6c50a1ff89bc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/98",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e3fbede3f1cc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/99",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "86f4399281bc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/100",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eea727dae26c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/101",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bfd0b7575e63"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/102",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f2efb0effa7"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/103",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "f43b2b426c42"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/104",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "476fa2c3530e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/105",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eeb1dac3a462"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/106",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "856d50d4bb4e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/107",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9e03e8866778"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/108",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a274ff77dc17"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/109",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6d3e06b29866"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/110",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d6f80ce81357"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/111",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be2d1edabff8"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/112",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "261b65cbd171"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/113",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a7e95d709831"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/114",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c4aaba841dbd"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/115",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "91b9db2a6ce9"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/116",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "45a0605c0206"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/117",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "cf347679475e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/118",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "29a95ddf0053"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/119",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5078f770c7d5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/120",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9167db9dc791"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/121",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e2904559c7fc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/122",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "94bf4a6b7bd3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/123",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c895cd41a809"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/124",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bb22e505b77d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/125",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "75f7c47f2265"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/126",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "38b452985480"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/127",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "05c680fe4e5b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/128",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "50bade5dcc04"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/129",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2a027e60fda3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/130",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "dfef470c9cb0"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/131",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ed5bdb8b86c6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/132",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0e7aeb294b49"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/133",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be9e22070100"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/134",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "198fa3a02d9b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/135",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "092d3f8b0f7b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/136",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4228f5e77e50"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/137",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "72644df46627"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/138",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "544b407037d2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/139",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a0ec95fc8283"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/140",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d7c69022b6f3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/141",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "080a8143bc4b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/142",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "cfb8d4bf553f"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/143",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "b950c378aacc"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/144",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8e985a3593f6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/145",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d22eef1a51aa"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/146",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9f423c548f09"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/147",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ae3d5e8f4c4a"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/148",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "173ee440c35c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/149",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ab2cb55debc7"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/150",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "bd2fad2a0ce2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/151",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "38c84a7f7b7e"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/152",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "4de7d63ffbc2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/153",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "53458ed7af3d"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/154",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eeb69f79a6a5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/155",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "8ce9aea6af30"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/156",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d3ff8baf6aa7"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/157",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7a389732ae62"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/158",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e73165322755"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/159",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fcb665132312"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/160",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2c97e511e678"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/161",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e72aa2cfdb2a"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/162",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "6537730d1114"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/163",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ce35b8741e53"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/164",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "be63ae2cbd63"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/165",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "86c1bd1bb9a2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/166",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "7c9229ba74f1"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/167",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "63af4cc7cf7b"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/168",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c63c3918dd10"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/169",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "2dd76c3df7af"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/170",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "47cd3b4c24a3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/171",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "fa886e58f325"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/172",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "eaa887264f92"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/173",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5a01f690331c"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/174",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c0563ef8b454"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/175",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "24e9ba4543c5"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/176",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "903dd25df170"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/177",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a9cd66f79789"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/178",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "44b7c755b1ae"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/179",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ea5baa7c6dda"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/180",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "5cdf8fac9877"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/181",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c1a5199f2cb3"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/182",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "ae7eb8ec7f47"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/183",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "500bc9450dfa"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/184",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "0f98da6177dd"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/185",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a066c738a1f2"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/186",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "a3a4399480ee"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/187",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "e55e02e246d4"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/188",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "d2967b8d20e6"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/189",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "254af5805686"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/190",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "c05cb189e17f"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/191",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "75d89ab403f7"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f/192",
+        "toolName": "ci_get_failure_history",
+        "args": {
+          "failure_id": "9e592a814dc4"
+        },
+        "parentToolCallId": "toolu_01RxKhHwmxHxu7UmUk7dTv5f"
+      },
+      {
+        "toolCallId": "toolu_01RXhdPw5Lj3PZfTEaNBWmsR",
+        "toolName": "codemode",
+        "args": {
+          "code": "\nconst failures = load(\"failures\"), hist = load(\"hist\");\nconst owners = {};\nconst news = [];\nfor (const f of failures) {\n  const h = hist[f.id];\n  const p = h.filter(x => x.conclusion === \"passed\").length;\n  const cls = p === 4 ? \"new\" : p === 0 ? \"persistent\" : \"intermittent\";\n  owners[f.owner] = owners[f.owner] || { owner: f.owner, new: 0, persistent: 0, intermittent: 0 };\n  owners[f.owner][cls]++;\n  if (cls === \"new\") news.push({ id: f.id, duration_ms: f.duration_ms });\n}\nnews.sort((a,b) => b.duration_ms - a.duration_ms || (a.id < b.id ? -1 : 1));\nreturn JSON.stringify({ total: failures.length, owners: Object.values(owners).sort((a,b)=> a.owner<b.owner?-1:1), slowest_new: news.slice(0,5) });\n"
+        }
+      }
+    ]
+  }
+]

@@ -68,7 +68,7 @@ export function defaultConfig(): TracingConfig {
       runtime: true,
       "node.perf": false,
       "node.gc": false,
-      contents: false,
+      contents: true,
       "prompt-data": true,
       system: false,
       "stream.verbose": false,
@@ -77,11 +77,11 @@ export function defaultConfig(): TracingConfig {
     sampleHz: 1,
     maxFileMB: 64,
     maxFiles: 5,
-    captureContents: false,
+    captureContents: true,
     queueDepth: 1024,
     queueBytes: 1024 * 1024,
     finalizeDeadlineMs: 1000,
-    laneCap: 8,
+    laneCap: 64,
     childTools: ["rig_launch", "subagent"],
   };
 }

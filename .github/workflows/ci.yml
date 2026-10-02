@@ -39,7 +39,7 @@ jobs:
       - name: Validate recorded and generated examples
         run: npm run check:example
       - name: Check bundled example is current
-        run: git diff --exit-code -- third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/example_trace.ts
+        run: git diff --exit-code -- 'third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/*example_trace.ts'
 
   ui:
     name: Build and test UI

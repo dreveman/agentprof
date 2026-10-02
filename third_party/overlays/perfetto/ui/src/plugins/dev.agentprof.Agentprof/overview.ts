@@ -12,6 +12,7 @@ import {navigate} from './navigation';
 import type {Trace} from '../../public/trace';
 import type {SqlValue} from '../../trace_processor/query_result';
 import {OVERVIEW_QUERIES} from './overview_queries';
+import {toolDescription} from './tool_description';
 import './overview.scss';
 
 type Row = Record<string, SqlValue>;
@@ -78,7 +79,7 @@ function tokens(v: SqlValue | undefined): string {
 function sessionExcerpt(prompt: SqlValue | undefined, session: SqlValue | undefined): string {
   if (typeof prompt !== 'string' || !prompt.trim()) {
     const id = value(session);
-    return id.length > 16 ? `${id.slice(0, 16)}...` : id;
+    return id.length > 16 ? `${id.slice(0, 16).trimEnd()}...` : id;
   }
   const line = prompt.split(/\r?\n/).map(text => text.trim()
     .replace(/^#{1,6}\s+|^(?:[-*]|\d+[.)])\s+/, ''))
@@ -89,14 +90,36 @@ function sessionExcerpt(prompt: SqlValue | undefined, session: SqlValue | undefi
   const boundary = start.lastIndexOf(' ');
   const excerpt = sentence.length > 96 && boundary > 60 ? start.slice(0, boundary) : start;
   const shortened = sentence.length > excerpt.length || prompt.trim().length > sentence.length;
-  return shortened ? `${excerpt.trimEnd().replace(/[.!?]+$/, '')}...` : excerpt;
+  return shortened ? `${excerpt.replace(/[\s.!?]+$/, '')}...` : excerpt;
+}
+function sessionLabels(row: Row): string[] {
+  return typeof row.session_labels === 'string' ? JSON.parse(row.session_labels) : [];
+}
+function invocationDescription(row: Row): m.Children {
+  const intent = typeof row.intent === 'string' ? row.intent : undefined;
+  const isScript = row.kind === 'script';
+  const description = toolDescription(intent, typeof row.arguments === 'string' ? row.arguments : undefined,
+    isScript ? {
+      language: typeof row.language === 'string' ? row.language : undefined,
+      lineCount: row.line_count === null || row.line_count === undefined ? undefined : Number(row.line_count),
+      truncated: number(row.args_truncated) !== 0,
+    } : undefined);
+  if (description === undefined) return m('span.ap-description-missing', 'Not recorded');
+  const partial = !intent?.trim() && !isScript && number(row.args_truncated) !== 0;
+  return m('.ap-tool-description', {
+    className: intent?.trim() || isScript ? undefined : 'ap-tool-description--arguments',
+    title: description + (partial ? '\n(Some arguments were omitted from the recording.)' : ''),
+  }, description);
 }
 function sessionName(row: Row, trace: Trace): m.Children {
   const name = sessionExcerpt(row.prompt_text, row.session);
+  const labels = sessionLabels(row);
+  const subtitle = labels.length > 0 && m('span.ap-session-labels',
+    labels.map(label => m('span.ap-session-label', label)));
   if (row.prompt_id === null || row.prompt_id === undefined) {
-    return m('span.ap-prompt-fallback', name);
+    return m('.ap-session-name', m('span.ap-prompt-fallback', name), subtitle);
   }
-  return m(Button, {
+  return m('.ap-session-name', m(Button, {
     label: name, rightIcon: 'open_in_new', compact: true, shrink: true,
     variant: ButtonVariant.Minimal, className: 'ap-prompt-link',
     title: `Session ${value(row.session)} · Open the full recorded prompt in the timeline`,
@@ -106,7 +129,7 @@ function sessionName(row: Row, trace: Trace): m.Children {
       navigate(trace, '/viewer');
       trace.selection.selectSqlEvent('slice', number(row.prompt_id), {scrollToSelection: true});
     },
-  });
+  }), subtitle);
 }
 function activitySeries(rows: Row[]): Map<number, (number | null)[]> {
   const byCapture = new Map<number, (number | null)[]>();
@@ -165,6 +188,7 @@ export class Overview implements m.ClassComponent<Attrs> {
   private tab: Tab = 'Summary';
   private readonly data: Partial<Record<Section, State>> = {};
   private readonly expandedSessions = new Set<number>();
+  private readonly expandedScripts = new Set<number>();
   private disposed = false;
 
   oninit({attrs}: m.Vnode<Attrs>) {
@@ -184,11 +208,11 @@ export class Overview implements m.ClassComponent<Attrs> {
   }
   onremove() {this.disposed = true;}
 
-  private section(key: Section, render: (rows: Row[]) => m.Children): m.Children {
+  private section(key: Section, render: (rows: Row[]) => m.Children, allowEmpty = false): m.Children {
     const state = this.data[key];
     if (state?.error) return m('.ap-error', {role: 'alert'}, `Could not read this section: ${state.error}`);
     if (!state?.rows) return m('.ap-muted', {role: 'status'}, 'Reading the trace…');
-    if (state.rows.length === 0) return m('.ap-muted', 'Not recorded in this trace.');
+    if (!allowEmpty && state.rows.length === 0) return m('.ap-muted', 'Not recorded in this trace.');
     return render(state.rows);
   }
 
@@ -201,15 +225,50 @@ export class Overview implements m.ClassComponent<Attrs> {
       m('p.ap-muted', description), body);
   }
 
+  private scriptTable(rows: Row[], children: Row[], trace: Trace): m.Children {
+    return m('.ap-table-scroll', m('table.ap-script-table',
+      m('thead', m('tr', ['', 'Script', 'Description', 'Wall time', 'Nested calls', 'Status'].map(label => m('th', label)))),
+      m('tbody', rows.map(row => {
+        const id = number(row.id);
+        const expanded = this.expandedScripts.has(id);
+        const toggle = () => expanded ? this.expandedScripts.delete(id) : this.expandedScripts.add(id);
+        return [m('tr.ap-script-row', {onclick: toggle},
+          m('td', m(Button, {icon: expanded ? 'expand_more' : 'chevron_right',
+            'aria-label': `${expanded ? 'Collapse' : 'Expand'} script`, 'aria-expanded': expanded,
+            variant: ButtonVariant.Minimal, compact: true})),
+          m('td', {'data-label': 'Script'}, m(Button, {label: value(row.script), rightIcon: 'open_in_new', compact: true,
+            shrink: true, className: 'ap-table-link',
+            variant: ButtonVariant.Minimal, onclick: (event: MouseEvent) => {
+              event.stopPropagation(); navigate(trace, '/viewer');
+              trace.selection.selectSqlEvent('slice', id, {scrollToSelection: true});
+            }})),
+          m('td.ap-description-cell', {'data-label': 'Description'}, invocationDescription(row)),
+          m('td', {'data-label': 'Wall time'}, duration(row.duration_ms)),
+          m('td', {'data-label': 'Nested calls'}, value(row.calls)),
+          m('td', {'data-label': 'Status'}, number(row.incomplete) ? 'Incomplete' :
+            row.is_error === null ? 'Not recorded' : number(row.is_error) ? 'Error' : 'Complete')),
+          expanded && m('tr.ap-script-expanded', m('td', {colspan: 6}, number(row.calls) === 0 ?
+            m('p.ap-muted', 'No nested calls were recorded.') :
+            this.table(children.filter(child => number(child.script_id) === id), [
+              ['tool', 'Call'], ['description', 'Description'], ['duration_ms', 'Observed duration'], ['is_error', 'Error'],
+              ['incomplete', 'Incomplete'],
+            ], trace))),
+        ];
+      })),
+    ));
+  }
+
   private table(rows: Row[], columns: [string, string][], trace?: Trace, clockAligned = true,
                 seriesByCapture?: Map<number, (number | null)[]>): m.Children {
     const rates = columns.some(([key]) => key === 'tokens_per_s') ? rows
       .map(row => row.tokens_per_s).filter(rate => rate !== null && rate !== undefined)
       .map(rate => Number(rate)).filter(rate => Number.isFinite(rate) && rate >= 0) : [];
     const fastestRate = rates.length > 1 && Math.max(...rates) > 0 ? Math.max(...rates) : undefined;
-    return m('.ap-table-scroll', m('table',
+    const cellClass = (key: string) => key === 'model' ? 'ap-model-cell' :
+      key === 'prompt_text' ? 'ap-prompt-cell' : key === 'description' ? 'ap-description-cell' : undefined;
+    return m('.ap-table-scroll', m('table', {className: columns.some(([key]) => key === 'description') ? 'ap-invocation-table' : undefined},
       m('thead', m('tr', columns.map(([key, label]) => m('th', {
-        className: key === 'model' ? 'ap-model-cell' : key === 'prompt_text' ? 'ap-prompt-cell' : undefined,
+        className: cellClass(key),
         title: key === 'peak_model_responses' ?
           'Maximum simultaneous measured model-response spans in this session and its subagent sessions' :
           key === 'tokens_per_s' && fastestRate !== undefined ?
@@ -217,9 +276,10 @@ export class Overview implements m.ClassComponent<Attrs> {
       }, label)))),
       m('tbody', rows.map(row => m('tr', columns.map(([key, label], index) => m('td', {
         'data-label': label,
-        className: key === 'model' ? 'ap-model-cell' : key === 'prompt_text' ? 'ap-prompt-cell' : undefined,
+        className: cellClass(key),
         title: key === 'prompt_text' ? row.prompt_id === null || row.prompt_id === undefined ? value(row.session) : undefined :
-          key === 'model' || key === 'harness' ? undefined : value(row[key])},
+          key === 'model' || key === 'harness' || key === 'description' ? undefined : value(row[key])},
+        key === 'description' ? invocationDescription(row) :
         key === 'prompt_text' ? trace ? sessionName(row, trace) :
           m('span.ap-prompt-fallback', sessionExcerpt(row.prompt_text, row.session)) :
           index === 0 && trace && row.id !== undefined ? m(Button, {
@@ -326,7 +386,8 @@ export class Overview implements m.ClassComponent<Attrs> {
               toggle();
             },
           }) : value(row[key])));
-        return [m('tr.ap-session-row', {onclick: toggle}, cells),
+        return [m('tr.ap-session-row', {onclick: toggle,
+          className: expanded ? 'ap-session-row--expanded' : undefined}, cells),
           expanded && m('tr.ap-session-expanded',
             m('td', {colSpan: columns.length, id: `ap-session-details-${id}`},
               this.sessionDetails(row, clockAligned, fastestRate, nested),
@@ -395,6 +456,7 @@ export class Overview implements m.ClassComponent<Attrs> {
                 ['Tools only', number(a.tools_only_ms), 'tool'],
                 ['Model responses + tools', number(a.overlap_ms), 'overlap'],
               ];
+              if (number(summary.scripts) > 0) segments.push(['Scripts only', number(a.scripts_only_ms), 'script']);
               const total = segments.reduce((n, [, ms]) => n + ms, 0);
               return [answer(`${duration(total)} of measured activity. Uncovered time is not classified as waiting.`),
                 m(Card, {className: 'ap-meter-card'},
@@ -422,7 +484,11 @@ export class Overview implements m.ClassComponent<Attrs> {
           this.card('Is the recording complete?', `Capture health across ${scope}. Missing measurements remain unknown; incomplete operations are separate from observed errors.`, [
             summary && number(summary.machines) > 1 && m('p.ap-muted', 'Cross-machine timing uses recorded wall clocks and depends on the hosts’ clock synchronization.'),
             summary && answer(`${value(summary.incomplete)} incomplete operations recorded.${aligned ? '' : ' Clock conversion errors were reported.'}`),
-            this.section('health', rows => this.table(rows, [['metric', 'Capture metric'], ['value', 'Maximum recorded value']])),
+            this.section('health', rows => [
+              rows.some(row => row.metric === 'Lane overflows' && number(row.value) > 0) &&
+                answer('Some concurrent calls could not be recorded because the tool lane limit was reached. Tool counts and timings are incomplete.'),
+              this.table(rows, [['metric', 'Capture metric'], ['value', 'Maximum recorded value']]),
+            ]),
             m('p.ap-muted', 'Approval waits, queue delays, retries, and full child execution are not yet summarized. Absence of capture counters does not establish a clean capture.'),
           ]),
         ] : this.tab === 'Responses' ? [
@@ -433,9 +499,16 @@ export class Overview implements m.ClassComponent<Attrs> {
                 ['duration_ms', 'Message duration'], ['input_tokens', 'Input tokens'],
                 ['output_tokens', 'Output tokens']], trace)))),
         ] : this.tab === 'Tools' ? [
-          this.card('Tool summary', 'Incomplete operations are excluded from completed durations.', tools()),
+          this.card('Tool summary', 'Incomplete operations and script wall time are excluded from completed tool durations.', tools()),
+          number(summary?.scripts) > 0 && this.card('Scripted tool use',
+            'Agent-written scripts and the tool calls they execute.',
+            this.section('scripts', rows => this.section('script_calls', children => [
+              this.scriptTable(rows, children, trace),
+              children.some(child => child.kind === 'model-call') && m('p.ap-muted',
+                'Model-call intervals may include queue time; they are excluded from model-response speed and busy metrics.'),
+            ], true))),
           this.card('Slow and incomplete calls', 'Up to 100 calls. Incomplete durations show only the observed interval.',
-            this.section('slow', rows => this.table(rows, [['tool', 'Tool'], ['session', 'Session'],
+            this.section('slow', rows => this.table(rows, [['tool', 'Tool'], ['description', 'Description'],
               ['duration_ms', 'Observed duration'], ['is_error', 'Error'], ['incomplete', 'Incomplete']], trace))),
         ] : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. The Overview combines their activity.',
           this.section('sessions', rows => this.section('capture_activity', seriesRows =>

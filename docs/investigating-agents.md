@@ -28,6 +28,22 @@ and tool calls, then inspect the surrounding turn. A slow tool, repeated model
 requests, and a long interval without recorded work suggest different next
 steps. An empty interval alone does not identify what the agent was waiting on.
 
+## Inspect scripted tool use
+
+**Tools → Scripted tool use** separates script wall time from individual tool
+work and lists up to 100 scripts. Expand a script to see its recorded nested
+calls and select a call to open it in the timeline. Flow arrows connect the script to each call. Scripts
+without recorded child calls remain visible, including scripts that only inspect
+persistent state. Script duration is excluded from tool totals and concurrency;
+**Scripts only** shows measured time outside nested tools or model responses.
+
+Session subtitles display the harness-provided `session_labels` string list.
+The UI shows distinct labels observed in that capture, without adding subagent
+labels to its launching session. Missing or empty lists produce no subtitle.
+Pi adds `codemode` when that tool is enabled. The built-in **direct vs codemode** example uses the same model,
+prompt, and source snapshot. Compare Recorded window, context usage, and token
+totals together; this example is a single pair, not a general speed benchmark.
+
 ## Follow delegated work
 
 Use recorded parent/child identifiers in **Child launches** to locate subagent

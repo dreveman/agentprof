@@ -4,6 +4,13 @@ export const SCHEMA_VERSION = 1;
 export const TRACE_VERSION = "0.1.0-internal";
 type Attrs = Record<string, DebugAnnotationValue>;
 
+/** Script metadata remains useful when source capture is disabled or bounded. */
+export function scriptAnnotations(language: string, code: unknown): Attrs {
+  return {language, ...(typeof code === 'string' ? {
+    line_count: code.length === 0 ? 0 : code.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(code) ? 1 : 0),
+  } : {})};
+}
+
 /** Describe arguments without copying values unless content capture is enabled. */
 export function toolArgumentAnnotations(input: unknown, captureContents: boolean): Attrs {
   const attrs: Attrs = {};
@@ -21,7 +28,7 @@ export function toolArgumentAnnotations(input: unknown, captureContents: boolean
   }
   if (!captureContents) return attrs;
   let remainingNodes = 128;
-  let remainingText = 2000;
+  let remainingText = 65536;
   let truncated = false;
   const copy = (value: unknown, depth: number): DebugAnnotationValue | undefined => {
     if (--remainingNodes < 0 || depth > 8) { truncated = true; return undefined; }
@@ -78,6 +85,7 @@ export function promptAnnotations(prompt: unknown, captureText: boolean): Attrs 
 }
 
 export interface RunConfiguration {
+  sessionLabels?: unknown;
   model?: unknown;
   provider?: unknown;
   effort?: unknown;
@@ -86,6 +94,12 @@ export interface RunConfiguration {
 
 export function runConfigurationAnnotations(config: RunConfiguration): Attrs {
   const attrs: Attrs = { "harness": "pi" };
+  if (Array.isArray(config.sessionLabels)) {
+    const labels = [...new Set(config.sessionLabels.slice(0, 32)
+      .filter((label): label is string => typeof label === "string")
+      .map(label => label.trim()).filter(label => label.length > 0 && label.length <= 100))];
+    if (labels.length > 0) attrs["session_labels"] = labels;
+  }
   for (const key of ["model", "provider", "effort"] as const) {
     const value = config[key];
     if (typeof value === "string" && value.length > 0 && value.length <= 200) {

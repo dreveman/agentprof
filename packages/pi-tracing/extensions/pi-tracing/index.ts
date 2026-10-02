@@ -18,11 +18,12 @@ import {
   type TracingConfig,
 } from "./config.ts";
 import { formatProbe, runProbe } from "./probe.ts";
-import { assistantAnnotations, promptAnnotations, reportedTokenUsage, tokenCount, toolArgumentAnnotations, TRACE_VERSION } from "./annotations.ts";
+import { assistantAnnotations, promptAnnotations, reportedTokenUsage, scriptAnnotations, tokenCount, toolArgumentAnnotations, TRACE_VERSION } from "./annotations.ts";
 import { defaultOutDir, describeBytes, Recorder, sanitizeArgv0, sanitizeSessionTag } from "./tracer.ts";
 import type { TraceManifest } from "./tracer.ts";
 import type { TrackSet } from "./tracks.ts";
 import { randomFlowId } from "./tracks.ts";
+import {CodemodeCalls} from "./codemode.ts";
 import { childPromptFlowId, describeChildLaunch, detectChildRole, extractChildSessionId, mergeExtensionPath } from "./workflow.ts";
 
 const WIDGET_ID = "pi-tracing-status";
@@ -125,12 +126,14 @@ interface SessionState {
 
 export default function (pi: ExtensionAPI) {
   let session: SessionState | null = null;
+  const codemodeCalls = new CodemodeCalls();
 
   const runConfiguration = (ctx: ExtensionContext) => ({
     model: ctx.model?.id,
     provider: ctx.model?.provider,
     effort: ctx.thinkingLevel ?? pi.getThinkingLevel(),
     contextWindowTokens: ctx.model?.contextWindow,
+    sessionLabels: pi.getActiveTools().includes("codemode") ? ["codemode"] : [],
   });
 
 
@@ -275,6 +278,7 @@ export default function (pi: ExtensionAPI) {
     state.turnSpan = null;
     state.compaction = null;
     state.toolSpans.clear();
+    codemodeCalls.clear();
     state.toolLastPartialBytes.clear();
     state.toolFlows.clear();
     state.childLaunches.clear();
@@ -1002,16 +1006,24 @@ export default function (pi: ExtensionAPI) {
         }
       }
       const input = (event as { input?: unknown }).input;
-      const annotations = toolArgumentAnnotations(input, state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents"));
+      // Arguments belong to the execution span. Keep them here only when its
+      // start was not recorded, so preflight-only captures still have details.
+      const hasSpan = typeof toolCallId === "string" && state.toolSpans.has(toolCallId);
+      const annotations = toolArgumentAnnotations(input, !hasSpan &&
+        state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents"));
       annotations["name"] = toolName;
       if (typeof toolCallId === "string") annotations["call_id"] = toolCallId;
+      const parent = (event as {parentToolCallId?: unknown}).parentToolCallId;
+      if (typeof parent === "string") annotations["parent_call_id"] = parent;
       state.recorder.emitInstant({ cat: "tools", trackUuid: track, name: "tool-preflight", flowIds, tNs: issueNs, annotations });
     });
   });
 
   pi.on("tool_execution_start", (event, ctx) => {
     withSession(ctx, (state) => {
-      const { toolCallId, toolName } = event as { toolCallId?: unknown; toolName?: unknown };
+      const { toolCallId, toolName, parentToolCallId } = event as {
+        toolCallId?: unknown; toolName?: unknown; parentToolCallId?: unknown;
+      };
       if (typeof toolName === "string" && TRACING_CONTROL_TOOLS.has(toolName)) return;
       if (typeof toolCallId !== "string") return;
       const name = typeof toolName === "string" ? toolName : "tool";
@@ -1024,6 +1036,8 @@ export default function (pi: ExtensionAPI) {
         try {
           const flowId = randomFlowId(tracks.used);
           flowIds = [flowId];
+          const parentSpan = typeof parentToolCallId === "string" ? state.toolSpans.get(parentToolCallId) : undefined;
+          if (parentSpan !== undefined) state.recorder.addBeginFlow(parentSpan, flowId);
           if (state.toolFlows.size >= 128) {
             const oldest = state.toolFlows.keys().next();
             if (!oldest.done) state.toolFlows.delete(oldest.value);
@@ -1034,15 +1048,27 @@ export default function (pi: ExtensionAPI) {
         }
       }
       const rawArgs = event as {args?: unknown; input?: unknown};
+      const input = rawArgs.args ?? rawArgs.input;
+      const argumentData = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents")
+        ? toolArgumentAnnotations(input, true) : {};
       const launch = typeof toolName === "string" && state.recorder.categoryOn("workflow") &&
         state.recorder.getConfig().childTools.includes(toolName)
-        ? describeChildLaunch(toolName, rawArgs.args ?? rawArgs.input) : null;
+        ? describeChildLaunch(toolName, input) : null;
       if (launch !== null) delete launch.annotations.tool; // The tool span already records its name.
       const span = state.recorder.beginToolSlice(toolCallId, name, startedNs, flowIds, {
         // Workflow-only recording still captures delegation on the tool lane.
-        deferBegin: launch !== null,
+        // Nested calls can arrive later. Delay BEGIN so their outgoing flows
+        // can be attached to this call's original start timestamp.
+        deferBegin: true,
+        kind: name === "codemode" ? "script" : undefined,
         category: launch !== null && !state.recorder.categoryOn("tools") ? "workflow" : "tools",
-        annotations: launch === null ? undefined : {...launch.annotations, delegation: true},
+        annotations: {
+          ...(name === "codemode" ? scriptAnnotations("JavaScript", (input as {code?: unknown} | undefined)?.code) : {}),
+          ...(argumentData.args === undefined ? {} : {args: argumentData.args}),
+          ...(argumentData.truncated ? {args_truncated: true} : {}),
+          ...(typeof parentToolCallId === "string" ? {parent_call_id: parentToolCallId} : {}),
+          ...(launch === null ? {} : {...launch.annotations, delegation: true}),
+        },
       });
       if (span !== null) {
         state.toolSpans.set(toolCallId, span);
@@ -1069,6 +1095,7 @@ export default function (pi: ExtensionAPI) {
         if (track !== null) state.recorder.emitInstant({ cat: "stream.verbose", trackUuid: track, name: "tool_update" });
       }
       const partial = (event as { partialResult?: unknown }).partialResult;
+      if (toolName === "codemode") codemodeCalls.observe(state.recorder, toolCallId, span, partial);
       const currentBytes = partialResultBytes(partial);
       const previousBytes = state.toolLastPartialBytes.get(toolCallId) ?? 0;
       state.toolLastPartialBytes.set(toolCallId, currentBytes);
@@ -1081,16 +1108,20 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("tool_execution_end", (event, ctx) => {
     withSession(ctx, (state) => {
-      const { toolCallId, toolName, isError, result } = event as {
+      const { toolCallId, toolName, isError, result, parentToolCallId } = event as {
         toolCallId?: unknown;
         toolName?: unknown;
         isError?: unknown;
         result?: unknown;
+        parentToolCallId?: unknown;
       };
       if (typeof toolName === "string" && TRACING_CONTROL_TOOLS.has(toolName)) return;
       if (typeof toolCallId !== "string") return;
       const endedNs = state.recorder.captureTimestamp();
       const span = state.toolSpans.get(toolCallId);
+      if (toolName === "codemode" && span !== undefined) {
+        codemodeCalls.observe(state.recorder, toolCallId, span, result, true);
+      }
       state.toolSpans.delete(toolCallId);
       state.toolLastPartialBytes.delete(toolCallId);
       state.toolFlows.delete(toolCallId);
@@ -1118,6 +1149,7 @@ export default function (pi: ExtensionAPI) {
         trackUuid: track,
         name: "tool-result",
         annotations: {"name": name, "call_id": toolCallId, "is_error": isError === true,
+          ...(typeof parentToolCallId === "string" ? {parent_call_id: parentToolCallId} : {}),
           "start_not_recorded": true},
       });
     });
@@ -1126,14 +1158,23 @@ export default function (pi: ExtensionAPI) {
   pi.on("tool_result", (event, ctx) => {
     withSession(ctx, (state) => {
       if (typeof event.toolName === "string" && TRACING_CONTROL_TOOLS.has(event.toolName)) return;
+      // Pi reports only this tool's own model usage here. Nested tool usage
+      // arrives on the nested result, not again on the caller's result.
+      state.recorder.recordTokenUsage(event);
       const span = state.toolSpans.get(event.toolCallId);
-      const annotations = {"middleware_is_error": event.isError};
+      const usage = reportedTokenUsage(event);
+      const parentToolCallId = (event as {parentToolCallId?: unknown}).parentToolCallId;
+      const annotations = {"middleware_is_error": event.isError,
+        ...(usage.input === undefined ? {} : {input_tokens: usage.input}),
+        ...(usage.output === undefined ? {} : {output_tokens: usage.output})};
       if (span !== undefined && state.recorder.annotateSpan(span, annotations)) return;
       const track = mainThreadTrack();
       if (track === null || !state.recorder.categoryOn("tools")) return;
       const toolName = String((event as { toolName?: unknown }).toolName ?? "unknown");
       state.recorder.emitInstant({ cat: "tools", trackUuid: track, name: "tool-middleware",
-        annotations: {"is_error": event.isError, "name": toolName, "call_id": event.toolCallId, "start_not_recorded": true} });
+        annotations: {"is_error": event.isError, "name": toolName, "call_id": event.toolCallId,
+          ...(typeof parentToolCallId === "string" ? {parent_call_id: parentToolCallId} : {}),
+          "start_not_recorded": true} });
     });
   });
 

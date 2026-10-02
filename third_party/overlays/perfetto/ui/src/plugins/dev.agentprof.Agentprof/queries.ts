@@ -57,7 +57,8 @@ SELECT s.*, COALESCE(t.name, th.name || ' ' || th.tid, 'Thread ' || th.tid) AS t
     WHERE a.arg_set_id = p.arg_set_id AND a.key GLOB 'chrome.process_label*'
       AND a.string_value GLOB 'session:*' LIMIT 1),
     'process ' || COALESCE(CAST(m.upid AS TEXT), 'unknown')) AS session,
-  COALESCE(COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.kind'), EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_event_kind')),
+  COALESCE(CASE WHEN s.name = 'codemode' AND s.category = 'pi.tools' THEN 'script' END,
+    COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.kind'), EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_event_kind')),
     CASE
       WHEN s.category = 'pi.agent' AND s.name = 'turn' THEN 'turn'
       WHEN s.category = 'pi.llm' AND s.name IN ('request', 'provider-request') THEN 'provider-request'
@@ -75,6 +76,52 @@ LEFT JOIN agentprof_slice_capture sc ON sc.id = s.id
 LEFT JOIN process p ON p.upid = m.upid
 LEFT JOIN agentprof_captures cap ON cap.capture_id = COALESCE(sc.capture_id, m.capture_id)
 WHERE s.category GLOB 'pi.*';
+
+CREATE PERFETTO TABLE agentprof_tool_arguments AS
+SELECT arg_set_id, JSON_GROUP_OBJECT(CASE WHEN key = 'debug.args' THEN 'value'
+    WHEN key GLOB 'debug.args[[]*' THEN SUBSTR(key, 11) ELSE SUBSTR(key, 12) END, display_value) AS arguments
+FROM args WHERE key = 'debug.args' OR key GLOB 'debug.args.*' OR key GLOB 'debug.args[[]*'
+GROUP BY arg_set_id;
+
+-- Older recordings kept arguments on preflight rather than execution spans.
+CREATE PERFETTO TABLE agentprof_tool_preflights AS
+SELECT capture_id, COALESCE(EXTRACT_ARG(arg_set_id, 'debug.call_id'),
+    EXTRACT_ARG(arg_set_id, 'debug.agentprof_tool_call_id')) AS call_id, MAX(id) AS id
+FROM agentprof_slices WHERE name = 'tool-preflight' GROUP BY capture_id, call_id;
+
+CREATE PERFETTO TABLE agentprof_tool_calls AS
+SELECT s.*, COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.call_id'),
+    EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_tool_call_id')) AS call_id,
+  EXTRACT_ARG(s.arg_set_id, 'debug.parent_call_id') AS parent_call_id,
+  COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.is_error'),
+    EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_tool_is_error')) AS is_error,
+  COALESCE(NULLIF(TRIM(EXTRACT_ARG(s.arg_set_id, 'debug.intent')), ''),
+    NULLIF(TRIM(EXTRACT_ARG(p.arg_set_id, 'debug.intent')), '')) AS intent,
+  COALESCE(a.arguments, legacy.arguments) AS arguments,
+  COALESCE(NULLIF(EXTRACT_ARG(s.arg_set_id, 'debug.language'), ''),
+    CASE WHEN s.kind = 'script' AND s.name = 'codemode' AND s.category = 'pi.tools' THEN 'JavaScript' END) AS language,
+  EXTRACT_ARG(s.arg_set_id, 'debug.line_count') AS line_count,
+  COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.args_truncated'),
+    EXTRACT_ARG(p.arg_set_id, 'debug.truncated'), 0) AS args_truncated
+FROM agentprof_slices s LEFT JOIN agentprof_tool_preflights pf
+  ON pf.capture_id = s.capture_id AND pf.call_id = COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.call_id'),
+    EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_tool_call_id'))
+LEFT JOIN agentprof_slices p ON p.id = pf.id
+LEFT JOIN agentprof_tool_arguments a ON a.arg_set_id = s.arg_set_id
+LEFT JOIN agentprof_tool_arguments legacy ON legacy.arg_set_id = p.arg_set_id
+WHERE s.kind IN ('tool-execution', 'script', 'model-call');
+
+CREATE PERFETTO TABLE agentprof_script_children AS
+WITH RECURSIVE children(script_id, id, depth) AS (
+  SELECT p.id, c.id, 1 FROM agentprof_tool_calls p JOIN agentprof_tool_calls c
+    ON c.capture_id = p.capture_id AND c.parent_call_id = p.call_id
+  WHERE p.kind = 'script' AND c.id != p.id
+  UNION ALL
+  SELECT c.script_id, next.id, c.depth + 1 FROM children c
+  JOIN agentprof_tool_calls p ON p.id = c.id
+  JOIN agentprof_tool_calls next ON next.capture_id = p.capture_id AND next.parent_call_id = p.call_id
+  WHERE next.id != p.id AND c.depth < 32
+) SELECT * FROM children;
 `;
 
 export const QUERIES = {

@@ -57,7 +57,7 @@ Flags / env:
   Normal Pi exit finalizes it and prints the trace path to stderr; no manual
   stop is required.
 - `PI_TRACING_STARTUP=off|armed|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,
-  `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=1`.
+  `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=0` (omit tool arguments).
 - `PI_TRACING_CHILD_TOOLS=rig_launch,subagent,my_tool` — override the
   child-agent spawner allowlist (default `rig_launch,subagent`).
 - `PI_SUBAGENT_EXTENSIONS=<paths>` — extra `--extension` flags for
@@ -70,6 +70,35 @@ Config files (schema-validated, never crash startup on malformed input):
 2. `<cwd>/<CONFIG_DIR_NAME>/pi-tracing.json` (project override, only when trusted)
 3. env beats files; CLI flags beat env; live `/tracing categories` beats all for
    the current process. `system: true` is rejected with a "reserved" error.
+
+## Codemode
+
+Pi's codemode needs no extra tracing flag. For example:
+
+```bash
+pi --tracing --tools read,bash,edit,write,codemode
+```
+
+The recorder captures scripts and nested tool calls on **Tools**, with flow
+arrows from the script to each call and `parent_call_id` on children. The
+**Tools → Scripted tool use** table expands to show those calls. Script wall
+time is separate from tool totals and concurrency. Pi records
+`session_labels: ["codemode"]` when the tool is enabled and omits the annotation when the list is
+empty. The UI displays the recorded labels without deriving a tool-mode name.
+The default supports 64 simultaneous calls, including
+scripts; exhausted lanes increment **Lane overflows** and produce a UI warning.
+
+Pi 1.0.0's `models.classify` and `models.generateImages` bypass tool hooks.
+Their streamed lifecycle snapshots provide separate `model-call` spans linked
+to the script. These intervals can include queue time, so they do not contribute
+to model-response speed or busy metrics. Tool-reported model usage contributes
+once to session token counters, without assigning aggregate usage to individual
+model calls. Older Pi versions without these snapshots cannot expose those spans.
+Script source is included with tool arguments by default. Set
+`PI_TRACING_CAPTURE_CONTENTS=0` to omit it.
+
+See [the recorded comparison](../../examples/pi-codemode/README.md) for a verified
+classic/codemode pair and a reproducible recording command.
 
 ## Output
 
@@ -196,11 +225,18 @@ to keep only prompt length. This captures the user/task prompt observed by
 `before_agent_start`, not the system prompt or accumulated conversation.
 Text is capped at 65,536 UTF-16 code units without splitting a surrogate pair;
 `truncated` marks a shortened value and length always describes
-the complete prompt. Other events record names, durations, sizes, and bounded
-key lists by default. `contents` + `captureContents: true` additionally records
-**tool-call arguments only**; tool results and user-bash bodies remain excluded.
-`/tracing status` reports prompt and tool-argument capture separately.
-Bash commands record only a validated
+the complete prompt.
+
+Tool-call arguments are also recorded by default, including bash command lines,
+file paths, edit old/new text, and script source. They are stored on the tool's
+execution span, capped at 65,536 UTF-16 code units across keys and text, 128 values,
+and eight nesting levels. `args_truncated` marks omitted arguments. Set
+`PI_TRACING_CAPTURE_CONTENTS=0`, `captureContents: false` in configuration, or
+`/tracing categories contents off` to keep only argument sizes and key lists.
+Tool results remain excluded. `/tracing status` reports prompt and tool-argument
+capture separately.
+
+Interactive user-bash events (distinct from the agent's bash tool) record only a validated
 executable token plus command length; environment assignments, quoting,
 substitutions, and shell punctuation are redacted.
 

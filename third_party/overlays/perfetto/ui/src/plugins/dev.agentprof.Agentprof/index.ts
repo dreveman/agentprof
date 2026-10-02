@@ -18,6 +18,7 @@ import ProcessThreadGroupsPlugin from '../dev.perfetto.ProcessThreadGroups';
 import {QUERIES, SETUP_SQL} from './queries';
 import {trackDisplayName} from './track_names';
 import {EXAMPLE_TRACE_BASE64} from './example_trace';
+import {CODEMODE_EXAMPLE_TRACE_BASE64} from './codemode_example_trace';
 
 export default class implements PerfettoPlugin {
   static readonly id = 'dev.agentprof.Agentprof';
@@ -25,31 +26,37 @@ export default class implements PerfettoPlugin {
   static readonly dependencies = [QueryPagePlugin, TrackEventPlugin];
 
   static onActivate(app: App): void {
-    const openExample = async () => {
-      const bytes = Uint8Array.from(atob(EXAMPLE_TRACE_BASE64), c => c.charCodeAt(0));
+    const openExample = async (id: string, title: string, base64: string) => {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const trace = await app.openTraceFromBuffer({
         buffer: bytes.buffer,
-        title: 'pi-claude-opus-5',
-        fileName: 'pi-claude-opus-5.pftrace',
+        title,
+        fileName: `${title}.pftrace`,
       });
-      markExample(trace, '1');
+      markExample(trace, id);
       // Reload the bundled fixture on refresh, including regenerated data.
-      app.navigate('#!/agentprof?agentprof_example=1&local_cache_key=');
+      app.navigate(`#!/agentprof?agentprof_example=${id}&local_cache_key=`);
     };
     const commandId = `${devId()}.OpenExample`;
     app.commands.registerCommand({
       id: commandId,
-      name: 'Open pi-claude-opus-5 example',
-      callback: openExample,
+      name: 'Open workflow example',
+      callback: () => openExample('1', 'pi-workflow', EXAMPLE_TRACE_BASE64),
     });
+    const codemodeCommandId = `${devId()}.OpenCodemodeExample`;
+    app.commands.registerCommand({
+      id: codemodeCommandId, name: 'Open direct vs codemode example',
+      callback: () => openExample('codemode', 'pi-direct-vs-codemode', CODEMODE_EXAMPLE_TRACE_BASE64),
+    });
+    app.sidebar.addMenuItem({section: 'trace_files', commandId: codemodeCommandId, icon: 'code', sortOrder: 2.7});
     app.sidebar.addMenuItem({
       section: 'trace_files', commandId, icon: 'smart_toy', sortOrder: 2.6,
     });
     const exampleId = app.initialRouteArgs.agentprof_example;
-    if (exampleId === '1') {
+    if (exampleId === '1' || exampleId === 'codemode') {
       // Clear any old cache key before the startup route handler runs.
-      window.history.replaceState(null, '', '#!/agentprof?agentprof_example=1&local_cache_key=');
-      void app.commands.runCommand(commandId);
+      window.history.replaceState(null, '', `#!/agentprof?agentprof_example=${exampleId}&local_cache_key=`);
+      void app.commands.runCommand(exampleId === '1' ? commandId : codemodeCommandId);
     }
   }
 

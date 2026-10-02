@@ -145,7 +145,7 @@ try {
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-narrow.png'});
   await page.setViewportSize({width: 1440, height: 1000});
   assert.equal(await page.getByRole('button', {name: 'Open Pi comparison example'}).count(), 0);
-  await page.getByRole('button', {name: 'Open pi-claude-opus-5 workflow example'}).click();
+  await page.getByRole('button', {name: 'Open workflow example'}).click();
   await page.getByRole('heading', {name: 'What your trace says about agent activity'}).waitFor({timeout: 60000});
   await page.waitForURL(/agentprof_example=1/);
   const exampleCard = page.locator('.ap-card').filter({has: page.getByRole('heading',
@@ -204,7 +204,7 @@ try {
   await page.getByRole('navigation', {name: 'Main navigation'})
     .getByRole('link', {name: 'Agent Profiler home', exact: true}).click();
   await home().waitFor();
-  await page.getByRole('button', {name: 'Open pi-claude-opus-5 workflow example'}).click();
+  await page.getByRole('button', {name: 'Open workflow example'}).click();
   const overview = () => page.getByRole('heading', {name: 'What your trace says about agent activity'});
   await overview().waitFor({timeout: 60000});
   await page.waitForURL(/agentprof_example=1/);
@@ -668,6 +668,7 @@ try {
   await overview().waitFor();
   await comparison.getByText('parent-model', {exact: true}).waitFor();
   assert.equal(await comparison.locator('tbody tr').count(), 7);
+  assert.deepEqual(await comparison.locator('.ap-session-label').allTextContents(), ['plan', 'sandbox, network-off']);
   const hierarchyGroups = await page.evaluate(() => window.app.trace.currentWorkspace.children.map(n => ({
     name: n.name, collapsed: n.collapsed,
     captures: n.children.map(c => ({name: c.name, collapsed: c.collapsed,
@@ -725,6 +726,73 @@ try {
   assert.equal(await nav().getByRole('link', {name: 'Timeline', exact: true}).count(), 0);
   await page.reload();
   await home().waitFor();
+  await page.getByRole('button', {name: 'Open direct vs codemode example'}).click();
+  await page.waitForURL(/agentprof_example=codemode/);
+  await overview().waitFor({timeout: 60000});
+  await page.locator('.ap-session-summary .ap-session-label').first().waitFor();
+  assert.deepEqual(await page.locator('.ap-session-summary .ap-session-label').allTextContents(), ['codemode']);
+  assert.equal(await page.getByText('Classic', {exact: true}).count(), 0);
+  assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 2);
+  const ciSessions = await page.evaluate(async () => {
+    const result = await window.app.trace.engine.query(`SELECT session, COUNT(*) AS calls
+      FROM agentprof_tool_calls WHERE name = 'ci_get_failure_history' GROUP BY session ORDER BY session`);
+    const calls = [];
+    for (const it = result.iter({}); it.valid(); it.next()) calls.push(Number(it.get('calls')));
+    return calls;
+  });
+  assert.deepEqual(ciSessions, [192, 192], 'Both example sessions audit all 192 CI failures');
+  await page.reload();
+  await overview().waitFor({timeout: 60000});
+  await page.locator('.ap-session-summary .ap-session-label').first().waitFor();
+  assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 2);
+  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.getByRole('heading', {name: 'Scripted tool use', exact: true}).waitFor();
+  await page.locator('.ap-script-row').first().waitFor();
+  assert.equal(await page.locator('.ap-script-row').count(), 3);
+  for (const title of ['Scripted tool use', 'Slow and incomplete calls']) {
+    const card = page.locator('.ap-card').filter({has: page.getByRole('heading', {name: title, exact: true})});
+    assert.equal(await card.getByRole('columnheader', {name: 'Session', exact: true}).count(), 0);
+    assert.equal(await card.getByRole('columnheader', {name: 'Description', exact: true}).count(), 1);
+  }
+  assert.deepEqual(await page.locator('.ap-script-row .ap-tool-description').allTextContents(),
+    ['JavaScript · 11 lines', 'JavaScript · 20 lines', 'JavaScript · 14 lines']);
+  await page.getByRole('button', {name: 'Expand script', exact: true}).first().click();
+  await page.locator('.ap-script-expanded tbody tr').first().waitFor();
+  assert.equal(await page.locator('.ap-script-expanded tbody tr').count(), 4);
+  assert.ok((await page.locator('.ap-script-expanded .ap-tool-description').allTextContents())
+    .every(text => text.includes('nightly-98')));
+  await page.getByRole('button', {name: 'Collapse script', exact: true}).click();
+  await page.locator('.ap-script-row').nth(1).getByRole('button', {name: 'Expand script', exact: true}).click();
+  await page.locator('.ap-script-expanded tbody tr').nth(191).waitFor();
+  assert.equal(await page.locator('.ap-script-expanded tbody tr').count(), 192);
+  await page.screenshot({path: 'artifacts/screenshots/agentprof-codemode.png'});
+  for (const width of [1440, 1100, 760, 390]) {
+    await page.setViewportSize({width, height: 1000});
+    const overflow = await page.locator('.ap-page').evaluate(el => ({
+      page: el.scrollWidth - el.clientWidth,
+      tables: [...el.querySelectorAll('.ap-table-scroll')].map(t => t.scrollWidth - t.clientWidth),
+    }));
+    assert.ok(overflow.page <= 1 && overflow.tables.every(extra => extra <= 1),
+      `Codemode fits ${width}px: ${JSON.stringify(overflow)}`);
+  }
+  await page.setViewportSize({width: 1440, height: 1000});
+  await page.locator('.ap-script-expanded .ap-table-link').first().click();
+  await page.waitForURL(/#!\/viewer.*agentprof_example=codemode/);
+  await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
+  await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/codemode/scripts.pftrace'));
+  await page.locator('.ap-banner').filter({hasText: 'scripts.pftrace'}).waitFor({timeout: 60000});
+  await overview().waitFor({timeout: 60000});
+  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-script-row').first().waitFor();
+  assert.equal(await page.locator('.ap-script-row').count(), 2);
+  assert.equal(await page.locator('.ap-script-row .ap-tool-description').first().textContent(), 'Inspect tracing hooks');
+  assert.equal(await page.locator('.ap-script-row .ap-tool-description').last().textContent(), 'JavaScript · 1 line');
+  await page.getByRole('button', {name: 'Expand script', exact: true}).first().click();
+  await page.locator('.ap-script-expanded .ap-tool-description').first().waitFor();
+  assert.deepEqual(await page.locator('.ap-script-expanded .ap-tool-description').allTextContents(),
+    ['src/index.ts · offset 10 · limit 20', 'pi.on in src']);
+  await page.getByRole('button', {name: 'Expand script', exact: true}).last().click();
+  await page.getByText('No nested calls were recorded.', {exact: true}).waitFor();
   assert.deepEqual(errors, [], 'Browser reported JavaScript errors');
   console.log('PASS browser: real Pi example, recorded-file merge, overview, reload, model/tool drill-down, file import, narrow layout, multi-file and single-file session summaries, model-aware headings, native process labels, shared-process and unattached agents, ordinary trace fallback');
 } catch (error) {

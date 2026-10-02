@@ -17,6 +17,7 @@
   &__hero {
     text-align: center;
   }
+  &__example + &__example {margin-top: 10px;}
   &__logo {
     width: 232px;
     height: 48px;

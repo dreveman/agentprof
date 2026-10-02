@@ -847,7 +847,7 @@ export class Recorder {
   }
 
   beginToolSlice(toolCallId: string, name: string, tNs?: bigint, flowIds?: bigint[],
-    options: {category?: "tools" | "workflow"; annotations?: NormalizedAttrs; deferBegin?: boolean} = {}): number | null {
+    options: {category?: "tools" | "workflow"; kind?: "script" | "model-call"; annotations?: NormalizedAttrs; deferBegin?: boolean} = {}): number | null {
     const category = options.category ?? "tools";
     if (!this.categoryOn(category) || this.tracks === null) return null;
     const lane = this.tracks.lanes.alloc(toolCallId);
@@ -874,7 +874,7 @@ export class Recorder {
       this.tracks.lanes.markDescribed(lane.lane);
     }
     const spanId = this.nextSpanId++;
-    const annotations = {...options.annotations, kind: "tool-execution", call_id: toolCallId, name};
+    const annotations = {...options.annotations, kind: options.kind ?? "tool-execution", call_id: toolCallId, name};
     // Reserve the lane now; child session IDs may only arrive in the result.
     const accepted = options.deferBegin === true || this.enqueueEvent({
       trackUuid: lane.uuid,
@@ -963,6 +963,12 @@ export class Recorder {
     if (span === undefined) return;
     span.updates++;
     span.bytes += Math.max(0, bytes);
+  }
+
+  /** Link a subsequently observed child to this span's original BEGIN. */
+  addBeginFlow(spanId: number, flowId: bigint): void {
+    const begin = this.openSpans.get(spanId)?.deferredBegin;
+    if (begin !== undefined) (begin.flowIds ??= []).push(flowId);
   }
 
   /** Attach observations to an open span; they are written with its END. */

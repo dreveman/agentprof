@@ -47,7 +47,7 @@ jobs:
           npm run check
           npm test
           npm run check:example
-          git diff --exit-code -- third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/example_trace.ts
+          git diff --exit-code -- 'third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/*example_trace.ts'
       - name: Cache Perfetto UI dependencies
         uses: actions/cache@v4
         with:

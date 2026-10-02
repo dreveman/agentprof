@@ -55,6 +55,7 @@ test("Pi exit publishes the trace and reports its path without contaminating JSO
 test('agent tracing tools publish default and requested paths and report state', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-tools-'));
   try {
+    await writeFile(join(dir, 'pi-tracing.json'), '{"finalizeDeadlineMs":5000}\n');
     const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
     const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
     const driver = join(dir, 'driver.ts');
@@ -127,6 +128,104 @@ test('agent tracing tools publish default and requested paths and report state',
 
 const processor = process.env.PERFETTO_TRACE_PROCESSOR;
 const hookTest = processor ? test : test.skip;
+hookTest('codemode hooks link parallel children, preserve errors, and record model-call lifecycle once', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-codemode-'));
+  try {
+    await writeFile(join(dir, 'pi-tracing.json'), '{"finalizeDeadlineMs":5000}\n');
+    const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
+    const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
+    const driver = join(dir, 'driver.ts');
+    await writeFile(driver, `
+      import tracing from ${JSON.stringify(extension)};
+      export default function(pi) {
+        const hooks = new Map();
+        tracing(new Proxy(pi, {get(target, key) {
+          if (key === 'getActiveTools') return () => ['codemode', 'read'];
+          if (key === 'on') return (name, handler) => {
+            hooks.set(name, [...(hooks.get(name) ?? []), handler]); pi.on(name, handler);
+          };
+          return Reflect.get(target, key);
+        }}));
+        pi.registerCommand('codemode-test', {handler: async (_, ctx) => {
+          const emit = async (type, data) => {
+            for (const hook of hooks.get(type) ?? []) await hook({type, ...data}, ctx);
+          };
+          const script = {toolName: 'codemode', toolCallId: 'script', args: {code: 'fixture'}};
+          const start = async tool => {
+            await emit('tool_execution_start', tool);
+            await emit('tool_call', {...tool, input: tool.args});
+          };
+          await start(script);
+          const children = Array.from({length: 12}, (_, n) => ({
+            toolName: 'read', toolCallId: 'script/' + n, parentToolCallId: 'script', args: {path: 'file-' + n},
+          }));
+          for (const child of children) await start(child);
+          const modelCall = {id: 'script/models.classify/1', name: 'models.classify',
+            args: 'fixture/classifier', status: 'running'};
+          const snapshot = async calls => emit('tool_execution_update', {...script,
+            partialResult: {content: [], details: {calls}}});
+          await snapshot([modelCall]); await snapshot([modelCall]);
+          for (const [n, child] of children.entries()) {
+            await emit('tool_result', {...child, isError: n === 0,
+              ...(n === 1 ? {usage: {input: 5, output: 2}} : {})});
+            await emit('tool_execution_end', {...child, isError: n === 0});
+          }
+          await snapshot([{...modelCall, status: 'ok', durationMs: 1}]);
+          await snapshot([{...modelCall, status: 'ok', durationMs: 1}]);
+          await emit('tool_result', {...script, isError: false, usage: {input: 10, output: 3}});
+          await emit('tool_execution_end', {...script, isError: false,
+            result: {details: {calls: [{...modelCall, status: 'ok', durationMs: 1}]}}});
+          const interrupted = {...script, toolCallId: 'interrupted'};
+          await start(interrupted);
+          await emit('tool_execution_update', {...interrupted, partialResult: {details: {
+            calls: [{...modelCall, id: 'interrupted/models.classify/1'}]}}});
+          await emit('tool_execution_end', {...interrupted, isError: true});
+        }});
+      }
+    `);
+    const result = spawnSync('node', [cli, '--no-extensions', '-e', driver, '--no-skills',
+      '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
+      '--tracing', '--mode', 'json', '-p', '/codemode-test'], {cwd: dir, encoding: 'utf8', timeout: 20000,
+      env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
+        PI_TRACING_CAPTURE_CONTENTS: '0'}});
+    expect(result.status, result.stderr).toBe(0);
+    const files = (await readdir(join(dir, 'pi-tracing'))).filter(name => name.endsWith('.pftrace'));
+    expect(files, result.stderr).toHaveLength(1);
+    const trace = join(dir, 'pi-tracing', files[0]!);
+    const imported = spawnSync(processor!, [trace, '-Q', `
+      WITH calls AS (SELECT *, EXTRACT_ARG(arg_set_id, 'debug.call_id') AS call_id,
+        EXTRACT_ARG(arg_set_id, 'debug.parent_call_id') AS parent_call_id FROM slice),
+      samples AS (SELECT t.name, c.value FROM counter c JOIN counter_track t ON c.track_id = t.id)
+      SELECT CASE WHEN
+        (SELECT COUNT(*) FROM calls WHERE name = 'read' AND parent_call_id = 'script' AND dur > 0) = 12
+        AND (SELECT COUNT(*) FROM calls WHERE name = 'codemode'
+          AND EXTRACT_ARG(arg_set_id, 'debug.language') = 'JavaScript'
+          AND EXTRACT_ARG(arg_set_id, 'debug.line_count') = 1) = 2
+        AND NOT EXISTS (SELECT 1 FROM args WHERE key GLOB 'debug.args.*')
+        AND (SELECT COUNT(*) FROM calls WHERE name = 'read' AND EXTRACT_ARG(arg_set_id, 'debug.is_error') = 1) = 1
+        AND (SELECT COUNT(*) FROM calls WHERE name = 'models.classify' AND parent_call_id = 'script') = 1
+        AND (SELECT COUNT(*) FROM calls WHERE name = 'models.classify' AND parent_call_id = 'interrupted'
+          AND EXTRACT_ARG(arg_set_id, 'debug.incomplete') = 1) = 1
+        AND (SELECT COUNT(*) FROM flow f JOIN calls a ON a.id = f.slice_out JOIN calls b ON b.id = f.slice_in
+          WHERE a.call_id = 'script' AND b.name = 'tool-preflight' AND b.parent_call_id = 'script') = 12
+        AND (SELECT COUNT(*) FROM flow f JOIN calls a ON a.id = f.slice_out JOIN calls b ON b.id = f.slice_in
+          WHERE a.name = 'tool-preflight' AND b.name = 'read' AND b.parent_call_id = 'script') = 12
+        AND (SELECT COUNT(*) FROM flow f JOIN calls a ON a.id = f.slice_out JOIN calls b ON b.id = f.slice_in
+          WHERE a.call_id = 'script' AND b.name = 'models.classify') = 1
+        AND (SELECT MAX(value) FROM samples WHERE name = 'Input tokens') = 15
+        AND (SELECT MAX(value) FROM samples WHERE name = 'Output tokens') = 5
+        AND (SELECT MAX(value) FROM samples WHERE name = 'Lane overflows') = 0
+        AND EXISTS (SELECT 1 FROM slice WHERE name = 'profile (1)'
+          AND EXTRACT_ARG(arg_set_id, 'debug.session_labels[0]') = 'codemode')
+        AND NOT EXISTS (SELECT 1 FROM stats WHERE severity = 'error' AND value > 0)
+      THEN 'CODEMODE_OK' ELSE 'FAILED' END AS result`], {encoding: 'utf8'});
+    expect(imported.status, imported.stderr).toBe(0);
+    expect(imported.stdout.trim()).toBe('"result"\n"CODEMODE_OK"');
+  } finally {
+    await rm(dir, {recursive: true, force: true});
+  }
+}, 25000);
+
 hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and preserve capture boundaries', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-hooks-'));
   try {
@@ -184,6 +283,16 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
               result: {content: [{text: '22222222-2222-4222-8222-222222222222'}]}});
           }
           await commands.get('tracing').handler('categories tools on', ctx);
+          for (const [name, args] of [['bash', {command: 'printf ' + 'x'.repeat(6000)}],
+            ['edit', {path: 'file.ts', oldText: 'before', newText: 'after'}]]) {
+            const call = {toolCallId: name + '-details', toolName: name, args};
+            await emit('tool_execution_start', call); await emit('tool_call', {...call, input: args});
+            await emit('tool_execution_end', {...call, isError: false});
+          }
+          await commands.get('tracing').handler('categories contents off', ctx);
+          const hidden = {toolCallId: 'hidden-details', toolName: 'bash', args: {command: 'PRIVATE_COMMAND'}};
+          await emit('tool_execution_start', hidden); await emit('tool_call', {...hidden, input: hidden.args});
+          await emit('tool_execution_end', {...hidden, isError: false});
           await commands.get('tracing').handler('categories contents on', ctx);
           await emit('tool_call', {toolCallId: 'typed', toolName: 'typed-tool',
             input: {count: -2, ratio: 1.25, enabled: false, labels: ['a', 'b']}});
@@ -237,7 +346,7 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
       '--tracing', '--mode', 'json', '-p', '/trace-test'], {
       cwd: dir, encoding: 'utf8', timeout: 15000,
       env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
-        PI_SUBAGENT_TYPE: 'test-child', WORKFLOW_RIG_PROCESS: '', PI_TRACING_CAPTURE_CONTENTS: '1',
+        PI_SUBAGENT_TYPE: 'test-child', WORKFLOW_RIG_PROCESS: '', PI_TRACING_CAPTURE_CONTENTS: undefined,
         DEVMATE_PARENT_SESSION_ID: '11111111-1111-4111-8111-111111111111'},
     });
     expect(result.status, result.stderr).toBe(0);
@@ -325,6 +434,16 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
       NOT EXISTS (SELECT 1 FROM slice WHERE dur < 0)
       THEN 'HOOKS_OK' ELSE 'HOOKS_FAILED' END`);
     query(traces[0]!, `SELECT CASE WHEN
+      (SELECT length(EXTRACT_ARG(arg_set_id, 'debug.args.command')) FROM slice
+        WHERE name = 'bash' AND EXTRACT_ARG(arg_set_id, 'debug.call_id') = 'bash-details') = 6007 AND
+      (SELECT COUNT(*) FROM slice WHERE name = 'edit'
+        AND EXTRACT_ARG(arg_set_id, 'debug.args.path') = 'file.ts'
+        AND EXTRACT_ARG(arg_set_id, 'debug.args.oldText') = 'before'
+        AND EXTRACT_ARG(arg_set_id, 'debug.args.newText') = 'after') = 1 AND
+      NOT EXISTS (SELECT 1 FROM args WHERE display_value LIKE '%PRIVATE_COMMAND%') AND
+      (SELECT COUNT(*) FROM slice WHERE name = 'tool-preflight'
+        AND EXTRACT_ARG(arg_set_id, 'debug.args.command') IS NOT NULL) = 0 AND
+      (SELECT EXTRACT_ARG(arg_set_id, 'debug.args.path') FROM slice WHERE name = 'read') = 'fixture' AND
       (SELECT COUNT(*) FROM slice WHERE name = 'tool-preflight'
         AND EXTRACT_ARG(arg_set_id, 'debug.name') = 'read'
         AND EXTRACT_ARG(arg_set_id, 'debug.bytes') = 18

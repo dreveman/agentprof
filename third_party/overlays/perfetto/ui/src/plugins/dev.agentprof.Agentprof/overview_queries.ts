@@ -5,7 +5,7 @@ import {SESSION_HIERARCHY_SQL} from './session_hierarchy';
 export const OVERVIEW_SETUP_SQL = `
 ${SESSION_HIERARCHY_SQL}
 CREATE PERFETTO TABLE agentprof_configuration AS
-    SELECT capture_id,
+    SELECT capture_id, arg_set_id,
       COALESCE(COALESCE(EXTRACT_ARG(arg_set_id, 'debug.harness'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_harness')), 'Not recorded') AS harness,
       COALESCE(COALESCE(EXTRACT_ARG(arg_set_id, 'debug.provider'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_llm_provider')), 'Not recorded') AS provider,
       COALESCE(COALESCE(EXTRACT_ARG(arg_set_id, 'debug.model'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_llm_model')), 'Not recorded') AS model,
@@ -14,6 +14,14 @@ CREATE PERFETTO TABLE agentprof_configuration AS
     FROM agentprof_slices
     WHERE category = 'pi.metadata' AND (name IN ('tracing', 'tracing-start', 'run-configuration')
       OR name GLOB 'profile ([0-9]*)');
+CREATE PERFETTO TABLE agentprof_session_labels AS
+SELECT capture_id, JSON_GROUP_ARRAY(label) AS session_labels FROM (
+  SELECT DISTINCT c.capture_id, TRIM(a.string_value) AS label
+  FROM agentprof_configuration c JOIN args a USING(arg_set_id)
+  WHERE a.flat_key = 'debug.session_labels' AND a.key GLOB 'debug.session_labels[[]*'
+    AND TRIM(a.string_value) != ''
+  ORDER BY c.capture_id, label
+) GROUP BY capture_id;
 CREATE PERFETTO TABLE agentprof_capture_runs AS
 WITH configuration AS (
     SELECT capture_id, GROUP_CONCAT(DISTINCT harness) AS harness,
@@ -46,7 +54,7 @@ WITH configuration AS (
       (MAX(ts + MAX(dur, 0)) - MIN(ts)) / 1e6 AS duration_ms
     FROM agentprof_slices GROUP BY capture_id, session
   ) SELECT s.*, COALESCE(c.label, SUBSTR(c.recorded_id, 1, 8), 'Legacy capture') AS capture,
-    c.recorded_id, configuration.harness, configuration.provider, configuration.model,
+    c.recorded_id, configuration.harness, configuration.provider, configuration.model, labels.session_labels,
     configuration.effort, configuration.context_window_tokens,
     tokens.input_tokens, tokens.output_tokens,
     COALESCE(capture_peak.peak_context, tokens.peak_context) AS peak_context,
@@ -54,6 +62,7 @@ WITH configuration AS (
       THEN CAST(COALESCE(capture_peak.peak_context, tokens.peak_context) AS DOUBLE)
         / configuration.context_window_tokens END AS context_share
     FROM captures s LEFT JOIN agentprof_captures c USING(capture_id)
+    LEFT JOIN agentprof_session_labels labels USING(capture_id)
     LEFT JOIN configuration USING(capture_id) LEFT JOIN tokens USING(capture_id)
     LEFT JOIN capture_peak USING(capture_id)
     ORDER BY s.start_ts, s.capture_id;
@@ -76,20 +85,24 @@ FROM agentprof_slices WHERE kind = 'assistant-message';
 -- artificial concurrency. Only completed, measured intervals contribute.
 CREATE PERFETTO TABLE agentprof_activity AS
 WITH intervals AS (
-  SELECT ts, ts + dur AS end_ts, 1 AS tools, 0 AS models
+  SELECT ts, ts + dur AS end_ts, 1 AS tools, 0 AS models, 0 AS scripts
   FROM agentprof_slices WHERE kind = 'tool-execution' AND NOT incomplete AND dur > 0
   UNION ALL
-  SELECT message_start_ts, message_start_ts + message_ns, 0, 1 FROM agentprof_messages
+  SELECT message_start_ts, message_start_ts + message_ns, 0, 1, 0 FROM agentprof_messages
   WHERE message_ns > 0 AND NOT incomplete
+  UNION ALL
+  SELECT ts, ts + dur, 0, 0, 1 FROM agentprof_slices
+  WHERE kind IN ('script', 'model-call') AND NOT incomplete AND dur > 0
 ), boundaries AS (
-  SELECT ts, tools, models FROM intervals
-  UNION ALL SELECT end_ts, -tools, -models FROM intervals
+  SELECT ts, tools, models, scripts FROM intervals
+  UNION ALL SELECT end_ts, -tools, -models, -scripts FROM intervals
 ), deltas AS (
-  SELECT ts, SUM(tools) AS tools, SUM(models) AS models FROM boundaries GROUP BY ts
+  SELECT ts, SUM(tools) AS tools, SUM(models) AS models, SUM(scripts) AS scripts FROM boundaries GROUP BY ts
 )
 SELECT ts, LEAD(ts) OVER (ORDER BY ts) - ts AS dur,
   SUM(tools) OVER (ORDER BY ts) AS tools,
-  SUM(models) OVER (ORDER BY ts) AS models
+  SUM(models) OVER (ORDER BY ts) AS models,
+  SUM(scripts) OVER (ORDER BY ts) AS scripts
 FROM deltas;
 `;
 
@@ -111,7 +124,7 @@ function activitySeriesSql(includeSubagents: boolean): string {
     UNION ALL
     SELECT ${capture('s')}, s.ts, s.ts + s.dur
     FROM agentprof_slices s ${hierarchy}
-    WHERE s.kind = 'tool-execution' AND s.dur > 0 AND NOT s.incomplete
+    WHERE s.kind IN ('tool-execution', 'script', 'model-call') AND s.dur > 0 AND NOT s.incomplete
   ), measured AS (
     SELECT DISTINCT capture_id FROM intervals
   ), boundaries AS (
@@ -196,7 +209,7 @@ export const OVERVIEW_QUERIES = {
   ) SELECT t.*, r.session, r.capture, r.recorded_id,
     p.prompt_id, p.prompt_text, token_rates.tokens_per_s,
     model_busy.model_busy_ms, model_busy.peak_model_responses,
-    c.harness, c.provider, c.model, c.model_identities, c.effort
+    c.harness, c.provider, c.model, c.model_identities, c.effort, r.session_labels
     FROM totals t JOIN agentprof_capture_runs r USING(capture_id)
     JOIN configuration c USING(capture_id)
     LEFT JOIN prompts p ON p.capture_id = t.capture_id AND p.prompt_number = 1
@@ -218,6 +231,7 @@ export const OVERVIEW_QUERIES = {
           OR name GLOB 'profile ([0-9]*)'))
     )) AS single_model,
     SUM(kind = 'turn') AS turns, SUM(kind = 'assistant-message') AS responses,
+    SUM(kind = 'script') AS scripts,
     SUM(kind = 'tool-execution') AS tools, SUM(incomplete) AS incomplete,
     (MAX(ts + MAX(dur, 0)) - MIN(ts)) / 1e6 AS duration_ms,
     (SELECT COUNT(DISTINCT COALESCE(t.machine_id, 0)) FROM track t
@@ -238,6 +252,7 @@ export const OVERVIEW_QUERIES = {
     SUM(CASE WHEN tools > 0 AND models = 0 THEN dur ELSE 0 END) / 1e6 AS tools_only_ms,
     SUM(CASE WHEN models > 0 AND tools = 0 THEN dur ELSE 0 END) / 1e6 AS models_only_ms,
     SUM(CASE WHEN models > 0 AND tools > 0 THEN dur ELSE 0 END) / 1e6 AS overlap_ms,
+    SUM(CASE WHEN scripts > 0 AND tools = 0 AND models = 0 THEN dur ELSE 0 END) / 1e6 AS scripts_only_ms,
     MAX(tools) AS peak_tools,
     SUM(CASE WHEN tools > 1 THEN dur ELSE 0 END) / 1e6 AS parallel_ms,
     SUM(CASE WHEN tools > 0 THEN dur ELSE 0 END) / 1e6 AS tool_active_ms
@@ -271,9 +286,19 @@ export const OVERVIEW_QUERIES = {
     SUM(incomplete) AS incomplete
     FROM agentprof_slices WHERE kind = 'tool-execution'
     GROUP BY name ORDER BY work_ms DESC`,
-  slow: `SELECT id, session, name AS tool, dur / 1e6 AS duration_ms, incomplete,
-    COALESCE(EXTRACT_ARG(arg_set_id, 'debug.is_error'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_tool_is_error')) AS is_error
-    FROM agentprof_slices WHERE kind = 'tool-execution' ORDER BY incomplete, dur DESC LIMIT 100`,
+  slow: `SELECT id, name AS tool, dur / 1e6 AS duration_ms, incomplete,
+    is_error, intent, arguments, args_truncated, kind, language, line_count
+    FROM agentprof_tool_calls WHERE kind = 'tool-execution' ORDER BY incomplete, dur DESC LIMIT 100`,
+  scripts: `SELECT p.id, p.name AS script, p.dur / 1e6 AS duration_ms,
+    p.is_error, p.incomplete, p.intent, p.arguments, p.args_truncated, p.kind, p.language, p.line_count, COUNT(c.id) AS calls
+    FROM agentprof_tool_calls p LEFT JOIN agentprof_script_children c ON c.script_id = p.id
+    WHERE p.kind = 'script' GROUP BY p.id ORDER BY p.ts LIMIT 100`,
+  script_calls: `SELECT c.script_id, t.id, t.name AS tool, c.depth,
+    t.kind, t.dur / 1e6 AS duration_ms, t.is_error, t.incomplete, t.intent, t.arguments, t.args_truncated,
+    t.language, t.line_count
+    FROM agentprof_script_children c JOIN agentprof_tool_calls t ON t.id = c.id
+    WHERE c.script_id IN (SELECT id FROM agentprof_tool_calls WHERE kind = 'script' ORDER BY ts LIMIT 100)
+    ORDER BY c.script_id, t.ts, t.id`,
   sessions: `WITH roles AS (
     SELECT capture_id,
       MAX(COALESCE(EXTRACT_ARG(arg_set_id, 'debug.child_role'),
@@ -322,7 +347,7 @@ export const OVERVIEW_QUERIES = {
       WHEN NULLIF(r.subagent_type, '') IS NOT NULL
         THEN 'Subagent · ' || r.subagent_type
       ELSE 'Subagent' END AS role,
-    s.harness, s.provider, s.model, c.model_identities, s.effort,
+    s.harness, s.provider, s.model, c.model_identities, s.effort, s.session_labels,
     s.input_tokens, s.output_tokens, s.peak_context,
     s.context_window_tokens, s.context_share,
     token_rates.tokens_per_s, model_busy.model_busy_ms,
