@@ -694,7 +694,13 @@ try {
   })));
   assert.deepEqual(unattached, [{uri: undefined, name: 'Capture unattached', subtitle: 'Session unattached-agent'}]);
   await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/import-error.pftrace'));
+  await page.locator('.ap-banner').filter({hasText: 'import-error.pftrace'}).waitFor({timeout: 60000});
   await page.locator('.pf-topbar__error-box button').waitFor({timeout: 60000});
+  // The URL's cache key must match the loaded trace before navigating, or
+  // Perfetto treats the click as a request to load a different trace.
+  await page.waitForFunction(
+    () => new URLSearchParams(location.hash.split('?')[1] ?? '').get('local_cache_key') === window.app.trace.traceInfo.uuid,
+    undefined, {timeout: 60000});
   assert.ok(await page.evaluate(() => window.app.trace.traceInfo.importErrors > 0));
   await page.locator('.pf-topbar__error-box button').click();
   await page.waitForURL(/#!\/info/);
