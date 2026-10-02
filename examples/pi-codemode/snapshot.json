@@ -1,0 +1,6917 @@
+{
+  "run_id": "nightly-98",
+  "failures": [
+    {
+      "id": "c52c3f84fc81",
+      "owner": "platform",
+      "test": "platform/integration/case-0078",
+      "duration_ms": 73434,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 24816
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 94908
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 80168
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 20563
+        }
+      ]
+    },
+    {
+      "id": "a7b1345dc257",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0151",
+      "duration_ms": 62620,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 108290
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 7430
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 49711
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 14550
+        }
+      ]
+    },
+    {
+      "id": "03f563e4195d",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0041",
+      "duration_ms": 19844,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 96095
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 15809
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 79359
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 95596
+        }
+      ]
+    },
+    {
+      "id": "3468097a2e11",
+      "owner": "editor",
+      "test": "editor/integration/case-0071",
+      "duration_ms": 6863,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 52248
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 29846
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 38235
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 106163
+        }
+      ]
+    },
+    {
+      "id": "0be6defbf250",
+      "owner": "editor",
+      "test": "editor/integration/case-0126",
+      "duration_ms": 102134,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 26269
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 87366
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 60745
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 79413
+        }
+      ]
+    },
+    {
+      "id": "647c968df9e7",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0099",
+      "duration_ms": 66491,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 20902
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 98467
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 12399
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 101741
+        }
+      ]
+    },
+    {
+      "id": "b6167f8fd158",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0175",
+      "duration_ms": 19924,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 88448
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 36427
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 54024
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 51569
+        }
+      ]
+    },
+    {
+      "id": "fe1bab21583e",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0026",
+      "duration_ms": 30014,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 40646
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 52507
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 93687
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 105148
+        }
+      ]
+    },
+    {
+      "id": "f898a46da87b",
+      "owner": "editor",
+      "test": "editor/integration/case-0061",
+      "duration_ms": 47908,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 72875
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 118640
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 92597
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 98353
+        }
+      ]
+    },
+    {
+      "id": "2f1089a80470",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0005",
+      "duration_ms": 111738,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 107235
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 57225
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 7794
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 26858
+        }
+      ]
+    },
+    {
+      "id": "8d98424353e5",
+      "owner": "platform",
+      "test": "platform/integration/case-0125",
+      "duration_ms": 64305,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 116464
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 67453
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 43285
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 44635
+        }
+      ]
+    },
+    {
+      "id": "4126729b7eea",
+      "owner": "platform",
+      "test": "platform/integration/case-0031",
+      "duration_ms": 79423,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 14093
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 58807
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 118649
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 47377
+        }
+      ]
+    },
+    {
+      "id": "e0470641e7b3",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0010",
+      "duration_ms": 69161,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 59106
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 108003
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 110426
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 56757
+        }
+      ]
+    },
+    {
+      "id": "3604cc9424a3",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0187",
+      "duration_ms": 50032,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 65496
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 103606
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 33976
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 36791
+        }
+      ]
+    },
+    {
+      "id": "30eb467eaa10",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0019",
+      "duration_ms": 16441,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101623
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 65530
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51094
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 14191
+        }
+      ]
+    },
+    {
+      "id": "c4f5c1e91234",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0033",
+      "duration_ms": 27039,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 60199
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 93021
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 112816
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 68091
+        }
+      ]
+    },
+    {
+      "id": "ad0732a163d0",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0072",
+      "duration_ms": 43439,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 50847
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 14959
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 73350
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 115801
+        }
+      ]
+    },
+    {
+      "id": "bd76e38e3db6",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0189",
+      "duration_ms": 53919,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 45622
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 79561
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 114590
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 75037
+        }
+      ]
+    },
+    {
+      "id": "bbf07e8880f3",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0163",
+      "duration_ms": 12816,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 22491
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 65241
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 69714
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 39676
+        }
+      ]
+    },
+    {
+      "id": "4a5a9559d165",
+      "owner": "platform",
+      "test": "platform/integration/case-0047",
+      "duration_ms": 76838,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 90755
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 94899
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 17382
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 31017
+        }
+      ]
+    },
+    {
+      "id": "ab5478426559",
+      "owner": "editor",
+      "test": "editor/integration/case-0069",
+      "duration_ms": 4247,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 70561
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 47533
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 105081
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 117293
+        }
+      ]
+    },
+    {
+      "id": "e2505f55bf9e",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0044",
+      "duration_ms": 60068,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 67760
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 116597
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 33248
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 10485
+        }
+      ]
+    },
+    {
+      "id": "af630451ef7c",
+      "owner": "platform",
+      "test": "platform/integration/case-0097",
+      "duration_ms": 48782,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 8406
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 30961
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 52894
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 93653
+        }
+      ]
+    },
+    {
+      "id": "9747c72f1373",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0181",
+      "duration_ms": 52620,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 32349
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 28637
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 95636
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 66260
+        }
+      ]
+    },
+    {
+      "id": "53c004f632e6",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0034",
+      "duration_ms": 74974,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 83352
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 42948
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 56995
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 93447
+        }
+      ]
+    },
+    {
+      "id": "3f1af1a53173",
+      "owner": "platform",
+      "test": "platform/integration/case-0109",
+      "duration_ms": 115641,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 98823
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 40485
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 78724
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 11501
+        }
+      ]
+    },
+    {
+      "id": "e1f7be9fa747",
+      "owner": "platform",
+      "test": "platform/integration/case-0002",
+      "duration_ms": 81560,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 3079
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 60642
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 15865
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 16006
+        }
+      ]
+    },
+    {
+      "id": "55fc268080a6",
+      "owner": "platform",
+      "test": "platform/integration/case-0063",
+      "duration_ms": 50638,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 38083
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 70234
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51674
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 119721
+        }
+      ]
+    },
+    {
+      "id": "8a66e9bd1145",
+      "owner": "platform",
+      "test": "platform/integration/case-0111",
+      "duration_ms": 44466,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 82794
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 91598
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 94497
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 30425
+        }
+      ]
+    },
+    {
+      "id": "add1926af150",
+      "owner": "platform",
+      "test": "platform/integration/case-0122",
+      "duration_ms": 89798,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 57057
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 108430
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 62800
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 29995
+        }
+      ]
+    },
+    {
+      "id": "5f62804c7bcd",
+      "owner": "editor",
+      "test": "editor/integration/case-0127",
+      "duration_ms": 11192,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 74289
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 92820
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 48621
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 87887
+        }
+      ]
+    },
+    {
+      "id": "98affe857d68",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0147",
+      "duration_ms": 82009,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 19285
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 46144
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 78345
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 12837
+        }
+      ]
+    },
+    {
+      "id": "b1d4ec85f896",
+      "owner": "editor",
+      "test": "editor/integration/case-0049",
+      "duration_ms": 14844,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 51055
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 33037
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 119123
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 34726
+        }
+      ]
+    },
+    {
+      "id": "698adf876ade",
+      "owner": "platform",
+      "test": "platform/integration/case-0025",
+      "duration_ms": 56815,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 65716
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 60684
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 104818
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 67672
+        }
+      ]
+    },
+    {
+      "id": "7c25ece834e4",
+      "owner": "editor",
+      "test": "editor/integration/case-0068",
+      "duration_ms": 45832,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 10913
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 22242
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76751
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 57528
+        }
+      ]
+    },
+    {
+      "id": "ad86b7d909e0",
+      "owner": "editor",
+      "test": "editor/integration/case-0120",
+      "duration_ms": 99515,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101324
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 4431
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 48580
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 97882
+        }
+      ]
+    },
+    {
+      "id": "f7bda0fa4362",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0009",
+      "duration_ms": 79486,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 24396
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 5515
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 64540
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 55827
+        }
+      ]
+    },
+    {
+      "id": "4b7cd9821088",
+      "owner": "editor",
+      "test": "editor/integration/case-0020",
+      "duration_ms": 79500,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 55824
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 27330
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 15075
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 55147
+        }
+      ]
+    },
+    {
+      "id": "5c4768030ef3",
+      "owner": "editor",
+      "test": "editor/integration/case-0059",
+      "duration_ms": 5911,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 100214
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 94010
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 101910
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 29320
+        }
+      ]
+    },
+    {
+      "id": "b5b0f6bc8542",
+      "owner": "editor",
+      "test": "editor/integration/case-0003",
+      "duration_ms": 95900,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 77285
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 46249
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 65813
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 106419
+        }
+      ]
+    },
+    {
+      "id": "a37285c5a9a5",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0143",
+      "duration_ms": 31207,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 50197
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 87889
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 21071
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 99884
+        }
+      ]
+    },
+    {
+      "id": "6645bbfc6eac",
+      "owner": "editor",
+      "test": "editor/integration/case-0074",
+      "duration_ms": 72482,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 92738
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 44574
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 21679
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 80015
+        }
+      ]
+    },
+    {
+      "id": "ec14f17714f2",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0085",
+      "duration_ms": 98448,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 3003
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 102742
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76804
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 47521
+        }
+      ]
+    },
+    {
+      "id": "b3b4391c1e1c",
+      "owner": "editor",
+      "test": "editor/integration/case-0106",
+      "duration_ms": 63277,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 5883
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 43181
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 116436
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 107435
+        }
+      ]
+    },
+    {
+      "id": "c8c03d43d012",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0012",
+      "duration_ms": 59594,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 117853
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 18528
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 112286
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 92259
+        }
+      ]
+    },
+    {
+      "id": "83445ee46239",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0185",
+      "duration_ms": 96411,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 91956
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 77657
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 85804
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 9948
+        }
+      ]
+    },
+    {
+      "id": "44eef6bb004d",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0015",
+      "duration_ms": 52185,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 96620
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 72575
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 91151
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 98905
+        }
+      ]
+    },
+    {
+      "id": "6b297080b4e0",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0013",
+      "duration_ms": 116862,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 33376
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 117786
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 69842
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 48640
+        }
+      ]
+    },
+    {
+      "id": "6c70a61e51f9",
+      "owner": "platform",
+      "test": "platform/integration/case-0168",
+      "duration_ms": 118156,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 104635
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 109872
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 103188
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 51775
+        }
+      ]
+    },
+    {
+      "id": "220e9c880371",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0146",
+      "duration_ms": 78906,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 97682
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 30329
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76049
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 71997
+        }
+      ]
+    },
+    {
+      "id": "8aca0ab88846",
+      "owner": "platform",
+      "test": "platform/integration/case-0100",
+      "duration_ms": 10767,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 57873
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 110771
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 110251
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 34827
+        }
+      ]
+    },
+    {
+      "id": "b7cf4aa9444a",
+      "owner": "editor",
+      "test": "editor/integration/case-0155",
+      "duration_ms": 67227,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 95713
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 63311
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 97691
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 75681
+        }
+      ]
+    },
+    {
+      "id": "6f3549a1f0da",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0102",
+      "duration_ms": 84644,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 108940
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 18272
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 32280
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 93699
+        }
+      ]
+    },
+    {
+      "id": "bd7fb9c4ba5a",
+      "owner": "editor",
+      "test": "editor/integration/case-0021",
+      "duration_ms": 76992,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 100470
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 35732
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 20918
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 5654
+        }
+      ]
+    },
+    {
+      "id": "ac2208e06917",
+      "owner": "platform",
+      "test": "platform/integration/case-0006",
+      "duration_ms": 43092,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 13770
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 99817
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 116653
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 108454
+        }
+      ]
+    },
+    {
+      "id": "9f674d9addb5",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0011",
+      "duration_ms": 46794,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 24426
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 57504
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 68345
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 3972
+        }
+      ]
+    },
+    {
+      "id": "833cfc476e50",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0067",
+      "duration_ms": 35331,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 37770
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 90064
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 35104
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 119846
+        }
+      ]
+    },
+    {
+      "id": "c2c0841e3354",
+      "owner": "platform",
+      "test": "platform/integration/case-0101",
+      "duration_ms": 1372,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 18462
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 25722
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 40549
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 23167
+        }
+      ]
+    },
+    {
+      "id": "1db02524996e",
+      "owner": "platform",
+      "test": "platform/integration/case-0052",
+      "duration_ms": 102555,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 94805
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 102509
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 20625
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 66300
+        }
+      ]
+    },
+    {
+      "id": "eb78dc44fbf6",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0182",
+      "duration_ms": 85214,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 77775
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 71352
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 90107
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 3192
+        }
+      ]
+    },
+    {
+      "id": "868395b8586d",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0065",
+      "duration_ms": 37423,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 90887
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 81224
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 44266
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 49234
+        }
+      ]
+    },
+    {
+      "id": "80dd1ae1240b",
+      "owner": "platform",
+      "test": "platform/integration/case-0173",
+      "duration_ms": 56959,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 119857
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 105252
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 90481
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 59363
+        }
+      ]
+    },
+    {
+      "id": "a1221ec792ed",
+      "owner": "platform",
+      "test": "platform/integration/case-0132",
+      "duration_ms": 10508,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 35437
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 25801
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 26217
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 101835
+        }
+      ]
+    },
+    {
+      "id": "7e25e386fb6d",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0133",
+      "duration_ms": 91478,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 44420
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 43264
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 48419
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 36394
+        }
+      ]
+    },
+    {
+      "id": "ea6328e0d0df",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0124",
+      "duration_ms": 2586,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 22176
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 54375
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 91831
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 33415
+        }
+      ]
+    },
+    {
+      "id": "d50600c9aca1",
+      "owner": "platform",
+      "test": "platform/integration/case-0184",
+      "duration_ms": 69736,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 80593
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 85710
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51645
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 23020
+        }
+      ]
+    },
+    {
+      "id": "0046acbad83f",
+      "owner": "platform",
+      "test": "platform/integration/case-0160",
+      "duration_ms": 35741,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 44950
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 91785
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 75148
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 30319
+        }
+      ]
+    },
+    {
+      "id": "65e3992a9025",
+      "owner": "platform",
+      "test": "platform/integration/case-0084",
+      "duration_ms": 101188,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 66529
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 74693
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 9163
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 109325
+        }
+      ]
+    },
+    {
+      "id": "44287edde3c6",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0178",
+      "duration_ms": 118011,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 3146
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 49433
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 16847
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 110122
+        }
+      ]
+    },
+    {
+      "id": "1168cafe6ab5",
+      "owner": "editor",
+      "test": "editor/integration/case-0128",
+      "duration_ms": 47849,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 28625
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 71676
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 73541
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 90236
+        }
+      ]
+    },
+    {
+      "id": "4c3798ab0859",
+      "owner": "platform",
+      "test": "platform/integration/case-0017",
+      "duration_ms": 72172,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 26262
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 49562
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 95375
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 64184
+        }
+      ]
+    },
+    {
+      "id": "aa5feb7d7b97",
+      "owner": "editor",
+      "test": "editor/integration/case-0027",
+      "duration_ms": 113685,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 73096
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 85639
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 52315
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 33228
+        }
+      ]
+    },
+    {
+      "id": "ebe543664dbc",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0057",
+      "duration_ms": 16640,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 70974
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 51418
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 93736
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 100340
+        }
+      ]
+    },
+    {
+      "id": "6f7634ea4dd9",
+      "owner": "platform",
+      "test": "platform/integration/case-0090",
+      "duration_ms": 28974,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 47229
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 98067
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 2719
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 69864
+        }
+      ]
+    },
+    {
+      "id": "abb665616beb",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0086",
+      "duration_ms": 90348,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 104779
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 114002
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 22619
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 68319
+        }
+      ]
+    },
+    {
+      "id": "41d684cad882",
+      "owner": "platform",
+      "test": "platform/integration/case-0113",
+      "duration_ms": 35297,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 74946
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 10302
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 78583
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 69034
+        }
+      ]
+    },
+    {
+      "id": "8358222436e4",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0169",
+      "duration_ms": 99588,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 2847
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 115780
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 11933
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 29337
+        }
+      ]
+    },
+    {
+      "id": "2ccdd92c95ef",
+      "owner": "platform",
+      "test": "platform/integration/case-0118",
+      "duration_ms": 88718,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 17619
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 53172
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 3607
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 68759
+        }
+      ]
+    },
+    {
+      "id": "3f072a16051e",
+      "owner": "editor",
+      "test": "editor/integration/case-0008",
+      "duration_ms": 107956,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 1013
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 22079
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 89326
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 12050
+        }
+      ]
+    },
+    {
+      "id": "feb96230b099",
+      "owner": "editor",
+      "test": "editor/integration/case-0121",
+      "duration_ms": 95637,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 43744
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 69782
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 63274
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 12239
+        }
+      ]
+    },
+    {
+      "id": "dd4b077df872",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0056",
+      "duration_ms": 59300,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 114159
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 116827
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 59767
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 93931
+        }
+      ]
+    },
+    {
+      "id": "665a0e767adc",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0117",
+      "duration_ms": 116356,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 13848
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 102015
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 75234
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 82265
+        }
+      ]
+    },
+    {
+      "id": "5d85af6e83df",
+      "owner": "platform",
+      "test": "platform/integration/case-0079",
+      "duration_ms": 74739,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 65120
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 116722
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 57610
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 22735
+        }
+      ]
+    },
+    {
+      "id": "e156ef8038ef",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0095",
+      "duration_ms": 107231,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 113574
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 9308
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 113539
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 11821
+        }
+      ]
+    },
+    {
+      "id": "c0d3791d8c8b",
+      "owner": "editor",
+      "test": "editor/integration/case-0140",
+      "duration_ms": 74696,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 80843
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 50094
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51077
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 95255
+        }
+      ]
+    },
+    {
+      "id": "ec5936f45b83",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0105",
+      "duration_ms": 98876,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 88322
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 22095
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 14256
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 64519
+        }
+      ]
+    },
+    {
+      "id": "389dc80c8a83",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0108",
+      "duration_ms": 62216,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 109776
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 118802
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 86582
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 21521
+        }
+      ]
+    },
+    {
+      "id": "90e2e2ed5fac",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0064",
+      "duration_ms": 57154,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 108163
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 7142
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 56261
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 70082
+        }
+      ]
+    },
+    {
+      "id": "d0109f55f45c",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0191",
+      "duration_ms": 16727,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 19631
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 85266
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 107556
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 5825
+        }
+      ]
+    },
+    {
+      "id": "ba917d814d95",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0038",
+      "duration_ms": 32382,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101339
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 21802
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 98767
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 119743
+        }
+      ]
+    },
+    {
+      "id": "15fc3fc76818",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0053",
+      "duration_ms": 103646,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 100247
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 94021
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 55693
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 61446
+        }
+      ]
+    },
+    {
+      "id": "7046e5728382",
+      "owner": "platform",
+      "test": "platform/integration/case-0081",
+      "duration_ms": 21023,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 100006
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 8151
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 78841
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 32746
+        }
+      ]
+    },
+    {
+      "id": "95681303927a",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0157",
+      "duration_ms": 41938,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 117958
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 27274
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 54322
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 95140
+        }
+      ]
+    },
+    {
+      "id": "4e1167ffa256",
+      "owner": "platform",
+      "test": "platform/integration/case-0000",
+      "duration_ms": 90676,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 40780
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 53778
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 22575
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 99119
+        }
+      ]
+    },
+    {
+      "id": "0ebf2d1397f3",
+      "owner": "platform",
+      "test": "platform/integration/case-0145",
+      "duration_ms": 32725,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 114003
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 100006
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 69999
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 84261
+        }
+      ]
+    },
+    {
+      "id": "7aa9f9b199ed",
+      "owner": "platform",
+      "test": "platform/integration/case-0183",
+      "duration_ms": 119169,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 55894
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 56196
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 20883
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 70233
+        }
+      ]
+    },
+    {
+      "id": "6c50a1ff89bc",
+      "owner": "editor",
+      "test": "editor/integration/case-0030",
+      "duration_ms": 118906,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 21300
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 47109
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 41743
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 51879
+        }
+      ]
+    },
+    {
+      "id": "e3fbede3f1cc",
+      "owner": "platform",
+      "test": "platform/integration/case-0055",
+      "duration_ms": 81982,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 77154
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 41205
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 56624
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 55196
+        }
+      ]
+    },
+    {
+      "id": "86f4399281bc",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0112",
+      "duration_ms": 81420,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 14678
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 77212
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 96597
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 96486
+        }
+      ]
+    },
+    {
+      "id": "eea727dae26c",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0110",
+      "duration_ms": 51356,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 82676
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 15519
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 9085
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 98189
+        }
+      ]
+    },
+    {
+      "id": "bfd0b7575e63",
+      "owner": "platform",
+      "test": "platform/integration/case-0123",
+      "duration_ms": 59473,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 9214
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 57597
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 62175
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 49501
+        }
+      ]
+    },
+    {
+      "id": "9f2efb0effa7",
+      "owner": "editor",
+      "test": "editor/integration/case-0089",
+      "duration_ms": 115490,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 98027
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 12531
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 36282
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 85225
+        }
+      ]
+    },
+    {
+      "id": "f43b2b426c42",
+      "owner": "editor",
+      "test": "editor/integration/case-0170",
+      "duration_ms": 84094,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 8124
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 24686
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 109841
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 12911
+        }
+      ]
+    },
+    {
+      "id": "476fa2c3530e",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0073",
+      "duration_ms": 13546,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 58899
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 88153
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 99671
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 48155
+        }
+      ]
+    },
+    {
+      "id": "eeb1dac3a462",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0024",
+      "duration_ms": 100091,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 29921
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 88908
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 115862
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 31857
+        }
+      ]
+    },
+    {
+      "id": "856d50d4bb4e",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0190",
+      "duration_ms": 33246,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 113332
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 26939
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 117825
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 81098
+        }
+      ]
+    },
+    {
+      "id": "9e03e8866778",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0066",
+      "duration_ms": 65436,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 20304
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 38298
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 34278
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 55045
+        }
+      ]
+    },
+    {
+      "id": "a274ff77dc17",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0048",
+      "duration_ms": 74441,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 64836
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 64168
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76102
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 77050
+        }
+      ]
+    },
+    {
+      "id": "6d3e06b29866",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0142",
+      "duration_ms": 88813,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 25159
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 117731
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 70884
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 48026
+        }
+      ]
+    },
+    {
+      "id": "d6f80ce81357",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0058",
+      "duration_ms": 112870,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 50578
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 104306
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 18123
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 88974
+        }
+      ]
+    },
+    {
+      "id": "be2d1edabff8",
+      "owner": "editor",
+      "test": "editor/integration/case-0174",
+      "duration_ms": 98188,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 32808
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 36681
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 108918
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 98398
+        }
+      ]
+    },
+    {
+      "id": "261b65cbd171",
+      "owner": "platform",
+      "test": "platform/integration/case-0154",
+      "duration_ms": 85277,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 20311
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 21901
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 69976
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 44542
+        }
+      ]
+    },
+    {
+      "id": "a7e95d709831",
+      "owner": "editor",
+      "test": "editor/integration/case-0162",
+      "duration_ms": 4941,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 62711
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 3057
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 36560
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 61733
+        }
+      ]
+    },
+    {
+      "id": "c4aaba841dbd",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0135",
+      "duration_ms": 99025,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 68889
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 98346
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 70355
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 17000
+        }
+      ]
+    },
+    {
+      "id": "91b9db2a6ce9",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0171",
+      "duration_ms": 76910,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101028
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 113652
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 70209
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 37226
+        }
+      ]
+    },
+    {
+      "id": "45a0605c0206",
+      "owner": "platform",
+      "test": "platform/integration/case-0092",
+      "duration_ms": 82672,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 56990
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 48027
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 73961
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 8556
+        }
+      ]
+    },
+    {
+      "id": "cf347679475e",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0103",
+      "duration_ms": 80889,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 72245
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 9088
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 63779
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 116859
+        }
+      ]
+    },
+    {
+      "id": "29a95ddf0053",
+      "owner": "platform",
+      "test": "platform/integration/case-0018",
+      "duration_ms": 28125,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 55439
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 60278
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 5321
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 51576
+        }
+      ]
+    },
+    {
+      "id": "5078f770c7d5",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0001",
+      "duration_ms": 101398,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 103088
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 71070
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 106787
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 91082
+        }
+      ]
+    },
+    {
+      "id": "9167db9dc791",
+      "owner": "platform",
+      "test": "platform/integration/case-0134",
+      "duration_ms": 65356,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 65236
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 38014
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 29465
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 67723
+        }
+      ]
+    },
+    {
+      "id": "e2904559c7fc",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0043",
+      "duration_ms": 41136,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 39764
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 104269
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 48892
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 48524
+        }
+      ]
+    },
+    {
+      "id": "94bf4a6b7bd3",
+      "owner": "editor",
+      "test": "editor/integration/case-0161",
+      "duration_ms": 80385,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 111614
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 54418
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 26501
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 105641
+        }
+      ]
+    },
+    {
+      "id": "c895cd41a809",
+      "owner": "editor",
+      "test": "editor/integration/case-0172",
+      "duration_ms": 44814,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 43985
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 42502
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 109020
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 2891
+        }
+      ]
+    },
+    {
+      "id": "bb22e505b77d",
+      "owner": "platform",
+      "test": "platform/integration/case-0007",
+      "duration_ms": 45013,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 10555
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 11381
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 83100
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 119711
+        }
+      ]
+    },
+    {
+      "id": "75f7c47f2265",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0130",
+      "duration_ms": 82781,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 109277
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 11933
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 32020
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 71792
+        }
+      ]
+    },
+    {
+      "id": "38b452985480",
+      "owner": "platform",
+      "test": "platform/integration/case-0022",
+      "duration_ms": 72688,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 112615
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 103092
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 4475
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 97473
+        }
+      ]
+    },
+    {
+      "id": "05c680fe4e5b",
+      "owner": "editor",
+      "test": "editor/integration/case-0042",
+      "duration_ms": 88114,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 68679
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 1348
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 21991
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 89205
+        }
+      ]
+    },
+    {
+      "id": "50bade5dcc04",
+      "owner": "editor",
+      "test": "editor/integration/case-0050",
+      "duration_ms": 20077,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 51105
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 9518
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 98696
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 107241
+        }
+      ]
+    },
+    {
+      "id": "2a027e60fda3",
+      "owner": "editor",
+      "test": "editor/integration/case-0080",
+      "duration_ms": 81665,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 43851
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 104391
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 103053
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 71915
+        }
+      ]
+    },
+    {
+      "id": "dfef470c9cb0",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0093",
+      "duration_ms": 48476,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 119449
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 34525
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 1455
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 72341
+        }
+      ]
+    },
+    {
+      "id": "ed5bdb8b86c6",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0076",
+      "duration_ms": 3276,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 48700
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 1298
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 84578
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 114492
+        }
+      ]
+    },
+    {
+      "id": "0e7aeb294b49",
+      "owner": "editor",
+      "test": "editor/integration/case-0045",
+      "duration_ms": 11667,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 7071
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 60466
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 114257
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 118618
+        }
+      ]
+    },
+    {
+      "id": "be9e22070100",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0014",
+      "duration_ms": 10793,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 35234
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 106043
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 97752
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 42003
+        }
+      ]
+    },
+    {
+      "id": "198fa3a02d9b",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0035",
+      "duration_ms": 46211,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 119973
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 6356
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 109366
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 65727
+        }
+      ]
+    },
+    {
+      "id": "092d3f8b0f7b",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0037",
+      "duration_ms": 33286,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 88773
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 111752
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 42403
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 103261
+        }
+      ]
+    },
+    {
+      "id": "4228f5e77e50",
+      "owner": "editor",
+      "test": "editor/integration/case-0141",
+      "duration_ms": 110852,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 108742
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 90432
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 96018
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 8678
+        }
+      ]
+    },
+    {
+      "id": "72644df46627",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0088",
+      "duration_ms": 46454,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 56568
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 17417
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 85216
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 47412
+        }
+      ]
+    },
+    {
+      "id": "544b407037d2",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0177",
+      "duration_ms": 93334,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 84028
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 91721
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 42458
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 21648
+        }
+      ]
+    },
+    {
+      "id": "a0ec95fc8283",
+      "owner": "editor",
+      "test": "editor/integration/case-0075",
+      "duration_ms": 91489,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 5723
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 38275
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 2468
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 53016
+        }
+      ]
+    },
+    {
+      "id": "d7c69022b6f3",
+      "owner": "platform",
+      "test": "platform/integration/case-0054",
+      "duration_ms": 12300,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 64366
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 81455
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 57153
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 32875
+        }
+      ]
+    },
+    {
+      "id": "080a8143bc4b",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0176",
+      "duration_ms": 108159,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 113324
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 60424
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 45146
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 118364
+        }
+      ]
+    },
+    {
+      "id": "cfb8d4bf553f",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0148",
+      "duration_ms": 27093,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 20939
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 50340
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 119195
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 1376
+        }
+      ]
+    },
+    {
+      "id": "b950c378aacc",
+      "owner": "platform",
+      "test": "platform/integration/case-0070",
+      "duration_ms": 9483,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 56551
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 8656
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 119507
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 82938
+        }
+      ]
+    },
+    {
+      "id": "8e985a3593f6",
+      "owner": "editor",
+      "test": "editor/integration/case-0166",
+      "duration_ms": 94413,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 90010
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 26364
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 2456
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 100838
+        }
+      ]
+    },
+    {
+      "id": "d22eef1a51aa",
+      "owner": "editor",
+      "test": "editor/integration/case-0028",
+      "duration_ms": 10126,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 45922
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 39879
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 72325
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 21640
+        }
+      ]
+    },
+    {
+      "id": "9f423c548f09",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0036",
+      "duration_ms": 46581,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 73460
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 83638
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 99350
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 62640
+        }
+      ]
+    },
+    {
+      "id": "ae3d5e8f4c4a",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0119",
+      "duration_ms": 83538,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 11684
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 104693
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 18542
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 29819
+        }
+      ]
+    },
+    {
+      "id": "173ee440c35c",
+      "owner": "editor",
+      "test": "editor/integration/case-0029",
+      "duration_ms": 53749,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 33250
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 42258
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 9044
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 2049
+        }
+      ]
+    },
+    {
+      "id": "ab2cb55debc7",
+      "owner": "editor",
+      "test": "editor/integration/case-0179",
+      "duration_ms": 20778,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 111596
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 63365
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 11659
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 87239
+        }
+      ]
+    },
+    {
+      "id": "bd2fad2a0ce2",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0136",
+      "duration_ms": 108567,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 109322
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 59867
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 19786
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 54276
+        }
+      ]
+    },
+    {
+      "id": "38c84a7f7b7e",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0153",
+      "duration_ms": 26349,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 22768
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 35745
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 45839
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 11726
+        }
+      ]
+    },
+    {
+      "id": "4de7d63ffbc2",
+      "owner": "editor",
+      "test": "editor/integration/case-0139",
+      "duration_ms": 39846,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 62901
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 114542
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 14528
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 30779
+        }
+      ]
+    },
+    {
+      "id": "53458ed7af3d",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0040",
+      "duration_ms": 116349,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 89593
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 44378
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 44463
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 77095
+        }
+      ]
+    },
+    {
+      "id": "eeb69f79a6a5",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0150",
+      "duration_ms": 87654,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 1120
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 36460
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 28030
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 73491
+        }
+      ]
+    },
+    {
+      "id": "8ce9aea6af30",
+      "owner": "platform",
+      "test": "platform/integration/case-0116",
+      "duration_ms": 99634,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 31089
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 78858
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 7352
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 66551
+        }
+      ]
+    },
+    {
+      "id": "d3ff8baf6aa7",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0098",
+      "duration_ms": 14334,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 62306
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 31306
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 86723
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 102346
+        }
+      ]
+    },
+    {
+      "id": "7a389732ae62",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0016",
+      "duration_ms": 30619,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 74611
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 22790
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 114171
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 18962
+        }
+      ]
+    },
+    {
+      "id": "e73165322755",
+      "owner": "editor",
+      "test": "editor/integration/case-0167",
+      "duration_ms": 94720,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 22155
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 27264
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 16111
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 104789
+        }
+      ]
+    },
+    {
+      "id": "fcb665132312",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0094",
+      "duration_ms": 60494,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 118866
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 50630
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 20809
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 57163
+        }
+      ]
+    },
+    {
+      "id": "2c97e511e678",
+      "owner": "editor",
+      "test": "editor/integration/case-0138",
+      "duration_ms": 75070,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 36198
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 32836
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 43854
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 116560
+        }
+      ]
+    },
+    {
+      "id": "e72aa2cfdb2a",
+      "owner": "editor",
+      "test": "editor/integration/case-0062",
+      "duration_ms": 76701,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 6964
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 10266
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 84954
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 112034
+        }
+      ]
+    },
+    {
+      "id": "6537730d1114",
+      "owner": "platform",
+      "test": "platform/integration/case-0104",
+      "duration_ms": 58186,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 103543
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 100415
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 119951
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 110169
+        }
+      ]
+    },
+    {
+      "id": "ce35b8741e53",
+      "owner": "platform",
+      "test": "platform/integration/case-0144",
+      "duration_ms": 46575,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 96869
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 100958
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 52225
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 90803
+        }
+      ]
+    },
+    {
+      "id": "be63ae2cbd63",
+      "owner": "editor",
+      "test": "editor/integration/case-0046",
+      "duration_ms": 98658,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 17821
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 68082
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 105835
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 69653
+        }
+      ]
+    },
+    {
+      "id": "86c1bd1bb9a2",
+      "owner": "editor",
+      "test": "editor/integration/case-0156",
+      "duration_ms": 17348,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 17735
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 34922
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 112688
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 89386
+        }
+      ]
+    },
+    {
+      "id": "7c9229ba74f1",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0077",
+      "duration_ms": 83266,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 40775
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 101308
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 106114
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 68652
+        }
+      ]
+    },
+    {
+      "id": "63af4cc7cf7b",
+      "owner": "editor",
+      "test": "editor/integration/case-0091",
+      "duration_ms": 102597,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 66881
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 119486
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 108258
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 81885
+        }
+      ]
+    },
+    {
+      "id": "c63c3918dd10",
+      "owner": "platform",
+      "test": "platform/integration/case-0188",
+      "duration_ms": 21238,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101797
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 7332
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 90954
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 45597
+        }
+      ]
+    },
+    {
+      "id": "2dd76c3df7af",
+      "owner": "editor",
+      "test": "editor/integration/case-0051",
+      "duration_ms": 112061,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 84800
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 7476
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 113310
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 116089
+        }
+      ]
+    },
+    {
+      "id": "47cd3b4c24a3",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0129",
+      "duration_ms": 14321,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 19940
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 46463
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 105726
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 99680
+        }
+      ]
+    },
+    {
+      "id": "fa886e58f325",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0082",
+      "duration_ms": 78692,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 6181
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 84622
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 18129
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 65336
+        }
+      ]
+    },
+    {
+      "id": "eaa887264f92",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0165",
+      "duration_ms": 36414,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 86408
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 75141
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51026
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 28929
+        }
+      ]
+    },
+    {
+      "id": "5a01f690331c",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0023",
+      "duration_ms": 37808,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 105600
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 95698
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 11348
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 36352
+        }
+      ]
+    },
+    {
+      "id": "c0563ef8b454",
+      "owner": "platform",
+      "test": "platform/integration/case-0107",
+      "duration_ms": 74955,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 14168
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 77727
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 39622
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 85943
+        }
+      ]
+    },
+    {
+      "id": "24e9ba4543c5",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0186",
+      "duration_ms": 63645,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 98517
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 36679
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 14504
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 24415
+        }
+      ]
+    },
+    {
+      "id": "903dd25df170",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0180",
+      "duration_ms": 50182,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 90697
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 56321
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 53590
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 91020
+        }
+      ]
+    },
+    {
+      "id": "a9cd66f79789",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0087",
+      "duration_ms": 93290,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 79431
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 65976
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76009
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 97777
+        }
+      ]
+    },
+    {
+      "id": "44b7c755b1ae",
+      "owner": "platform",
+      "test": "platform/integration/case-0096",
+      "duration_ms": 117391,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 105039
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 14282
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 101065
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 41226
+        }
+      ]
+    },
+    {
+      "id": "ea5baa7c6dda",
+      "owner": "runtime",
+      "test": "runtime/integration/case-0152",
+      "duration_ms": 43766,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 53292
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 19677
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 11726
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 28530
+        }
+      ]
+    },
+    {
+      "id": "5cdf8fac9877",
+      "owner": "editor",
+      "test": "editor/integration/case-0164",
+      "duration_ms": 93596,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 98160
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 20379
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 51457
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 15208
+        }
+      ]
+    },
+    {
+      "id": "c1a5199f2cb3",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0039",
+      "duration_ms": 94098,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 101471
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 25013
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 42253
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 43058
+        }
+      ]
+    },
+    {
+      "id": "ae7eb8ec7f47",
+      "owner": "editor",
+      "test": "editor/integration/case-0131",
+      "duration_ms": 7306,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 56566
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 86222
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 60772
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 3062
+        }
+      ]
+    },
+    {
+      "id": "500bc9450dfa",
+      "owner": "editor",
+      "test": "editor/integration/case-0032",
+      "duration_ms": 91819,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 17797
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 38521
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 76964
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 14145
+        }
+      ]
+    },
+    {
+      "id": "0f98da6177dd",
+      "owner": "editor",
+      "test": "editor/integration/case-0060",
+      "duration_ms": 77759,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 53549
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 82821
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 52917
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 61764
+        }
+      ]
+    },
+    {
+      "id": "a066c738a1f2",
+      "owner": "platform",
+      "test": "platform/integration/case-0115",
+      "duration_ms": 55446,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 116020
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 15094
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 48513
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 73235
+        }
+      ]
+    },
+    {
+      "id": "a3a4399480ee",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0083",
+      "duration_ms": 87994,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 77989
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 107588
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 12749
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 75034
+        }
+      ]
+    },
+    {
+      "id": "e55e02e246d4",
+      "owner": "editor",
+      "test": "editor/integration/case-0004",
+      "duration_ms": 88467,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 92414
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 66994
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 20441
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 100836
+        }
+      ]
+    },
+    {
+      "id": "d2967b8d20e6",
+      "owner": "editor",
+      "test": "editor/integration/case-0114",
+      "duration_ms": 85031,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 68654
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 33297
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 116606
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 116765
+        }
+      ]
+    },
+    {
+      "id": "254af5805686",
+      "owner": "platform",
+      "test": "platform/integration/case-0149",
+      "duration_ms": 28929,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 86993
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "failed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 88306
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "passed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 84540
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 40144
+        }
+      ]
+    },
+    {
+      "id": "c05cb189e17f",
+      "owner": "compiler",
+      "test": "compiler/integration/case-0137",
+      "duration_ms": 50394,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 105962
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 88283
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 95181
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 30502
+        }
+      ]
+    },
+    {
+      "id": "75d89ab403f7",
+      "owner": "editor",
+      "test": "editor/integration/case-0158",
+      "duration_ms": 44389,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "passed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 91505
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 78690
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 111639
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "passed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 81447
+        }
+      ]
+    },
+    {
+      "id": "9e592a814dc4",
+      "owner": "editor",
+      "test": "editor/integration/case-0159",
+      "duration_ms": 116041,
+      "history": [
+        {
+          "run_id": "nightly-97",
+          "commit": "cd9618a27332",
+          "conclusion": "failed",
+          "started_at": "2026-09-29T00:00:00+00:00",
+          "duration_ms": 65053
+        },
+        {
+          "run_id": "nightly-96",
+          "commit": "4cce7bbda6a6",
+          "conclusion": "passed",
+          "started_at": "2026-09-28T00:00:00+00:00",
+          "duration_ms": 30601
+        },
+        {
+          "run_id": "nightly-95",
+          "commit": "51b09d6db1dd",
+          "conclusion": "failed",
+          "started_at": "2026-09-27T00:00:00+00:00",
+          "duration_ms": 77285
+        },
+        {
+          "run_id": "nightly-94",
+          "commit": "63418f1c88cd",
+          "conclusion": "failed",
+          "started_at": "2026-09-26T00:00:00+00:00",
+          "duration_ms": 73022
+        }
+      ]
+    }
+  ]
+}

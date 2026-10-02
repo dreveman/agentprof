@@ -1,0 +1,10 @@
+Audit the failed tests in CI run nightly-98. Retrieve every page of failures and the four preceding completed executions for every failure. Classify each current failure as new (all four preceding executions passed), persistent (all four failed), or intermittent (a mixture).
+
+Return only JSON with this exact shape:
+{"total": <number of current failures>, "owners": [{"owner": <name>, "new": <count>, "persistent": <count>, "intermittent": <count>}], "slowest_new": [{"id": <failure ID>, "duration_ms": <current duration>}]}
+
+Sort owners by name. Include the five slowest NEW failures by current duration, descending, with ties broken by ID ascending; include all if fewer than five. Include all owners, with zero counts where appropriate. Be exact; do not estimate or sample.
+
+Use the CI tools for all CI data access. Use whatever available tools and parallelism are efficient, with at most 16 tool requests in flight. No changes to CI are needed.
+
+You may use bash for local calculations or scratch files to help aggregate the returned tool data.

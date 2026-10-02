@@ -84,6 +84,26 @@ Child annotations include `parent_session`,
 timestamp is reconstructed one nanosecond before execution because Pi invokes
 the preflight hook after its execution-start hook; it is not a measured queue wait.
 
+Codemode scripts use `kind = script`; children retain their tool name and carry
+`parent_call_id` from Pi's `parentToolCallId`. A flow connects the calling script's
+BEGIN to the child's preflight and execution BEGIN. Tool BEGIN packets are deferred
+until completion or capture shutdown so these links can use the original start
+timestamp. The lane is reserved at execution start. The default limit is 64
+simultaneous calls, including scripts; excess calls increment **Lane overflows**.
+Script duration includes nested work and is excluded from tool totals and tool
+concurrency. The activity split includes **Scripts only** for measured script
+time without a concurrent tool or model-response interval.
+
+Pi's `models.classify` and `models.generateImages` publish lifecycle snapshots
+instead of tool hooks. Observed running/completed transitions produce
+`kind = model-call` spans with `timing = codemode-lifecycle`, model identity when
+available, and a flow from the script. They may include queue time and do not
+contribute to response speed or model-busy calculations. A completion without an
+observed running snapshot does not fabricate a start. Unfinished observed calls
+are marked incomplete. Snapshot tracking is bounded to 4,096 model calls per
+script. Pi's tool-reported usage adds once to session counters; per-call token
+usage is not inferred from the script's aggregate.
+
 Assistant-message spans carry TTFT, usage, streaming statistics, and stop reason on
 their END. The overview reads their actual interval; older summary instants remain
 supported using their recorded duration annotation. Responses interrupted before
@@ -124,13 +144,30 @@ decisions are annotations. `user_bash` records `executable` and
 
 Annotation values use protobuf integers for integral counts/status codes,
 booleans for flags, doubles for fractional values, and strings for text and IDs.
-Argument key lists are arrays. With tool-content capture enabled, `args`
-is a typed dictionary/array/scalar rather than serialized JSON. Capture is bounded
-to 128 values, eight nesting levels, and 2,000 UTF-16 code units for keys/text;
-`truncated` marks omitted data, including null values (which DebugAnnotation
+Argument key lists are arrays. Tool-content capture is enabled by default;
+`args` on the execution span is a typed dictionary/array/scalar rather than
+serialized JSON. This includes bash command lines, edit paths and old/new text,
+and script source. Capture is bounded to 128 values, eight nesting levels, and
+65,536 UTF-16 code units for keys/text. `args_truncated` marks omitted data,
+including null values (which DebugAnnotation
 cannot represent as a scalar). Arrays preserve a prefix so indices never shift.
 `bytes` always measures the complete JSON-serialized input in UTF-8 bytes;
 unserializable input instead records `serializable = false`.
+If the execution start was not recorded, preflight retains the arguments with
+`truncated` instead. Readers also support arguments on preflight in older traces.
+Disable argument values with `PI_TRACING_CAPTURE_CONTENTS=0` or
+`/tracing categories contents off`; metadata such as byte counts remains.
+
+Harnesses may record an optional `intent` string on a tool or script span to
+describe why it was invoked. The Tools tab prefers that text, falling back to
+an excerpt of `args` for ordinary tools. Scripts instead show their `language`
+and `line_count`. Pi codemode executes JavaScript; pi-tracing records its language
+and line count even when source capture is disabled. Line counts include blank
+lines, but a final newline does not add an extra line. Older traces can use
+recorded source to count lines, with partial source marked as a lower bound.
+Pi's current hooks do not supply intent, so pi-tracing
+records arguments without inventing an explanation. Timeline links reveal the
+full recorded arguments; tool results are not captured.
 
 The `tracing` span on Pi's main OS thread covers capture start through manual stop
 or Pi exit. It records `kind = capture`, `schema_version = 1`,
@@ -180,9 +217,14 @@ data, not recorder metadata. Readers accept older camelCase workflow fields.
 
 | Recorder annotation | Meaning |
 | --- | --- |
-| `kind` | `turn`, `provider-request`, `tool-execution`, `assistant-message`, or `context` |
+| `kind` | `turn`, `provider-request`, `tool-execution`, `script`, `model-call`, `assistant-message`, or `context` |
 | `index` | Pi's turn index; not a globally unique turn ID |
 | `call_id`, `name`, `is_error` | Tool identity and observed boolean outcome |
+| `parent_call_id` | Immediate calling tool's ID, scoped to the same capture; links scripts to nested calls |
+| `intent` | Optional harness-provided description of why a tool or script was invoked |
+| `language`, `line_count` | Script language and total physical source lines, independent of source capture |
+| `args`, `args_truncated` | Recorded tool input and whether any argument data was omitted |
+| `session_labels` | Harness-provided string array on capture/configuration spans; the UI displays its values directly as session subtitles |
 | `phase` | `response-headers`: this interval excludes consuming the response stream |
 | `status_code` | HTTP status reported at response headers |
 | `peak_context_tokens` | Highest observed context estimate in one profile, including Pi's pre-compaction estimate |
@@ -194,6 +236,14 @@ data, not recorder metadata. Readers accept older camelCase workflow fields.
 | `updates`, `bytes` | Number and UTF-8 byte size of nonempty deltas |
 | `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `total_tokens` | Per-message usage as reported by Pi; missing fields remain absent |
 | `context_messages` | Number of messages in the context hook |
+
+Session labels use native DebugAnnotation array entries containing strings;
+Trace Processor exposes them as `debug.session_labels[0]`, `[1]`, and so on.
+Pi emits `codemode` when enabled and omits an empty list. Its metadata writer
+keeps up to 32 distinct, nonempty labels of at most 100 characters each.
+The UI deduplicates labels observed in a capture and displays them as supplied,
+without interpreting their names or inheriting labels from subagent sessions.
+Missing and empty lists both produce no subtitle.
 
 First-content latency is measured from message start, not necessarily network
 request start. It can include thinking or tool-call deltas and must not be

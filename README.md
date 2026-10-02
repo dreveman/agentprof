@@ -15,11 +15,12 @@ The first integration lets you:
 
 - Group timeline tracks by agent session and inspect overlapping tool calls.
 - Query slow tools, recorded failures, and incomplete operations.
+- Follow agent-written scripts into their nested tool calls.
 - Inspect model response timing and token usage when the harness reports it.
 - Inspect child-launch identifiers and recording health.
 
-**Status:** development preview. The Pi recorder, initial UI plugin, and
-real Pi–Opus-5 example recordings are included. There is no hosted UI yet.
+**Status:** development preview. The Pi recorder, UI plugin, and real Pi
+workflow and codemode examples are included. [Open the hosted UI](https://ui.agentprof.dev/).
 Automatic child-trace discovery in the UI remains future work. Multiple files
 can be opened together with clock alignment from the recorded snapshots.
 
@@ -38,6 +39,8 @@ Run a task, then exit Pi to finalize the trace and print its path. Use
 To try the extension from a local checkout without installing it, run
 `pi -e ./packages/pi-tracing --tracing`. See the
 [extension guide](packages/pi-tracing/README.md) for options.
+Recordings include prompts and tool arguments by default. Set
+`PI_TRACING_CAPTURE_CONTENTS=0` to omit tool arguments.
 
 Build and serve the UI (Python 3.11+, Git, and a C/C++ build environment;
 Perfetto downloads its pinned build dependencies):
@@ -54,11 +57,18 @@ Use the overview tabs for details or **Open timeline** to explore
 the **Agent Profiler** workspace. Use **More options → Query (SQL)** for custom analysis or use the
 command palette (`Ctrl+Shift+P`) to run the built-in `Agent Profiler:` queries.
 
-Choose **Open pi-claude-opus-5 workflow example** on the home page to explore a real delegated
+Choose **Open workflow example** on the home page to explore a real delegated
 coding task using Anthropic's `claude-opus-5` with high effort. A parent launches
 implementation and test workers concurrently, then a reviewer. All four sessions
 are included, with parent/child identifiers and individual usage counters. Reloading reopens the bundled
 recordings, so you can iterate on the UI without uploading files each time.
+
+Choose **Open direct vs codemode example** to compare a CI audit with direct
+and scripted tool calls. Both real Pi runs use Opus 5 at high effort, the same
+synthetic CI data, and 196 API requests, with verified answers. The scripted
+session has a `codemode` label; **Tools → Scripted
+tool use** expands each script into its nested calls. See the
+[comparison notes](examples/pi-codemode/README.md) for results and reproduction.
 
 To rebuild the bundle from the checked-in recordings without calling a model:
 
@@ -67,7 +77,8 @@ npm ci
 npm run trace:example
 ```
 
-This updates `artifacts/examples/agentprof-example.pftrace` and its UI bundle.
+This updates `artifacts/examples/agentprof-example.pftrace`,
+`artifacts/examples/agentprof-codemode-example.pftrace`, and their UI bundles.
 The original recordings, task, prompt, and provenance are in
 [examples/pi-opus-5](examples/pi-opus-5/README.md). Open its `workflow-*.pftrace` files
 with **Open trace file** to compare independent file import with the unified example.

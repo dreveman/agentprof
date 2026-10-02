@@ -1,0 +1,51 @@
+{
+  "total": 192,
+  "owners": [
+    {
+      "owner": "compiler",
+      "new": 4,
+      "persistent": 0,
+      "intermittent": 48
+    },
+    {
+      "owner": "editor",
+      "new": 1,
+      "persistent": 4,
+      "intermittent": 48
+    },
+    {
+      "owner": "platform",
+      "new": 4,
+      "persistent": 3,
+      "intermittent": 41
+    },
+    {
+      "owner": "runtime",
+      "new": 5,
+      "persistent": 4,
+      "intermittent": 30
+    }
+  ],
+  "slowest_new": [
+    {
+      "id": "bd2fad2a0ce2",
+      "duration_ms": 108567
+    },
+    {
+      "id": "65e3992a9025",
+      "duration_ms": 101188
+    },
+    {
+      "id": "ec14f17714f2",
+      "duration_ms": 98448
+    },
+    {
+      "id": "a0ec95fc8283",
+      "duration_ms": 91489
+    },
+    {
+      "id": "91b9db2a6ce9",
+      "duration_ms": 76910
+    }
+  ]
+}

@@ -6,6 +6,7 @@
 # Local recordings. Add reviewed, sanitized examples explicitly when ready.
 *.pftrace
 !examples/pi-opus-5/*.pftrace
+!examples/pi-codemode/*.pftrace
 *.perfetto-trace
 *.agentprof
 /traces/

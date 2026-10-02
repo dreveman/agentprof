@@ -4,6 +4,8 @@ import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { Recorder } from "../packages/pi-tracing/extensions/pi-tracing/tracer.ts";
 import { defaultConfig } from "../packages/pi-tracing/extensions/pi-tracing/config.ts";
 import { resolve } from "node:path";
+import assert from 'node:assert/strict';
+import {toolDescription} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/tool_description.ts';
 import { QUERIES, SETUP_SQL } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts";
 
 import { OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts";
@@ -49,6 +51,80 @@ SELECT CASE WHEN
  THEN 'OVERVIEW_OK' ELSE 'OVERVIEW_FAILED' END AS result`);
 if (!overview.includes('OVERVIEW_OK')) throw new Error(overview);
 console.log('PASS overview: interval union, overlap, concurrency, missing usage');
+
+// Scripts enclose their child work but must not inflate tool concurrency or
+// completed-work totals. Leave this fixture for browser drilldown checks too.
+const scriptDir = resolve('artifacts/examples/codemode');
+await mkdir(scriptDir, {recursive: true});
+const scriptConfig = defaultConfig();
+scriptConfig.sampleHz = 0;
+scriptConfig.finalizeDeadlineMs = 5000;
+const scriptRecorder = new Recorder({config: scriptConfig, outDir: scriptDir, sessionTag: 'script',
+  identity: {pid: 432, processName: 'pi', labels: ['session:script-session']}, machineId: 101});
+scriptRecorder.setRunConfiguration({model: 'fixture', provider: 'synthetic', sessionLabels: ['codemode']});
+if (!(await scriptRecorder.start()).started) throw new Error('Script fixture failed');
+const scriptBase = scriptRecorder.captureTimestamp();
+const scriptAt = (ns: number) => scriptBase + BigInt(ns);
+const scriptSpan = scriptRecorder.beginToolSlice('script', 'codemode', scriptAt(1), undefined,
+  {kind: 'script', deferBegin: true, annotations: {intent: 'Inspect tracing hooks', args: {code: 'await tools.read({path: "src/index.ts"})'}}})!;
+const scriptRead = scriptRecorder.beginToolSlice('read', 'read', scriptAt(2), undefined,
+  {annotations: {parent_call_id: 'script', args: {path: 'src/index.ts', offset: 10, limit: 20}}})!;
+scriptRecorder.emitInstant({cat: 'tools', trackUuid: scriptRecorder.trackSet()!.sessionUuid,
+  name: 'tool-preflight', tNs: scriptAt(2), annotations: {call_id: 'grep', args: {pattern: 'pi.on', path: 'src'}}});
+const scriptGrep = scriptRecorder.beginToolSlice('grep', 'grep', scriptAt(3), undefined,
+  {annotations: {parent_call_id: 'script'}})!;
+scriptRecorder.emitEnd(scriptRead, {is_error: false}, scriptAt(4));
+scriptRecorder.emitEnd(scriptGrep, {is_error: true}, scriptAt(5));
+scriptRecorder.emitEnd(scriptSpan, {is_error: false}, scriptAt(10));
+const emptyScript = scriptRecorder.beginToolSlice('empty', 'codemode', scriptAt(11), undefined,
+  {kind: 'script', annotations: {language: 'JavaScript', line_count: 1}})!;
+scriptRecorder.emitEnd(emptyScript, {is_error: false}, scriptAt(12));
+const scriptManifest = await scriptRecorder.stop('fixture');
+if (!scriptManifest || scriptManifest.shutdownTruncated) throw new Error('Script fixture did not finalize');
+const scriptPath = resolve(scriptDir, 'scripts.pftrace');
+await copyFile(scriptManifest.path, scriptPath);
+const scriptCheck = query(`${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
+  SELECT CASE WHEN
+    (SELECT COUNT(*) FROM (${OVERVIEW_QUERIES.scripts})) = 2
+    AND (SELECT SUM(calls) FROM (${OVERVIEW_QUERIES.scripts})) = 2
+    AND (SELECT COUNT(*) FROM (${OVERVIEW_QUERIES.script_calls})) = 2
+    AND (SELECT COUNT(*) FROM (${OVERVIEW_QUERIES.script_calls}) WHERE is_error = 1) = 1
+    AND (SELECT SUM(calls) FROM (${OVERVIEW_QUERIES.tools})) = 2
+    AND (SELECT MAX(tools) FROM agentprof_activity WHERE dur > 0) = 2
+    AND (SELECT SUM(dur) FROM agentprof_activity WHERE tools > 0) = 3
+    AND (SELECT SUM(dur) FROM agentprof_activity WHERE scripts > 0 AND tools = 0) = 7
+    AND (SELECT session_labels FROM (${OVERVIEW_QUERIES.runs})) = '["codemode"]'
+    AND (SELECT intent FROM (${OVERVIEW_QUERIES.scripts}) WHERE calls = 2) = 'Inspect tracing hooks'
+    AND (SELECT language FROM (${OVERVIEW_QUERIES.scripts}) WHERE calls = 0) = 'JavaScript'
+    AND (SELECT line_count FROM (${OVERVIEW_QUERIES.scripts}) WHERE calls = 0) = 1
+    AND (SELECT arguments FROM (${OVERVIEW_QUERIES.script_calls}) WHERE tool = 'read')
+      LIKE '%src/index.ts%'
+    AND (SELECT arguments FROM (${OVERVIEW_QUERIES.script_calls}) WHERE tool = 'grep')
+      LIKE '%pi.on%'
+    AND (SELECT COUNT(*) FROM (${OVERVIEW_QUERIES.slow}) WHERE arguments IS NOT NULL) = 2
+  THEN 'SCRIPTS_OK' ELSE 'FAILED' END AS result`, scriptPath);
+if (!scriptCheck.includes('SCRIPTS_OK')) throw new Error(scriptCheck);
+console.log('PASS codemode: script drilldown, empty scripts, errors, and non-overlapping work accounting');
+assert.equal(toolDescription('Run tests', JSON.stringify({command: 'npm test'})), 'Run tests');
+assert.equal(toolDescription('  ', JSON.stringify({command: 'npm test\necho done'})), 'npm test\necho done');
+assert.equal(toolDescription(undefined, JSON.stringify({path: 'file.ts', oldText: 'before', newText: 'after'})),
+  'file.ts\n− before\n+ after');
+assert.equal(toolDescription(undefined, JSON.stringify({path: 'file.ts', offset: '10', limit: '20'})),
+  'file.ts · offset 10 · limit 20');
+assert.equal(toolDescription(undefined, JSON.stringify({pattern: 'pi.on', path: 'src'})), 'pi.on in src');
+assert.equal(toolDescription(undefined, JSON.stringify({'options[0]': 'hello'})), 'options[0]: hello');
+assert.equal(toolDescription(undefined, undefined), undefined);
+assert.equal(toolDescription('Count hooks', undefined, {language: 'JavaScript', lineCount: 8}), 'Count hooks');
+assert.equal(toolDescription(undefined, undefined, {language: 'Python', lineCount: 3}), 'Python · 3 lines');
+assert.equal(toolDescription(undefined, JSON.stringify({code: 'one\r\n\r\ntwo\r\n'}),
+  {language: 'JavaScript'}), 'JavaScript · 3 lines');
+assert.equal(toolDescription(undefined, JSON.stringify({code: 'one\ntwo'}),
+  {language: 'JavaScript', truncated: true}), 'JavaScript · ≥2 lines');
+assert.equal(toolDescription(undefined, JSON.stringify({code: 'one\ntwo'}),
+  {language: 'JavaScript', lineCount: 12, truncated: true}), 'JavaScript · 12 lines');
+assert.equal(toolDescription(undefined, undefined, {language: 'JavaScript'}), 'JavaScript');
+assert.equal(toolDescription(undefined, undefined, {lineCount: 1}), 'Script · 1 line');
+console.log('PASS invocation descriptions: intent, commands, edits, paging, search, generic arguments, missing data');
 
 const counters = query(`
   SELECT CASE WHEN
@@ -314,7 +390,10 @@ for (const [i, c] of hierarchyCaptures.entries()) {
     packet({timestampNs: ts(c.start), trackEvent: buildTrackEvent({trackUuid: root + 1n,
       type: 1, categories: ['pi.metadata'], name: 'tracing', debugAnnotations: {
         session_id: c.session, capture_id: root.toString(16), label: `${c.session}-${i}`,
-        harness: 'pi', provider: 'synthetic', model: c.model ?? 'unknown', effort: 'high',
+        harness: i === 0 ? 'fixture-harness' : 'pi', provider: 'synthetic', model: c.model ?? 'unknown', effort: 'high',
+        ...(i === 0 ? {session_labels: ['sandbox, network-off', 'plan', 'plan', '', '  ', 42]} :
+          i === 1 ? {session_labels: ['worker', 'mode "B"']} :
+          i === 2 ? {session_labels: []} : {}),
         ...(c.parent ? (c.session === 'grandchild'
           ? {parentSession: c.parent, childRole: 'subagent'} // Older recording mixed into the family.
           : {parent_session: c.parent, child_role: 'subagent'}) : {}),
@@ -348,9 +427,13 @@ const hierarchy = query(`${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
     EXISTS (SELECT 1 FROM runs WHERE session = 'root' AND subagents = 3
       AND input_tokens = 600 AND output_tokens = 60 AND peak_context = 600
       AND turns = 4 AND duration_ms = 120
-      AND model = 'parent-model' AND model_identities NOT LIKE '%worker-model%') AND
+      AND model = 'parent-model' AND model_identities NOT LIKE '%worker-model%'
+      AND session_labels = '["plan","sandbox, network-off"]') AND
     EXISTS (SELECT 1 FROM (${OVERVIEW_QUERIES.sessions})
-      WHERE session = 'child' AND model = 'worker-model') AND
+      WHERE session = 'child' AND model = 'worker-model'
+        AND JSON_EXTRACT(session_labels, '$[0]') = 'mode "B"'
+        AND JSON_EXTRACT(session_labels, '$[1]') = 'worker') AND
+    (SELECT COUNT(*) FROM agentprof_capture_runs WHERE session_labels IS NOT NULL) = 2 AND
     (SELECT COUNT(*) FROM runs WHERE session IN ('child', 'grandchild', 'unknown-usage')) = 0 AND
     (SELECT COUNT(*) FROM runs WHERE session IN ('orphan', 'ambiguous', 'cycle-a', 'cycle-b')
       AND input_tokens IS NULL AND peak_context IS NULL) = 4 AND

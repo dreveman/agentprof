@@ -13,9 +13,10 @@
     "check": "npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json",
     "test": "npm run test --workspace pi-tracing",
     "trace:example": "bun tools/bundle-example.ts",
-    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts",
+    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts && bun tools/check-codemode-example.ts",
     "trace:fixture": "bun tools/generate-example.ts",
-    "trace:record": "python3 tools/record-example.py"
+    "trace:record": "python3 tools/record-example.py",
+    "trace:record-codemode": "python3 tools/record-codemode-example.py"
   },
   "devDependencies": {
     "bun": "1.4.2"

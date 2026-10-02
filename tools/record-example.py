@@ -20,7 +20,7 @@ args = parser.parse_args()
 session_id = str(uuid.uuid4())
 work = ROOT / 'artifacts' / 'live-pi' / f'{args.name}-{session_id[:8]}'
 shutil.copytree(ROOT / 'examples/pi-opus-5/task', work)
-env = os.environ | {'PI_TRACING_CAPTURE_CONTENTS': '0', 'PI_TRACING_CHILD_WAIT_MS': '0'}
+env = os.environ | {'PI_TRACING_CAPTURE_CONTENTS': '1', 'PI_TRACING_CATEGORIES': 'contents', 'PI_TRACING_CHILD_WAIT_MS': '0'}
 command = ['pi', '--provider', args.provider, '--model', args.model, '--thinking', args.thinking,
            '--no-extensions', '-e', str(ROOT / 'packages/pi-tracing/extensions/pi-tracing/index.ts'),
            '--no-skills', '--no-context-files', '--no-prompt-templates', '--no-themes',

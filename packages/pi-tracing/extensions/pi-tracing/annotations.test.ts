@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { assistantAnnotations, promptAnnotations, toolArgumentAnnotations } from "./annotations.ts";
+import { assistantAnnotations, promptAnnotations, scriptAnnotations, toolArgumentAnnotations } from "./annotations.ts";
+
+test('script metadata counts physical lines without treating a final newline as another line', () => {
+  expect(scriptAnnotations('JavaScript', 'one\r\n\r\ntwo\r\n')).toEqual({language: 'JavaScript', line_count: 3});
+  expect(scriptAnnotations('JavaScript', '')).toEqual({language: 'JavaScript', line_count: 0});
+  expect(scriptAnnotations('JavaScript', undefined)).toEqual({language: 'JavaScript'});
+  expect(scriptAnnotations('JavaScript', 'one\rtwo')).toEqual({language: 'JavaScript', line_count: 2});
+});
 
 test("tool argument metadata records UTF-8 byte counts and keys without values", () => {
   const input = {text: "secret 🌍", count: 42, enabled: false};
@@ -15,9 +22,13 @@ test("tool argument metadata records UTF-8 byte counts and keys without values",
 test("captured tool arguments retain scalar and collection types with bounded content", () => {
   const input = {count: -2, ratio: 1.25, enabled: false, labels: ["a", "b"]};
   expect(toolArgumentAnnotations(input, true)["args"]).toEqual(input);
-  const bounded = toolArgumentAnnotations({text: "x".repeat(3000)}, true);
+  const command = 'printf ' + 'x'.repeat(6000);
+  expect(toolArgumentAnnotations({command}, true)["args"]).toEqual({command});
+  const edit = {path: 'file.ts', oldText: 'old'.repeat(2000), newText: 'new'.repeat(2000)};
+  expect(toolArgumentAnnotations(edit, true)["args"]).toEqual(edit);
+  const bounded = toolArgumentAnnotations({text: "x".repeat(65531) + "🌍more"}, true);
   expect(bounded["truncated"]).toBe(true);
-  expect(JSON.stringify(bounded).length).toBeLessThan(2300);
+  expect((bounded["args"] as {text: string}).text).toBe('x'.repeat(65531));
   const sparse = toolArgumentAnnotations([1, null, 2], true);
   expect(sparse["args"]).toEqual([1]);
   expect(sparse["truncated"]).toBe(true);
@@ -67,4 +78,11 @@ test('run configuration whitelists bounded metadata and preserves effort off', a
     'harness': 'pi',
   });
   expect(runConfigurationAnnotations({contextWindowTokens: 0})).toEqual({'harness': 'pi'});
+  expect(runConfigurationAnnotations({sessionLabels: ['codemode', ' sandbox, A ', 'codemode', '', 7]}))
+    .toEqual({harness: 'pi', session_labels: ['codemode', 'sandbox, A']});
+  expect(runConfigurationAnnotations({sessionLabels: []})).toEqual({harness: 'pi'});
+  expect(runConfigurationAnnotations({sessionLabels: ['x'.repeat(101), null]})).toEqual({harness: 'pi'});
+  expect(runConfigurationAnnotations({sessionLabels: 'codemode'})).toEqual({harness: 'pi'});
+  expect(runConfigurationAnnotations({sessionLabels: Array.from({length: 40}, (_, i) => `label-${i}`)})
+    .session_labels).toHaveLength(32);
 });
