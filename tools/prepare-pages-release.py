@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 
 VERSION_MAP = re.compile(r"data-perfetto_version='([^']+)'")
@@ -26,7 +26,9 @@ def version_from_html(html):
 
 
 def fetch(url):
-    with urlopen(url, timeout=30) as response:
+    # Identify the release tool; Cloudflare rejects Python's default User-Agent.
+    request = Request(url, headers={"User-Agent": "agentprof-release/1.0"})
+    with urlopen(request, timeout=30) as response:
         return response.read()
 
 

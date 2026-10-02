@@ -69,7 +69,7 @@ jobs:
         run: python3 tools/perfetto smoke-ui
       - name: Retain previous production assets
         if: github.event_name == 'push' || inputs.target == 'production'
-        run: python3 tools/prepare-pages-release.py "$UI_DIST" --previous-site https://ui.agentprof.dev
+        run: python3 tools/prepare-pages-release.py "$UI_DIST" --previous-site https://agentprof-ui.pages.dev
       - name: Add Pages cache headers
         run: cp infra/pages/_headers "$UI_DIST/_headers"
       - name: Deploy to Cloudflare Pages

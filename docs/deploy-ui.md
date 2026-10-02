@@ -31,8 +31,12 @@ The build sets `PERFETTO_VERSION_HEADER_OVERRIDE_SCM_REVISION` to the Agent
 Profiler Git commit. This gives each release its own `/v.../` asset directory
 even if the pinned Perfetto checkout is unchanged. Production deployments also
 copy the previous version's runtime assets, verifying their manifest hashes,
-so an existing tab can finish loading during a release. The root document and
-service worker use revalidating cache headers; versioned assets are immutable.
+so an existing tab can finish loading during a release. Retention downloads use
+the production `agentprof-ui.pages.dev` hostname because the custom domain's
+Cloudflare Analytics injection modifies HTML and breaks manifest checksums.
+The downloader identifies itself as `agentprof-release/1.0` to avoid rejection
+of Python's default User-Agent by Cloudflare's browser checks. The root document
+and service worker use revalidating cache headers; versioned assets are immutable.
 
 To roll back, select the last good production deployment in Cloudflare Pages.
 After rollback, reload the site and open a recording to verify it.
