@@ -8,10 +8,11 @@ See where the time went in an AI coding agent run.
 
 ## What is Agent Profiler?
 
-Agent Profiler is an agent-focused Perfetto UI with a Pi tracing extension. Explore
-turns, provider requests, tool calls, and child-agent launches on a timeline.
+Agent Profiler is an agent-focused Perfetto UI with Pi and Claude Code recording
+integrations. Explore turns, provider requests, tool calls, and child-agent
+launches on a timeline.
 
-The first integration lets you:
+The integrations let you:
 
 - Group timeline tracks by agent session and inspect overlapping tool calls.
 - Query slow tools, recorded failures, and incomplete operations.
@@ -42,6 +43,10 @@ To try the extension from a local checkout without installing it, run
 Recordings include prompts and tool arguments by default. Set
 `PI_TRACING_CAPTURE_CONTENTS=0` to omit tool arguments.
 
+For Claude Code, use the [capture launcher](packages/claude-tracing/README.md).
+It records a print-mode (`-p`) task and its subagents into one trace. The home
+page's agent selector shows setup and recording commands for either integration.
+
 Build and serve the UI (Python 3.11+, Git, and a C/C++ build environment;
 Perfetto downloads its pinned build dependencies):
 
@@ -50,7 +55,7 @@ python3 tools/perfetto build-ui
 python3 tools/perfetto dev-server --skip-deps
 ```
 
-Open `http://localhost:10000` and choose **Open recordings**. Pi recordings
+Open `http://localhost:10000` and choose **Open recordings**. Pi and Claude Code recordings
 automatically open **Overview**, with activity, model, tool, concurrency, and
 capture-health summaries. The top bar provides **Overview** and **Timeline** navigation.
 Use the overview tabs for details or **Open timeline** to explore

@@ -19,6 +19,26 @@ The launcher chooses `--output-format stream-json --verbose`, forwards that
 output, and reads final usage metadata. It currently requires `-p`; interactive
 installation and agent-controlled start/stop tools are follow-up work.
 
+To record work in another project, install the checkout once (requires Git and
+Node.js/npm):
+
+```sh
+git clone https://github.com/dreveman/agentprof.git ~/agentprof
+npm ci --prefix ~/agentprof
+```
+
+Then run the launcher from your project directory, using the Bun executable
+installed with the checkout:
+
+```sh
+~/agentprof/node_modules/.bin/bun \
+  ~/agentprof/tools/record-claude.ts \
+  agent.pftrace -- -p -- "Your task"
+```
+
+The launcher preserves your current working directory. It saves `agent.pftrace`
+there and prints its absolute path when Claude Code exits.
+
 The output path must be unused. Once session metadata is received, normal exit,
 including a failed model request, publishes the trace. Raw observations and a summary are stored beside it in
 `<output>.capture/`. The journal is flushed every second and retained if

@@ -47,6 +47,21 @@
     display: grid;
     gap: 10px;
   }
+  &__agents {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    .pf-button {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font: 500 13px var(--pf-font);
+    }
+  }
+  &__agent-label {
+    margin-right: 6px;
+    color: var(--pf-color-text-muted);
+    font-size: 13px;
+  }
   &__step {
     display: grid;
     grid-template-columns: 25px minmax(0, 1fr);
@@ -83,26 +98,28 @@
     border-radius: 6px;
     background: var(--pf-color-background);
     color: var(--pf-color-text-muted);
-    overflow-x: auto;
-    white-space: nowrap;
+    white-space: pre-wrap;
+    > span {
+      flex-shrink: 0;
+    }
     code {
+      min-width: 0;
       color: var(--pf-color-text);
-      font: 12px var(--pf-font-monospace);
+      font: 12px/1.5 var(--pf-font-monospace);
+      overflow-wrap: anywhere;
+      user-select: text;
     }
   }
-  &__install {
+  &__commands {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-  }
-  &__harness {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--pf-color-text-muted);
+    gap: 8px;
   }
   &__step p.ap-home__record-note {
     margin: 10px 0 0;
+    a {
+      color: var(--pf-color-primary);
+      display: inline-block;
+    }
     code {
       font-family: var(--pf-font-monospace);
       font-size: 12px;
