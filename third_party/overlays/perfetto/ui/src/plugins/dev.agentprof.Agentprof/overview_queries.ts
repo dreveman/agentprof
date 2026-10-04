@@ -12,7 +12,7 @@ CREATE PERFETTO TABLE agentprof_configuration AS
       COALESCE(COALESCE(EXTRACT_ARG(arg_set_id, 'debug.effort'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_llm_effort')), 'Not recorded') AS effort,
       EXTRACT_ARG(arg_set_id, 'debug.context_window_tokens') AS context_window_tokens
     FROM agentprof_slices
-    WHERE category = 'pi.metadata' AND (name IN ('tracing', 'tracing-start', 'run-configuration')
+    WHERE category IN ('pi.metadata', 'agentprof.metadata') AND (name IN ('tracing', 'tracing-start', 'run-configuration')
       OR name GLOB 'profile ([0-9]*)');
 CREATE PERFETTO TABLE agentprof_session_labels AS
 SELECT capture_id, JSON_GROUP_ARRAY(label) AS session_labels FROM (
@@ -227,7 +227,7 @@ export const OVERVIEW_QUERIES = {
         COALESCE(EXTRACT_ARG(arg_set_id, 'debug.model'), EXTRACT_ARG(arg_set_id, 'debug.agentprof_llm_model')) AS model
       FROM agentprof_slices
       WHERE kind = 'assistant-message' OR
-        (category = 'pi.metadata' AND (name IN ('tracing', 'tracing-start', 'run-configuration')
+        (category IN ('pi.metadata', 'agentprof.metadata') AND (name IN ('tracing', 'tracing-start', 'run-configuration')
           OR name GLOB 'profile ([0-9]*)'))
     )) AS single_model,
     SUM(kind = 'turn') AS turns, SUM(kind = 'assistant-message') AS responses,

@@ -97,8 +97,9 @@ model calls. Older Pi versions without these snapshots cannot expose those spans
 Script source is included with tool arguments by default. Set
 `PI_TRACING_CAPTURE_CONTENTS=0` to omit it.
 
-See [the recorded comparison](../../examples/pi-codemode/README.md) for a verified
-classic/codemode pair and a reproducible recording command.
+See [the recorded comparison](../../examples/harness-comparison/README.md) for
+Pi direct, Pi codemode and Claude Code runs on the same coding task, or the
+[CI audit fixture](../../examples/pi-codemode/README.md) for a larger scripted workload.
 
 ## Output
 

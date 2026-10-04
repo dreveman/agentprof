@@ -8,8 +8,7 @@ match the independent [expected result](expected.json).
 
 This is round 1 of three paired trials recorded on 2026-10-02 with Pi 1.0.0 and
 `anthropic/claude-opus-5` at high effort. It was selected for its middle paired
-wall-time speedup. The UI displays this actual pair, rather than aggregate
-statistics from different runs.
+wall-time speedup. This offline fixture preserves that pair's original sessions.
 
 | Measurement | Direct tools | Codemode |
 | --- | ---: | ---: |
@@ -49,9 +48,9 @@ direct session and 10 for codemode. Cache-read/write usage is retained separatel
 on response annotations; those input counters do not describe total prompt
 volume.
 
-`npm run trace:example` merges these sessions into
-`artifacts/examples/agentprof-codemode-example.pftrace` and bundles them for
-**Open direct vs codemode example**, named `pi-direct-vs-codemode` in the UI.
+`npm run trace:example` merges these sessions into the offline fixture
+`artifacts/examples/agentprof-codemode-example.pftrace`. The UI now features
+the [Pi and Claude Code comparison](../harness-comparison/README.md).
 To record another comparison with your Pi credentials:
 
 ```sh

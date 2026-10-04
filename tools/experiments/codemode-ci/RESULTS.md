@@ -66,7 +66,8 @@ per-run usage, checksums, and a `summary.json`. The screening pair is under
 The candidate `pi-ci-audit.pftrace` in the repeated-run directory contains
 **round 1**, selected for its middle paired speedup. Its SHA-256 is
 `61dab4bc04cc17f6c2d95169e9ceff9cd2f66ca09ee584f3ac51b0a3091d0386`.
-This pair is bundled as the UI's **Open direct vs codemode example**. The
+This pair is retained as the [CI audit fixture](../../../examples/pi-codemode/README.md).
+The UI now features the [Pi and Claude Code comparison](../../../examples/harness-comparison/README.md). The
 previous source-inventory example is archived locally under
 `artifacts/experiments/pi-source-inventory-example/`; its runner is in
 `tools/experiments/codemode-inventory/`. In that smaller workload, direct tools

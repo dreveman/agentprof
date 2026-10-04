@@ -19,8 +19,8 @@ The first integration lets you:
 - Inspect model response timing and token usage when the harness reports it.
 - Inspect child-launch identifiers and recording health.
 
-**Status:** development preview. The Pi recorder, UI plugin, and real Pi
-workflow and codemode examples are included. [Open the hosted UI](https://ui.agentprof.dev/).
+**Status:** development preview. The Pi recorder, UI plugin, workflow example,
+and Pi/Claude Code comparison are included. [Open the hosted UI](https://ui.agentprof.dev/).
 Automatic child-trace discovery in the UI remains future work. Multiple files
 can be opened together with clock alignment from the recorded snapshots.
 
@@ -63,12 +63,14 @@ implementation and test workers concurrently, then a reviewer. All four sessions
 are included, with parent/child identifiers and individual usage counters. Reloading reopens the bundled
 recordings, so you can iterate on the UI without uploading files each time.
 
-Choose **Open direct vs codemode example** to compare a CI audit with direct
-and scripted tool calls. Both real Pi runs use Opus 5 at high effort, the same
-synthetic CI data, and 196 API requests, with verified answers. The scripted
-session has a `codemode` label; **Tools → Scripted
-tool use** expands each script into its nested calls. See the
-[comparison notes](examples/pi-codemode/README.md) for results and reproduction.
+Choose **Open Pi vs Claude Code example** to compare the same coding task with
+Pi codemode and Claude Code. This showcase pairs the fastest correct Pi codemode
+run from three trials with Claude Code from the same round. Both use Haiku 4.5
+with thinking off and passed independent correctness checks.
+The Pi session has a `codemode` label; **Tools → Scripted tool use** expands
+each script into its nested calls. See the
+[comparison notes](examples/harness-comparison/README.md) for results,
+measurement boundaries and reproduction.
 
 To rebuild the bundle from the checked-in recordings without calling a model:
 
@@ -78,7 +80,9 @@ npm run trace:example
 ```
 
 This updates `artifacts/examples/agentprof-example.pftrace`,
-`artifacts/examples/agentprof-codemode-example.pftrace`, and their UI bundles.
+`artifacts/examples/agentprof-comparison-example.pftrace`, and their UI bundles.
+The earlier CI audit is retained as an offline fixture at
+`artifacts/examples/agentprof-codemode-example.pftrace`.
 The original recordings, task, prompt, and provenance are in
 [examples/pi-opus-5](examples/pi-opus-5/README.md). Open its `workflow-*.pftrace` files
 with **Open trace file** to compare independent file import with the unified example.

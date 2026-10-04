@@ -13,7 +13,8 @@ await mkdir(outDir, { recursive: true });
 const config = defaultConfig();
 config.sampleHz = 0;
 config.finalizeDeadlineMs = 5000;
-const recorder = new Recorder({ config, outDir, sessionTag: "example",
+// Keep recorder retention from deleting named browser fixtures during rebuilds.
+const recorder = new Recorder({ config, outDir: resolve(outDir, 'captures'), sessionTag: "example",
   identity: { pid: 1001, processName: "pi-example", labels: ["session:agentprof-example"],
     mainThread: {tid: 1001, name: "pi"} }, machineId: 101 });
 recorder.setRunConfiguration({model: "opus-5", provider: "synthetic", effort: "high",

@@ -18,11 +18,11 @@ import ProcessThreadGroupsPlugin from '../dev.perfetto.ProcessThreadGroups';
 import {QUERIES, SETUP_SQL} from './queries';
 import {trackDisplayName} from './track_names';
 import {EXAMPLE_TRACE_BASE64} from './example_trace';
-import {CODEMODE_EXAMPLE_TRACE_BASE64} from './codemode_example_trace';
+import {COMPARISON_EXAMPLE_TRACE_BASE64} from './comparison_example_trace';
 
 export default class implements PerfettoPlugin {
   static readonly id = 'dev.agentprof.Agentprof';
-  static readonly description = 'Agent timelines and analysis for Pi recordings';
+  static readonly description = 'Agent timelines and analysis for coding harness recordings';
   static readonly dependencies = [QueryPagePlugin, TrackEventPlugin];
 
   static onActivate(app: App): void {
@@ -43,26 +43,29 @@ export default class implements PerfettoPlugin {
       name: 'Open workflow example',
       callback: () => openExample('1', 'pi-workflow', EXAMPLE_TRACE_BASE64),
     });
-    const codemodeCommandId = `${devId()}.OpenCodemodeExample`;
+    const comparisonCommandId = `${devId()}.OpenComparisonExample`;
     app.commands.registerCommand({
-      id: codemodeCommandId, name: 'Open direct vs codemode example',
-      callback: () => openExample('codemode', 'pi-direct-vs-codemode', CODEMODE_EXAMPLE_TRACE_BASE64),
+      id: comparisonCommandId, name: 'Open Pi vs Claude Code example',
+      callback: () => openExample('comparison', 'pi-vs-claude-code', COMPARISON_EXAMPLE_TRACE_BASE64),
     });
-    app.sidebar.addMenuItem({section: 'trace_files', commandId: codemodeCommandId, icon: 'code', sortOrder: 2.7});
+    app.sidebar.addMenuItem({section: 'trace_files', commandId: comparisonCommandId, icon: 'compare_arrows', sortOrder: 2.7});
     app.sidebar.addMenuItem({
       section: 'trace_files', commandId, icon: 'smart_toy', sortOrder: 2.6,
     });
-    const exampleId = app.initialRouteArgs.agentprof_example;
-    if (exampleId === '1' || exampleId === 'codemode') {
+    const requestedExample = app.initialRouteArgs.agentprof_example;
+    const exampleId = requestedExample === 'codemode' ? 'comparison' : requestedExample;
+    if (exampleId === '1' || exampleId === 'comparison') {
       // Clear any old cache key before the startup route handler runs.
       window.history.replaceState(null, '', `#!/agentprof?agentprof_example=${exampleId}&local_cache_key=`);
-      void app.commands.runCommand(exampleId === '1' ? commandId : codemodeCommandId);
+      void app.commands.runCommand(exampleId === '1' ? commandId : comparisonCommandId);
     }
   }
 
   async onTraceLoad(trace: Trace): Promise<void> {
     const detected = await trace.engine.query(
-      "SELECT COUNT(*) AS count FROM slice WHERE category GLOB 'pi.*'",
+      `SELECT COUNT(*) AS count FROM slice WHERE category GLOB 'pi.*'
+        OR (category = 'agentprof.metadata' AND EXTRACT_ARG(arg_set_id, 'debug.kind') = 'capture'
+          AND EXTRACT_ARG(arg_set_id, 'debug.schema_version') = 1)`,
     );
     if (detected.firstRow({count: NUM}).count === 0) return;
     await trace.engine.query(SETUP_SQL);
@@ -88,12 +91,13 @@ export default class implements PerfettoPlugin {
       ), sessions AS (
         SELECT session, COUNT(DISTINCT upid) AS processes FROM captures GROUP BY session
       )
-      SELECT s.track_id, s.capture_id, s.upid, s.utid, s.session, s.capture, s.track_name,
+      SELECT s.track_id, s.capture_id, s.upid, s.utid, s.session, s.capture, c.label AS capture_label, s.track_name,
         COALESCE(p.captures, 0) AS process_captures,
         h.is_subagent, COALESCE(p.all_subagents, 0) AS all_subagents,
         (p.sessions = 1 AND a.processes = 1) AS single_agent
       FROM agentprof_slices s JOIN agentprof_capture_hierarchy h USING(capture_id)
       LEFT JOIN processes p USING(upid) LEFT JOIN sessions a USING(session)
+      LEFT JOIN agentprof_captures c ON c.capture_id = s.capture_id
       GROUP BY s.track_id, s.capture_id ORDER BY s.upid, s.capture_id, s.track_id
     `);
     const processTracks = trace.plugins.getPlugin(ProcessThreadGroupsPlugin);
@@ -123,7 +127,7 @@ export default class implements PerfettoPlugin {
     };
 
     for (const row = tracks.iter({track_id: NUM, capture_id: NUM, upid: NUM_NULL, utid: NUM_NULL,
-      session: STR, capture: STR, track_name: STR, process_captures: NUM, single_agent: NUM_NULL, is_subagent: NUM, all_subagents: NUM});
+      session: STR, capture: STR, capture_label: STR_NULL, track_name: STR, process_captures: NUM, single_agent: NUM_NULL, is_subagent: NUM, all_subagents: NUM});
       row.valid(); row.next()) {
       let processGroup = row.upid === null ? undefined : processes.get(row.upid);
       if (processGroup === undefined && row.upid !== null) {
@@ -144,8 +148,10 @@ export default class implements PerfettoPlugin {
         if (processGroup !== undefined && row.process_captures === 1) {
           group = processGroup;
         } else {
-          group = new TrackNode({name: `Capture ${row.capture}`,
-            subtitle: `Session ${row.session}`, isSummary: true, collapsed: Boolean(row.is_subagent)});
+          const label = row.capture_label ?? row.session.split('/').at(-1)!.slice(0, 8);
+          group = new TrackNode({name: `${row.is_subagent ? 'Subagent session' : 'Session'} ${label}`,
+            subtitle: `Session ${row.session} · Capture ${row.capture}`,
+            isSummary: true, collapsed: Boolean(row.is_subagent)});
           (processGroup ?? workspace).addChildInOrder(group);
         }
         captures.set(row.capture_id, group);

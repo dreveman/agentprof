@@ -163,7 +163,7 @@ export function linuxUptimeReading(
   return { seconds: fallback(), resolutionNs: 1_000_000_000n };
 }
 
-function captureClockReadings(): {
+export function captureClockReadings(): {
   sourceNs: bigint;
   boottimeNs: bigint;
   realtimeNs: bigint;

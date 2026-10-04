@@ -7,6 +7,7 @@
 *.pftrace
 !examples/pi-opus-5/*.pftrace
 !examples/pi-codemode/*.pftrace
+!examples/harness-comparison/*.pftrace
 *.perfetto-trace
 *.agentprof
 /traces/

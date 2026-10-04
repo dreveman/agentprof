@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-04",
+  "model": "claude-haiku-4-5-20251001",
+  "thinking": "off",
+  "piVersion": "1.0.1",
+  "claudeVersion": "2.1.252 (Claude Code)",
+  "description": "The same coding task with Pi codemode and Claude Code, selected to showcase the fastest correct Pi codemode run from three trials.",
+  "bundledFile": "comparison.pftrace",
+  "sha256": "8efe6e48e5eb145196eb7a91f7b32ef9159048031ff49dc0a7aa9723cb075471",
+  "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
+  "sourceBatch": "harness-comparison-20261004-codemode",
+  "oracleCases": 500,
+  "merge": "Packet sequence IDs made unique; original clocks, timestamps and event payloads preserved.",
+  "recordings": [
+    {
+      "round": 1,
+      "variant": "pi-codemode",
+      "harness": "pi",
+      "sessionId": "d7a8f31b-44d9-4d3e-ab2b-b065d618fbf1",
+      "traceSha256": "b177583ed7fb2d91929a781bf50bec03b2c502675f5c86646e8608d822e5e4fd",
+      "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
+      "processWallSeconds": 17.139839339070022,
+      "wallSeconds": 16.642191769,
+      "primaryResponses": 8,
+      "primaryExecutedCalls": 16,
+      "scriptCalls": 7,
+      "nestedToolCalls": 9,
+      "correct": true,
+      "protocolIssues": [],
+      "testCount": 12,
+      "usage": {
+        "input_tokens": 6203,
+        "output_tokens": 1892,
+        "cache_read_tokens": 39076,
+        "cache_write_tokens": 9677
+      }
+    },
+    {
+      "round": 1,
+      "variant": "claude-code",
+      "harness": "claude-code",
+      "sessionId": "73ea628d-56a1-456a-8e27-88c8cea38614",
+      "traceSha256": "90dbcdc09d87f298901c1850698e1b49c0bc44db9c1dd25ffdeba74e05d49e17",
+      "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
+      "processWallSeconds": 23.66097700316459,
+      "wallSeconds": 23.547,
+      "primaryResponses": 11,
+      "primaryExecutedCalls": 11,
+      "scriptCalls": 0,
+      "nestedToolCalls": 0,
+      "correct": true,
+      "protocolIssues": [],
+      "testCount": 12,
+      "usage": {
+        "input_tokens": 60,
+        "output_tokens": 2198,
+        "cache_read_tokens": 130863,
+        "cache_write_tokens": 17900
+      }
+    }
+  ],
+  "selection": {
+    "criterion": "Fastest correct Pi codemode attempt; Claude Code from the same round.",
+    "sourceRounds": 3,
+    "selectedRound": 1,
+    "codemodeCandidates": [
+      {
+        "round": 1,
+        "processWallSeconds": 17.139839339070022,
+        "correct": true
+      },
+      {
+        "round": 2,
+        "processWallSeconds": 64.5139253102243,
+        "correct": true
+      },
+      {
+        "round": 3,
+        "processWallSeconds": 21.807000922970474,
+        "correct": true
+      }
+    ]
+  }
+}

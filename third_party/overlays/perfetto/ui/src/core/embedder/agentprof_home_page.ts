@@ -99,11 +99,11 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           ),
         ),
         m('button.ap-home__example', {
-          type: 'button', onclick: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenCodemodeExample'),
+          type: 'button', onclick: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenComparisonExample'),
         },
-          m('span.ap-home__example-title', 'Open direct vs codemode example'),
-          m('span', 'Auditing task for 192 synthetic CI failures, run twice to compare direct tool calls with scripted tool calls in codemode.'),
-          m('span.ap-home__example-meta', 'Pi · Anthropic Opus 5 · High effort · 2 sessions'),
+          m('span.ap-home__example-title', 'Open Pi vs Claude Code example'),
+          m('span', 'Coding task run with Pi codemode and Claude Code using the same prompt and model.'),
+          m('span.ap-home__example-meta', 'Pi and Claude Code · Anthropic Haiku 4.5 · Thinking off · 2 sessions'),
         ),
       ),
       m(

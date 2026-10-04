@@ -178,8 +178,11 @@ function modelIdentity(row: Row): m.Children {
   return m('.ap-model-identities', identities.map(identity => {
     const model = value(identity.model);
     const provider = value(identity.provider);
+    // Keep the exact model ID for grouping and inspection; omit Claude's
+    // dated snapshot suffix from the visible label.
+    const label = model.replace(/^(claude-.+)-\d{8}$/, '$1');
     return m('.ap-model-identity', {title: `${provider} / ${model}`},
-      m('span.ap-model-name', model),
+      m('span.ap-model-name', label),
       provider !== 'Not recorded' && m('span.ap-model-provider', provider));
   }));
 }

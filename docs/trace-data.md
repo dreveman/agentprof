@@ -4,6 +4,13 @@ This is the first Agent Profiler data contract, grounded in the Pi recorder. It 
 an evolving adapter convention, not a claim that all coding harnesses expose
 the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 
+The Claude Code capture prototype writes `agentprof.metadata` and
+`agentprof.activity` categories with the same version-1 capture markers and
+event kinds. Readers recognize these alongside legacy `pi.*` categories.
+Native request intervals carry `timing = request-including-retries`; their
+boundaries differ from Pi's message spans. See the
+[prototype notes](../packages/claude-tracing/README.md) for capture coverage.
+
 ## Existing timeline model
 
 | Track | Recorded meaning |
@@ -58,8 +65,9 @@ is one-to-one; agents sharing a process must use generic tracks and per-agent
 metadata instead of synthetic processes or process-wide agent labels.
 
 The Agent Profiler workspace reuses upstream process summary rows and labels.
-Multiple captures within a process stay in generic capture groups, alongside
-one native row for each actual OS thread. If a loaded
+Multiple captures within a process stay in generic groups named **Session** or
+**Subagent session**, using the recorded label or a shortened session ID. They
+represent logical sessions, alongside one native row for each actual OS thread. If a loaded
 recording maps several sessions to one process, or one session to several
 processes, its process row does not use the labels to identify an individual
 agent. Capture metadata remains the authoritative session/capture join key.

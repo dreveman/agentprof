@@ -192,8 +192,8 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
             app.commands.runCommand('dev.agentprof.Agentprof.OpenExample'),
         }),
         menuItem({
-          label: 'Open direct vs codemode example', icon: 'code',
-          run: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenCodemodeExample'),
+          label: 'Open Pi vs Claude Code example', icon: 'compare_arrows',
+          run: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenComparisonExample'),
         }),
         trace &&
           menuItem({
