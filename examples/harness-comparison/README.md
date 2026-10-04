@@ -58,8 +58,11 @@ for the validation protocol. A new batch does not replace this reviewed example.
 The original local logs and completed tasks are retained under
 `artifacts/experiments/harness-comparison-20261004-codemode/`.
 
-`comparison.pftrace` combines the two selected recordings from that batch. Only packet
-sequence IDs were made unique during the merge. `npm run trace:example` copies
+`comparison.pftrace` combines the two selected recordings from that batch. The
+Claude Code trace was regenerated from its saved observations with `claude.*`
+categories; all other event data and timestamps are preserved. The manifest
+retains the original capture checksums and the converted Claude trace checksum.
+Only packet sequence IDs were made unique during the merge. `npm run trace:example` copies
 it unchanged to `artifacts/examples/agentprof-comparison-example.pftrace` and
 generates the UI bundle. `npm run check:example` validates the checksum, both
 sessions, token usage, nested calls, flows and capture health without

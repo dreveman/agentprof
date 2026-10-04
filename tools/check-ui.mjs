@@ -360,6 +360,8 @@ try {
     for (const r of roots) {
       const row = runSummary.locator('tbody tr').filter({has: page.locator('td:nth-child(5)').filter({hasText: new RegExp(`^${r.outputTokens.toLocaleString('en-US')}$`)})});
       await row.waitFor();
+      // Clock analysis can finish after the session totals appear.
+      await row.locator('.ap-spark').waitFor();
       const cells = await row.locator('td').allTextContents();
       assert.equal(await row.getByRole('img', {name: 'Pi', exact: true}).count(), 1);
       assert.equal(await row.locator('.ap-prompt-link .pf-button__label').textContent(),

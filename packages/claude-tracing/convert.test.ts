@@ -5,7 +5,8 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations, type Observation} from './convert.ts';
-import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
+import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
+import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
 
 const epoch = 1_790_000_000_000_000_000n;
@@ -66,6 +67,7 @@ test('native timestamps, deduplication, logical subagents, flows and counters su
   const result = convertObservations(fixture());
   expect(result.summary).toMatchObject({sessions: 2, responses: 3, tools: 2, nativeSpans: 9, compactions: 1});
   const output = query(fixture(), `SELECT
+    (${DETECT_SQL}) = 2 AS detected_captures,
     (SELECT COUNT(*) FROM process WHERE pid != 0) = 1 AND
       (SELECT COUNT(*) FROM process WHERE pid = 12345 AND name = 'claude') = 1 AS one_real_process,
     (SELECT COUNT(*) FROM agentprof_capture_runs) = 2 AS two_sessions,
@@ -83,8 +85,22 @@ test('native timestamps, deduplication, logical subagents, flows and counters su
     (SELECT EXTRACT_ARG(arg_set_id, 'debug.post_tokens') FROM agentprof_slices
       WHERE kind = 'compaction') = 6 AS typed_compaction_usage,
     (SELECT COUNT(*) FROM agentprof_slices WHERE incomplete) = 0 AS fully_closed;`);
-  expect(output.trim().split('\n').at(-1)).toBe('1,1,1,1,1,1,1,1,1,1,1,1,1,1');
+  expect(output.trim().split('\n').at(-1)).toBe('1,1,1,1,1,1,1,1,1,1,1,1,1,1,1');
 }, 30000);
+
+test('Claude events and counters use harness-specific categories', () => {
+  const {trace} = convertObservations(fixture());
+  const events = tracePackets(trace).flatMap(packet => decodeFields(packet)
+    .filter(field => field.number === 11).map(field => decodeFields(field.bytes!)));
+  const categories = events.flatMap(event => event.filter(field => field.number === 22)
+    .map(field => new TextDecoder().decode(field.bytes)));
+  expect([...new Set(categories)].sort()).toEqual(['claude.activity', 'claude.metadata']);
+  for (const event of events) {
+    const type = event.find(field => field.number === 9)?.value;
+    const count = event.filter(field => field.number === 22).length;
+    expect(count).toBe(type === 2n ? 0 : 1);
+  }
+});
 
 test('missing usage is absent and unfinished capture is marked incomplete', () => {
   const rows = fixture().filter(r => !['/v1/traces', '/v1/logs', 'process_end', 'result'].includes(r.source));

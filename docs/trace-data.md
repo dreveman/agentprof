@@ -4,9 +4,10 @@ This is the first Agent Profiler data contract, grounded in the Pi recorder. It 
 an evolving adapter convention, not a claim that all coding harnesses expose
 the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 
-The Claude Code capture prototype writes `agentprof.metadata` and
-`agentprof.activity` categories with the same version-1 capture markers and
-event kinds. Readers recognize these alongside legacy `pi.*` categories.
+Category prefixes identify the recording harness: Pi writes `pi.*`, and the
+Claude Code capture prototype writes `claude.metadata` and `claude.activity`.
+Both use the same version-1 capture markers and event kinds. Readers also
+recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
 Native request intervals carry `timing = request-including-retries`; their
 boundaries differ from Pi's message spans. See the
 [prototype notes](../packages/claude-tracing/README.md) for capture coverage.

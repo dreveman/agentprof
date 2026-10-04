@@ -303,7 +303,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   const events: {at: bigint; rank: number; event: Uint8Array}[] = [];
   const event = (at: bigint, rank: number, trackUuid: bigint, type: number, name?: string, attrs?: Attrs, flows?: bigint[], counterValue?: bigint) => {
     events.push({at, rank, event: buildTrackEvent({trackUuid, type, name, categories: type === TRACK_EVENT_END ? [] :
-      [name?.startsWith('profile (') || name === 'run-configuration' ? 'agentprof.metadata' : 'agentprof.activity'],
+      [name?.startsWith('profile (') || name === 'run-configuration' ? 'claude.metadata' : 'claude.activity'],
       debugAnnotations: attrs, flowIds: flows, counterValue})});
   };
   for (const scope of scopes.values()) {

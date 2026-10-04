@@ -15,7 +15,7 @@ import {LONG, NUM, NUM_NULL, STR, STR_NULL} from '../../trace_processor/query_re
 import QueryPagePlugin from '../dev.perfetto.QueryPage';
 import TrackEventPlugin from '../dev.perfetto.TrackEvent';
 import ProcessThreadGroupsPlugin from '../dev.perfetto.ProcessThreadGroups';
-import {QUERIES, SETUP_SQL} from './queries';
+import {DETECT_SQL, QUERIES, SETUP_SQL} from './queries';
 import {trackDisplayName} from './track_names';
 import {EXAMPLE_TRACE_BASE64} from './example_trace';
 import {COMPARISON_EXAMPLE_TRACE_BASE64} from './comparison_example_trace';
@@ -62,11 +62,7 @@ export default class implements PerfettoPlugin {
   }
 
   async onTraceLoad(trace: Trace): Promise<void> {
-    const detected = await trace.engine.query(
-      `SELECT COUNT(*) AS count FROM slice WHERE category GLOB 'pi.*'
-        OR (category = 'agentprof.metadata' AND EXTRACT_ARG(arg_set_id, 'debug.kind') = 'capture'
-          AND EXTRACT_ARG(arg_set_id, 'debug.schema_version') = 1)`,
-    );
+    const detected = await trace.engine.query(DETECT_SQL);
     if (detected.firstRow({count: NUM}).count === 0) return;
     await trace.engine.query(SETUP_SQL);
     await trace.engine.query(OVERVIEW_SETUP_SQL);

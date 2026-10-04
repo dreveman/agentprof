@@ -74,9 +74,10 @@ overlapping work to mergeable sibling tracks, and resets sampled counters at
 capture end. Wall-clock timestamps use Perfetto's REALTIME clock and a clock
 snapshot, so recordings can be loaded alongside Pi traces.
 
-The UI recognizes the shared `agentprof.metadata` / `agentprof.activity`
-categories and existing Pi traces. Event kinds and annotations follow the
-[trace data contract](../../docs/trace-data.md).
+Claude Code writes `claude.metadata` and `claude.activity` categories; Pi uses
+`pi.*`. Event kinds and annotations share the same
+[trace data contract](../../docs/trace-data.md). The UI also reads `agentprof.*`
+categories from earlier Claude Code prototype recordings.
 
 ## Measurement limits
 

@@ -38,6 +38,8 @@ const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
     'tools', (SELECT JSON_GROUP_ARRAY(JSON_OBJECT('session',session,'calls',calls,'scripts',scripts,'nested',nested))
       FROM (SELECT session,COUNT(*) AS calls,SUM(kind='script') AS scripts,
         SUM(parent_call_id IS NOT NULL) AS nested FROM agentprof_tool_calls GROUP BY session)),
+    'categories', (SELECT JSON_GROUP_ARRAY(JSON_OBJECT('session',session,'category',category))
+      FROM (SELECT DISTINCT session,category FROM agentprof_slices)),
     'script_children', (SELECT COUNT(*) FROM agentprof_script_children),
     'script_flows', (SELECT COUNT(*) FROM flow f JOIN agentprof_tool_calls a ON a.id=f.slice_out
       JOIN agentprof_slices b ON b.id=f.slice_in WHERE a.kind='script' AND b.name='tool-preflight'),
@@ -68,6 +70,11 @@ try {
     const run = data.runs.find((r: any) => r.session === expected.sessionId);
     assert.ok(run, `Missing session ${expected.sessionId}`);
     assert.equal(run.harness, expected.harness);
+    const categories = data.categories.filter((c: any) => c.session === expected.sessionId);
+    const prefix = expected.harness === 'pi' ? 'pi.' : 'claude.';
+    assert.ok(categories.length > 0);
+    assert.ok(categories.every((c: any) => c.category.split(',').every((value: string) => value.startsWith(prefix))),
+      `${expected.harness} events use ${prefix} categories`);
     assert.equal(run.model, manifest.model);
     assert.equal(run.provider, 'anthropic');
     assert.equal(run.responses, expected.primaryResponses);

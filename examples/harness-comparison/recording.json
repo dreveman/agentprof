@@ -7,7 +7,7 @@
   "claudeVersion": "2.1.252 (Claude Code)",
   "description": "The same coding task with Pi codemode and Claude Code, selected to showcase the fastest correct Pi codemode run from three trials.",
   "bundledFile": "comparison.pftrace",
-  "sha256": "8efe6e48e5eb145196eb7a91f7b32ef9159048031ff49dc0a7aa9723cb075471",
+  "sha256": "ac506d8359bb41841ca174d3519cf445efa4cb124740bb38981ec6a4f15f8fed",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "sourceBatch": "harness-comparison-20261004-codemode",
   "oracleCases": 500,
@@ -57,7 +57,8 @@
         "output_tokens": 2198,
         "cache_read_tokens": 130863,
         "cache_write_tokens": 17900
-      }
+      },
+      "convertedTraceSha256": "b4287a396c84455abb1253e90dbca15bc1c5337d307492eb9a440280f82fddb0"
     }
   ],
   "selection": {
@@ -81,5 +82,6 @@
         "correct": true
       }
     ]
-  }
+  },
+  "conversion": "Claude Code trace regenerated from the original observations using claude.* categories. All other event data and timestamps are preserved."
 }
