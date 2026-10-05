@@ -2,25 +2,17 @@
 
 Self-controlled Perfetto capture for Pi. Records agent/LLM/tool/session activity to
 canonical `.pftrace` protobuf files you open in the Perfetto UI or query with
-`trace_processor`. No daemon, no socket, no sidecar in v1.
+`trace_processor`. No daemon, socket, or sidecar is required.
 
 This package contains the recording side of Agent Profiler: POSIX only,
-`PATH`-resolved tooling, and no runtime packages beyond Pi's own. It was imported from
-the supplied Pi extension and retains the original MIT license declaration.
+`PATH`-resolved tooling, and no runtime packages beyond Pi's own. The package is
+MIT licensed.
 
 From the repository root, load it with `pi -e ./packages/pi-tracing --tracing`.
 The workspace lockfile records the tested Pi and TypeScript versions.
-See [the data contract](../../docs/trace-data.md) for structured annotations and
-the next collection priorities.
-
-## Status: internal v1 (OFF + RECORDING)
-
-Implements runtime probing and local recording. Deferred to follow-ups:
-
-- ARMED flight recorder (`arm`/`disarm` return a clear "reserved" message).
-- Live `SYSTEM`-backend producer for external `traced` (no transport yet).
-- Recording rollover without stopping the current capture.
-- Interning / delta timestamps.
+See [the data contract](../../docs/trace-data.md) for structured annotations.
+Recording starts and stops explicitly or with Pi's process lifetime. Flight
+recording, a system tracing backend, and automatic rollover are unsupported.
 
 ## Usage
 
@@ -29,8 +21,7 @@ Implements runtime probing and local recording. Deferred to follow-ups:
 /tracing stop                 stop, finalize, and publish .pftrace
 /tracing status               show state, counts, config errors, and last trace
 /tracing categories [cat on|off | save]   list or mutate live category filter
-/tracing probe                run the Phase-0 runtime probe inside Pi
-/tracing arm|disarm           reserved (P3) — explains and stays OFF/RECORDING
+/tracing probe                check clock and runtime capabilities inside Pi
 ```
 
 Agents can control the same recorder with Pi tools:
@@ -56,7 +47,7 @@ Flags / env:
 - `pi --tracing` (registered boolean flag) or `PI_TRACING=1` — autostart recording.
   Normal Pi exit finalizes it and prints the trace path to stderr; no manual
   stop is required.
-- `PI_TRACING_STARTUP=off|armed|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,
+- `PI_TRACING_STARTUP=off|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,
   `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=0` (omit tool arguments).
 - `PI_TRACING_CHILD_TOOLS=rig_launch,subagent,my_tool` — override the
   child-agent spawner allowlist (default `rig_launch,subagent`).
@@ -69,7 +60,7 @@ Config files (schema-validated, never crash startup on malformed input):
 1. `<agentDir>/pi-tracing.json` (global, via `getAgentDir()`)
 2. `<cwd>/<CONFIG_DIR_NAME>/pi-tracing.json` (project override, only when trusted)
 3. env beats files; CLI flags beat env; live `/tracing categories` beats all for
-   the current process. `system: true` is rejected with a "reserved" error.
+   the current process. `system: true` is rejected as unsupported.
 
 ## Codemode
 
@@ -263,7 +254,7 @@ extensions/pi-tracing/
   tracks.ts       descriptors, 64-bit UUIDs, free-lane tool/workflow allocator
   tracer.ts       OFF/RECORDING state machine, queue, .part finalize
   workflow.ts     child-launch description + child-role detection (pure)
-  probe.ts        Phase-0 Bun runtime probe (pure, testable)
+  probe.ts        Bun runtime capability and clock probe
   encoder.test.ts bun test for wire vectors
 ```
 

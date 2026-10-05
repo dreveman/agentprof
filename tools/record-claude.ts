@@ -15,7 +15,7 @@ if (separator !== 1 || !args[0] || args.includes('--help')) {
 }
 const output = resolve(args[0]);
 const childArgs = args.slice(separator + 1);
-if (!childArgs.includes('-p') && !childArgs.includes('--print')) throw new Error('This prototype requires Claude print mode (-p).');
+if (!childArgs.includes('-p') && !childArgs.includes('--print')) throw new Error('This launcher requires Claude print mode (-p).');
 if (childArgs.includes('--output-format')) throw new Error('The launcher selects stream-json output for metadata capture.');
 if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
 const rawDirectory = `${output}.capture`;

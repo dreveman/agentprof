@@ -1,6 +1,6 @@
 # Investigating an agent run
 
-Load a Pi or Claude Code recording to open **Overview**. The Summary tab shows recorded activity,
+Load a supported agent recording to open **Overview**. The Summary tab shows recorded activity,
 model responsiveness, tool work, concurrency, and capture health. **Responses**,
 **Tools**, and **Sessions** provide detail tables. Select a response's session or a
 tool call to reveal that event in the timeline; **Open timeline** opens the Agent Profiler
@@ -49,11 +49,11 @@ selected example, not a general speed benchmark. See the
 
 ## Follow delegated work
 
-Use recorded parent/child identifiers in **Child launches** to locate subagent
-recordings. The initial UI does not automatically join these files. Compare their
-start and finish times with the parent and inspect where work overlaps. Check
-whether the parent could continue or was waiting for a result, when wait events
-are available.
+Expand a session in **Sessions** to see its recorded subagent sessions. Their
+usage and activity also contribute to the primary session's overview row.
+Follow a delegation flow into the timeline to compare start and finish times
+and inspect where work overlaps. Check whether the primary agent could continue
+or was waiting for a result, when wait events are available.
 
 Overlapping durations must not simply be added to estimate elapsed time.
 Parallel activity can occupy more total agent time than the run's wall time.

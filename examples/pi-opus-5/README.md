@@ -6,8 +6,8 @@ repository's tracing extension on 2026-09-27, with Pi 0.87.1 and
 
 These archived captures predate the extension's context-window counter. The
 example backfills the 1,000,000-token limit reported for `claude-opus-5` by
-Pi 0.87.1's model catalog. `tools/backfill-example-context.ts` adds a typed
-`context_window_tokens` capture annotation and a **Context window** counter
+Pi 0.87.1's model catalog as a typed `context_window_tokens` capture annotation
+and a **Context window** counter
 from capture start to end. It also renames the existing gauge track to
 **Context size** and gives both tracks the same Y-axis key. The activity
 packets, observed context samples, and timestamps remain unchanged; the limit
@@ -25,56 +25,25 @@ final verification. All 39 tests pass.
 | tests | `workflow-tests.pftrace` | 6 | 5 | 9,537 |
 | reviewer | `workflow-reviewer.pftrace` | 8 | 9 | 10,360 |
 
-The recordings retain their original activity timings and clock snapshots. The recorder
-version was moved from process labels into `recorder_version` capture
-metadata. Capture-start markers were converted into `tracing` spans ending at
-the recorded finalization counters' timestamps. The former `Session`
-tracks now describe each recorded Linux process's actual main thread (TID = PID),
-using the recorder's shared `pi` name for both process and thread.
-Assistant summaries were converted to `Model responses` spans using their measured
-start/end interval. Prompt, context, child identity, and tool-result metadata were
-moved onto their corresponding spans, and duplicate status markers removed.
-Input markers are named `prompt-input`, with source in a debug argument and flows
-to their corresponding `prompt` spans. Prompt length and text belong
-only to the operation. The prompts were recovered from each session's saved
-user message, checked against the recorded lengths, and added under
-`pi.prompt-data`. The child prompts and traces replace the local scratch
-directory prefix with an equal-length example path; their remaining text and
-recorded lengths are unchanged. The text files referenced by `promptFile` in
-`recording.json` preserve the reviewed prompts and worker tasks.
-Preflight and remaining middleware events now have stable `tool-preflight` and
-`tool-middleware` names. Their original tool names, argument key lists, byte
-counts, and error flags were moved into typed annotations without changing
-timestamps or flows.
-Annotation names are now local to each event: for example `source` on
-`prompt-input`, `text` and `length` on `prompt`, and `name`, `bytes`,
-and `keys` on `tool-preflight`. Workflow annotation names were normalized to
-`snake_case`, including `parent_session`, `child_session`, and `subagent_type`.
-Existing values and protobuf types are preserved.
-Sampled counters now end with a zero, and the capture boundary is extended by
-one nanosecond to retain the original final diagnostic samples separately.
-Original activity timings, token totals, and context peaks remain unchanged.
-Tool descriptors now share the name `Tools` and enable Perfetto sibling merging
-under their capture root. UUIDs and event timestamps are unchanged, while the UI
-presents one compact tool row per capture without lane indices.
-Track descriptors use readable labels, with runtime and recorder diagnostics
-parented under Runtime and Tracing. The earlier changes preserve existing track UUIDs,
-samples, event timestamps, and flow IDs; grouping tracks and the backfilled
-context-window counter add UUIDs.
-The three duplicate `delegate` intervals were removed. Their metadata now lives
-on the corresponding `subagent` tool spans, matched using the original tool-call
-IDs and returned child-session IDs. The tool spans retain their original timings
-and incoming flows. Each tool BEGIN and its child's first `prompt-input` now
-also carry a matching flow ID derived from the recorded child session UUID.
-The bundle merges the process streams into one trace using the parent clock
-calibration. All three delegation links are native Perfetto flow arrows.
-Three older middleware markers lack call IDs and have ambiguous tool matches;
-they remain as instants rather than attributing their data to the wrong call.
-Each child
-records the launching session ID and its role; that session's subagent tool slices
-record the matching child IDs. The **Child launches** query in the command
-palette shows these links and roles. Sessions have separate configuration, usage,
-context, and timeline tracks; the UI does not yet construct a delegation tree.
+The archived recordings were adapted to the current trace schema while retaining
+original activity timings, usage, context peaks, and clock snapshots. Metadata
+from instant markers was moved onto its corresponding spans; names and annotation
+keys were normalized. Track groups and sibling merging organize tools, runtime
+counters, and tracing diagnostics. The `pi` main-thread track uses the real
+process ID as its thread ID. Counters reset at capture end, extending that boundary
+by one nanosecond to preserve the original final samples.
+
+Prompts were recovered from saved user messages, checked against the recorded
+lengths, and added under `pi.prompt-data`. Child prompts replace the local scratch
+directory with an equal-length example path. The text files referenced by
+`promptFile` in `recording.json` preserve the reviewed prompts and worker tasks.
+
+Delegation flows use recorded child session IDs to connect each `subagent` tool
+to its child's first `prompt-input`. Duplicate delegate spans were removed and
+their metadata retained on the tool spans. Three older middleware markers lack
+call IDs and remain instants because their tool matches are ambiguous. Each child
+records its launching session and role. Expand a session in **Sessions** to see
+its children, or use the **Child launches** query to inspect the recorded links.
 
 `run-1.pftrace` and `run-2.pftrace` preserve the earlier independent runs of the
 same task. They remain available for separate comparisons and are not part of

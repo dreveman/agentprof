@@ -20,10 +20,10 @@ The integrations let you:
 - Inspect model response timing and token usage when the harness reports it.
 - Inspect child-launch identifiers and recording health.
 
-**Status:** development preview. The Pi recorder, UI plugin, workflow example,
-and Pi/Claude Code comparison are included. [Open the hosted UI](https://ui.agentprof.dev/).
-Automatic child-trace discovery in the UI remains future work. Multiple files
-can be opened together with clock alignment from the recorded snapshots.
+[Open the hosted UI](https://ui.agentprof.dev/) to explore the harness examples
+or load your recordings. Captured subagent sessions appear within their primary
+session. Multiple files can be opened together with clock alignment from the
+recorded snapshots.
 
 ## Getting started
 

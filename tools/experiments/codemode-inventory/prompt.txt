@@ -1,7 +1,0 @@
-Inventory the tracing extension in src/ without changing any files.
-
-For every .ts file, count exported declarations and lifecycle hook registrations using these exact lexical rules (not an AST):
-- An exported declaration is a line matching ^export\s+(?:async\s+)?(?:function|class|const|interface|type|enum)\s+ in multiline mode.
-- A hook registration is an occurrence matching \bpi\.on\(\s*["'] in the source text.
-
-Return only JSON with this shape: {"files":[{"file":"annotations.ts","exports":0,"hooks":0}],"totals":{"exports":0,"hooks":0}}. Include every .ts file, use basenames sorted alphabetically, and replace the illustrative zeroes with exact counts. Do not estimate from truncated content. Use whichever available tools make the work efficient.

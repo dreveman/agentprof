@@ -4,6 +4,7 @@
 import argparse
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -51,7 +52,12 @@ def capture():
         generated = list(Path(temporary).glob("*.patch"))
         names = {p.name for p in generated}
         for patch in generated:
-            (PATCHES / patch.name).write_bytes(patch.read_bytes())
+            # Patch exports are distribution artifacts; keep local Git identity
+            # in Git metadata rather than copying it into the source tree.
+            text = re.sub(r"(?m)^From:.*(?:\n[ \t].*)*\n",
+                          "From: Agentprof <agentprof@localhost>\n",
+                          patch.read_text(), count=1)
+            (PATCHES / patch.name).write_text(text)
         for old in PATCHES.glob("*.patch"):
             if old.name not in names:
                 old.unlink()

@@ -1,8 +1,8 @@
 # Contributing to Agent Profiler
 
-Agent Profiler includes a Pi recorder and a Perfetto UI plugin. Use the bundled
-real recording to iterate without calling a model; the checks also generate
-synthetic fixtures for edge cases.
+Agent Profiler includes recording integrations for Claude Code, Codex, Muse Code,
+and Pi, plus a Perfetto UI plugin. Use the bundled recordings to iterate without
+calling a model; the checks also generate synthetic fixtures for edge cases.
 
 ## Repository layout
 
@@ -10,6 +10,8 @@ synthetic fixtures for edge cases.
 | --- | --- |
 | `docs/` | Investigation workflow and Pi integration notes |
 | `packages/pi-tracing/` | Pi extension, recorder, encoder, and tests |
+| `packages/claude-tracing/`, `packages/codex-tracing/`, `packages/muse-tracing/` | Harness recording plugins and tests |
+| `packages/agent-tracing/` | Shared trace serialization |
 | `tools/` | Checkout manager and synthetic trace/browser validation |
 | `third_party/perfetto.toml` | Upstream Perfetto URL and initial revision pin |
 | `third_party/patches/perfetto/` | Patches to upstream-owned files |
@@ -32,12 +34,18 @@ npm run trace:example
 python3 tools/perfetto dev-server --skip-deps
 ```
 
-Open `http://localhost:10000` and choose **Open Pi-Opus-5 example**. Edit the plugin under
+Open `http://localhost:10000`, select a harness, and open its example. Edit the plugin under
 `third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/`.
 Overlays are linked into the checkout for UI development. Reload to reopen the
 bundled example with your UI changes. To change its data, update the reviewed
-recordings in `examples/pi-opus-5` and run `npm run trace:example`; commit the
-generated `example_trace.ts` overlay alongside the recording changes.
+recordings in `examples/` and run `npm run trace:example`; commit the
+generated `*example_trace.ts` overlays alongside the recording changes.
+
+Review all prompt text, tool inputs, and embedded content before publishing a
+recording. Replace private paths with generic paths such as `/workspace/intervals`
+and document redactions in its manifest. `npm run check:example` checks source
+traces, decoded UI bundles, and example files for common private paths and
+credential patterns. This catches regressions; it does not replace manual review.
 
 ## Validation
 
@@ -93,8 +101,9 @@ reuse the existing Pi recorder.
 
 Commit upstream-file edits inside `third_party/src/perfetto`, then run
 `python3 tools/perfetto capture` to regenerate the ordered patch series. Do not
-commit overlay symlinks there. Setup preserves local work and stops on a
-mismatched pin, patch series, or overlay destination.
+commit overlay symlinks there. Patch exports use a generic author header; Git
+commits retain the configured author identity. Setup preserves local work and
+stops on a mismatched pin, patch series, or overlay destination.
 
 For revision updates, capture your work, preserve and move the old checkout
 aside, change the pin, and run setup. Resolve conflicts with `git am --continue`

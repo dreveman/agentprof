@@ -1,6 +1,5 @@
-// pi-tracing: self-controlled Perfetto capture for Pi (internal v1).
-// OFF + RECORDING only. ARMED / SYSTEM / rollover are reserved stubs with
-// clear errors. Uses Pi's own packages; prompt text is captured by default.
+// pi-tracing: local Perfetto capture for Pi.
+// Uses Pi's own packages; prompt text is captured by default.
 
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {Type} from "@earendil-works/pi-ai";
@@ -195,7 +194,7 @@ export default function (pi: ExtensionAPI) {
     warnings.push(...envParsed.warnings);
     if (getFlagTracing()) config.startupMode = "recording";
     if (config.startupMode === "armed") {
-      warnings.push("startupMode=armed: flight recorder lands in P3; starting OFF instead");
+      warnings.push("startupMode=armed: flight recording is unsupported; starting OFF instead");
       config.startupMode = "off";
     }
     return { config, warnings };
@@ -1365,7 +1364,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("tracing", {
-    description: "Self-controlled Perfetto capture: start|stop|status|categories|probe|arm|disarm",
+    description: "Perfetto capture: start|stop|status|categories|probe",
     handler: async (raw, ctx) => {
       const args = raw.trim().split(/\s+/).filter((part) => part !== "");
       const sub = args.shift() ?? "status";
@@ -1409,7 +1408,7 @@ export default function (pi: ExtensionAPI) {
         }
         const cat = id as CategoryId;
         if (cat === "system" && value !== "off") {
-          notify(ctx, "pi-tracing: system capture is reserved for the native-helper follow-up; staying off", "warning");
+          notify(ctx, "pi-tracing: system capture is unsupported; staying off", "warning");
           return;
         }
         const config = session.recorder.getConfig();
@@ -1429,10 +1428,10 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       if (sub === "arm" || sub === "disarm") {
-        notify(ctx, "pi-tracing: ARMED flight recorder lands in P3; use start/stop for now", "warning");
+        notify(ctx, "pi-tracing: flight recording is unsupported; use start/stop", "warning");
         return;
       }
-      notify(ctx, "pi-tracing: usage: /tracing start|stop|status|categories|probe|arm|disarm", "error");
+      notify(ctx, "pi-tracing: usage: /tracing start|stop|status|categories|probe", "error");
     },
   });
 

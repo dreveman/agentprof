@@ -1,4 +1,4 @@
-// OFF + RECORDING state machine (v1). ARMED is reserved. Recording appends
+// OFF + RECORDING state machine. Recording appends
 // complete Trace.packet field-1 records through one bounded asynchronous writer
 // queue. Finalization is deadline-bounded, publishes only after successful
 // drain/fsync/close, and otherwise leaves a repaired parseable .part.

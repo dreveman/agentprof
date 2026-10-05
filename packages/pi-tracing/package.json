@@ -1,7 +1,7 @@
 {
   "name": "pi-tracing",
   "version": "0.1.0",
-  "description": "Self-controlled Perfetto capture for Pi (pi-tracing). Local .pftrace recording with categories; system-traced join reserved as follow-up.",
+  "description": "Perfetto capture for Pi with local .pftrace recording and configurable categories.",
   "type": "module",
   "license": "MIT",
   "keywords": [

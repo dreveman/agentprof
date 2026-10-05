@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--model', default='haiku')
 parser.add_argument('--skip-compaction', action='store_true')
 args = parser.parse_args()
-work = ROOT / 'artifacts/claude-prototype' / uuid.uuid4().hex[:8]
+work = ROOT / 'artifacts/claude-probe' / uuid.uuid4().hex[:8]
 task = work / 'task'
 task.mkdir(parents=True)
 (task / 'numbers.json').write_text('[3, 5, 8, 13, 21]\n')

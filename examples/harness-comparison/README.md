@@ -55,12 +55,13 @@ node_modules/.bin/bun tools/experiments/harness-comparison/analyse.ts artifacts/
 
 See the [experiment documentation](../../tools/experiments/harness-comparison/README.md)
 for the validation protocol. A new batch does not replace this reviewed example.
-The original local logs and completed tasks are retained under
-`artifacts/experiments/harness-comparison-20261004-codemode/`.
+Raw conversations and local workspaces are excluded from the repository.
 
 `comparison.pftrace` combines the two selected recordings from that batch. The
 Claude Code trace was regenerated from its saved observations with `claude.*`
-categories; all other event data and timestamps are preserved. The manifest
+categories. Local workspace paths in tool arguments were replaced with
+`/workspace/intervals`; measurements, session identities, and timestamps are
+preserved. The manifest
 retains the original capture checksums and the converted Claude trace checksum.
 Only packet sequence IDs were made unique during the merge. `npm run trace:example` copies
 it unchanged to `artifacts/examples/agentprof-comparison-example.pftrace` and

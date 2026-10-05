@@ -35,7 +35,7 @@ export const CLOCK_REALTIME = 1;
 export const CLOCK_MONOTONIC = 3;
 export const CLOCK_BOOTTIME = 6;
 export const CLOCK_TRACE_FILE = 11;
-/** Sequence-scoped custom clock used until the Phase-0 probe proves Bun's
+/** Sequence-scoped custom clock used unless the runtime probe proves Bun's
  *  hrtime shares the built-in MONOTONIC epoch. Always valid with a snapshot. */
 export const CLOCK_PI_CUSTOM = 64;
 

@@ -40,8 +40,7 @@ scripted session has the generic `codemode` session label.
 counts verified against the original Pi event streams. `tool-arguments.json`
 retains the actual call inputs for offline checks; it does not infer intent or
 modify the recordings. [snapshot.json](snapshot.json) contains the replay data.
-Raw conversations and scratch files remain local under
-`artifacts/experiments/codemode-ci-be9fc03e/`.
+Raw conversations and scratch files are excluded from the repository.
 
 Input counters preserve the provider's uncached input usage: 62 tokens for the
 direct session and 10 for codemode. Cache-read/write usage is retained separately

@@ -248,7 +248,7 @@ categories from earlier Claude Code prototype recordings.
 
 ## OpenTelemetry measurement limits
 
-This is a capture prototype, not full Pi tracing parity:
+The OpenTelemetry launcher has these measurement limits:
 
 - Model intervals cover the complete native request, including retries. This
   differs from Pi's message lifecycle boundary. `timing` records the distinction.
@@ -263,10 +263,9 @@ This is a capture prototype, not full Pi tracing parity:
   incomplete and excluded from measured activity. Abrupt termination can lose
   spans that Claude had not yet exported.
 - CPU and heap sampling are omitted: the collector's resource use is not the
-  agent's resource use. Command hooks add process-start overhead; the prototype
-  is intended to establish capture correctness before minimizing that overhead.
+  agent's resource use. Command hooks add process-start overhead.
 
-The installed client used during development is Claude Code 2.1.252. Native
+The launcher was validated with Claude Code 2.1.252. Native
 span tracing is a beta interface. See Claude's
 [monitoring reference](https://code.claude.com/docs/en/monitoring-usage#traces-beta)
 and [hook reference](https://code.claude.com/docs/en/hooks) for version-specific fields.
@@ -278,7 +277,7 @@ npx bun test packages/claude-tracing
 python3 tools/probe-claude.py
 ```
 
-The live probe uses a disposable fixture under `artifacts/claude-prototype/`,
+The live probe uses a disposable fixture under `artifacts/claude-probe/`,
 asks for parallel tools and a subagent, exercises an intentional exit-code-7
 failure, then sends `/compact` and a short follow-up in the same process.
 It requires working Claude authentication. `--skip-compaction` runs only the

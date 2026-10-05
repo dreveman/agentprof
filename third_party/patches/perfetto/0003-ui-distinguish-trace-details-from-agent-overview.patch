@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: David Reveman <reveman@rivosinc.com>
+From: Agentprof <agentprof@localhost>
 Date: Sat, 26 Sep 2026 03:19:57 -0400
 Subject: [PATCH 3/6] ui: distinguish trace details from agent overview
 
