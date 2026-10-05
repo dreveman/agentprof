@@ -6,7 +6,13 @@ the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 
 Category prefixes identify the recording harness: Pi writes `pi.*`, and the
 Claude Code writes `claude.metadata` and `claude.activity`.
-Both use the same version-1 capture markers and event kinds. Readers also
+Codex writes `codex.metadata` and `codex.activity` using the same capture schema.
+Its input tokens include cached input; cache fields must not be added again.
+Codex context samples are request input, and its effective context window is
+read from the captured session metadata. Native startup prewarming is separate
+from normal responses and session token totals. See the
+[Codex recording guide](../packages/codex-tracing/README.md) for timing boundaries.
+All three use the same version-1 capture markers and event kinds. Readers also
 recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
 Claude Code's OpenTelemetry request intervals carry `timing = request-including-retries`;
 direct mod streams use `timing = mod-request-including-retries`. Both boundaries

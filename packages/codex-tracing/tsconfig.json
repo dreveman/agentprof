@@ -1,0 +1,5 @@
+{
+  "extends": "../pi-tracing/tsconfig.json",
+  "compilerOptions": {"module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2023"]},
+  "include": ["**/*.ts", "../agent-tracing/**/*.ts", "../../tools/record-codex.ts", "../../tools/convert-codex.ts"]
+}

@@ -7,9 +7,12 @@ import { Recorder } from "../packages/pi-tracing/extensions/pi-tracing/tracer.ts
 import { assistantAnnotations } from "../packages/pi-tracing/extensions/pi-tracing/annotations.ts";
 import {buildTracePacket, buildTrackEvent, framePacket, TRACK_EVENT_INSTANT} from
   "../packages/pi-tracing/extensions/pi-tracing/encoder.ts";
+import {convertObservations as convertCodex} from '../packages/codex-tracing/convert.ts';
+import {fixture as codexFixture} from '../packages/codex-tracing/fixture.ts';
 
 const outDir = resolve("artifacts/examples");
 await mkdir(outDir, { recursive: true });
+await writeFile(resolve(outDir, 'codex.pftrace'), convertCodex(codexFixture()).trace);
 const config = defaultConfig();
 config.sampleHz = 0;
 config.finalizeDeadlineMs = 5000;

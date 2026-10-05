@@ -170,6 +170,12 @@ try {
   await page.getByText('claude plugin install agentprof@agentprof', {exact: true}).waitFor();
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-claude-dark.png'});
   await action('Dark mode');
+  await recordingAgent.getByRole('button', {name: 'Codex', exact: true}).click();
+  await recordStep.getByRole('link', {name: 'Codex recording guide'}).waitFor();
+  assert.match(await recordStep.innerText(), /Codex exec/);
+  assert.match(await recordStep.locator('code').first().innerText(), /tools\/record-codex\.ts/);
+  await page.setViewportSize({width: 390, height: 1000});
+  assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
   await page.getByText('pi --tracing', {exact: true}).waitFor();
   await page.setViewportSize({width: 1440, height: 1000});
@@ -834,6 +840,25 @@ try {
     ['src/index.ts · offset 10 · limit 20', 'pi.on in src']);
   await page.getByRole('button', {name: 'Expand script', exact: true}).last().click();
   await page.getByText('No nested calls were recorded.', {exact: true}).waitFor();
+  await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/codex.pftrace'));
+  await page.locator('.ap-banner').filter({hasText: 'codex.pftrace'}).waitFor({timeout: 60000});
+  await overview().waitFor({timeout: 60000});
+  await page.waitForURL(/#!\/agentprof/);
+  const codexCard = page.locator('.ap-card').filter({has: page.getByRole('heading', {name: 'What happened in this recording?', exact: true})});
+  assert.equal(await codexCard.locator('tbody tr').count(), 1, 'Codex child usage rolls into the primary session');
+  await codexCard.getByRole('img', {name: 'Codex', exact: true}).waitFor();
+  assert.equal(await codexCard.locator('.ap-model-name').textContent(), 'fixture-model');
+  assert.match(await codexCard.innerText(), /260/);
+  await page.screenshot({path: 'artifacts/screenshots/agentprof-codex.png'});
+  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-script-row').waitFor();
+  assert.equal(await page.locator('.ap-script-row .ap-tool-description').textContent(), 'JavaScript · 1 line');
+  await page.getByRole('button', {name: 'Expand script', exact: true}).click();
+  await page.locator('.ap-script-expanded .ap-tool-description').waitFor();
+  assert.equal(await page.locator('.ap-script-expanded .ap-tool-description').textContent(), 'exit 7');
+  await page.locator('.ap-script-expanded .ap-table-link').first().click();
+  await page.waitForURL(/#!\/viewer/);
+  await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
   assert.deepEqual(errors, [], 'Browser reported JavaScript errors');
   console.log('PASS browser: real Pi example, recorded-file merge, overview, reload, model/tool drill-down, file import, narrow layout, multi-file and single-file session summaries, model-aware headings, native process labels, shared-process and unattached agents, ordinary trace fallback');
 } catch (error) {
