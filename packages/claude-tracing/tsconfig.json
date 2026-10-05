@@ -1,0 +1,5 @@
+{
+  "extends": "../pi-tracing/tsconfig.json",
+  "compilerOptions": {"module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2023"]},
+  "include": ["**/*.ts", "../../tools/record-claude.ts", "../../tools/convert-claude.ts", "../../tools/build-claude-direct.ts"]
+}

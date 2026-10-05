@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
-// Phase-0 runtime probe. Pure and testable: no Pi imports, no filesystem
+// Runtime capability probe. Pure and testable: no Pi imports, no filesystem
 // writes, bounded to ~200 ms. Every source reports pass/fail with observed
 // values; failures must surface as "unavailable on this runtime", never as
 // silent zeroes in the trace.
@@ -162,7 +162,7 @@ export function runProbe(): ProbeResult[] {
 }
 
 export function formatProbe(results: ProbeResult[]): string {
-  const lines = ["Pi-tracing Phase-0 probe (inside Pi runtime):"];
+  const lines = ["Pi-tracing runtime probe (inside Pi runtime):"];
   for (const result of results) {
     lines.push(`- [${result.ok ? "PASS" : "FAIL"}] ${result.name}: ${result.detail}`);
   }

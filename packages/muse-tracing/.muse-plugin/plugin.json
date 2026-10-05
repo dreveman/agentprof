@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "name": "agentprof",
+  "displayName": "Agent Profiler",
+  "version": "0.2.0",
+  "description": "Record model responses, tool calls, token usage and subagent work in Perfetto traces.",
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  },
+  "capabilities": {
+    "hooks": [
+      {
+        "id": "session-start",
+        "event": "SessionStart",
+        "command": [
+          "node",
+          "hooks/session-start.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "session-end",
+        "event": "SessionEnd",
+        "command": [
+          "node",
+          "hooks/session-end.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "user-prompt-submit",
+        "event": "UserPromptSubmit",
+        "command": [
+          "node",
+          "hooks/user-prompt-submit.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "pre-llm-call",
+        "event": "PreLLMCall",
+        "command": [
+          "node",
+          "hooks/pre-llm-call.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "pre-compact",
+        "event": "PreCompact",
+        "command": [
+          "node",
+          "hooks/pre-compact.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "post-compact",
+        "event": "PostCompact",
+        "command": [
+          "node",
+          "hooks/post-compact.mjs"
+        ],
+        "timeoutMs": 90000
+      },
+      {
+        "id": "subagent-start",
+        "event": "SubagentStart",
+        "command": [
+          "node",
+          "hooks/subagent-start.mjs"
+        ],
+        "timeoutMs": 5000
+      }
+    ],
+    "mcpServers": [
+      {
+        "id": "tracing",
+        "transport": "stdio",
+        "command": [
+          "node",
+          "runtime/muse-tracing.mjs",
+          "mcp"
+        ]
+      }
+    ]
+  }
+}

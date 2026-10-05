@@ -115,7 +115,7 @@ export interface ConfigParse {
 }
 
 /** Merge one raw JSON object over `base`. Unknown categories warn; `system`
- *  can never be enabled in v1 (reserved for the native-helper follow-up). */
+ *  cannot be enabled because this recorder has no system tracing backend. */
 export function applyRawConfig(base: TracingConfig, raw: unknown, source: string): ConfigParse {
   const warnings: string[] = [];
   const config: TracingConfig = {
@@ -156,7 +156,7 @@ export function applyRawConfig(base: TracingConfig, raw: unknown, source: string
       }
       const id = key as CategoryId;
       if (id === "system" && value === true) {
-        warnings.push(`${source}: system capture is reserved for the follow-up; staying off`);
+        warnings.push(`${source}: system capture is unsupported; staying off`);
         continue;
       }
       config.categories[id] = value;
@@ -166,7 +166,7 @@ export function applyRawConfig(base: TracingConfig, raw: unknown, source: string
   }
   config.sampleHz = clampInt(raw["sampleHz"], config.sampleHz, 0, 60);
   if (raw["maxEvents"] !== undefined) {
-    warnings.push(`${source}: maxEvents is reserved for the future ARMED mode and is ignored in v1`);
+    warnings.push(`${source}: maxEvents is unsupported and is ignored`);
   }
   config.maxFileMB = clampInt(raw["maxFileMB"], config.maxFileMB, 1, 1024);
   config.maxFiles = clampInt(raw["maxFiles"], config.maxFiles, 1, 50);
@@ -227,7 +227,7 @@ export function parseEnv(env: NodeJS.ProcessEnv): EnvOverrides {
       }
       const id = name as CategoryId;
       if (id === "system" && !negated) {
-        warnings.push("PI_TRACING_CATEGORIES: system capture is reserved; staying off");
+        warnings.push("PI_TRACING_CATEGORIES: system capture is unsupported; staying off");
         continue;
       }
       parsed[id] = !negated;
@@ -267,7 +267,7 @@ export function applyEnvOverrides(base: TracingConfig, env: NodeJS.ProcessEnv): 
   const config: TracingConfig = { ...base, categories: { ...base.categories } };
   if (parsed.config.startupMode !== undefined) {
     if (parsed.config.startupMode === "armed") {
-      warnings.push("PI_TRACING_STARTUP=armed: flight recorder lands in P3; starting OFF instead");
+      warnings.push("PI_TRACING_STARTUP=armed: flight recording is unsupported; starting OFF instead");
       config.startupMode = "off";
     } else {
       config.startupMode = parsed.config.startupMode;

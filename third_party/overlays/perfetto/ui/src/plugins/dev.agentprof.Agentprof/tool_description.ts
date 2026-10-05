@@ -19,7 +19,7 @@ export function toolDescription(intent: string | undefined, argumentsJson: strin
   }
   const text = (...keys: string[]): string | undefined => keys.map(key => args[key])
     .find(value => typeof value === 'string' && value.trim().length > 0);
-  const command = text('command');
+  const command = text('command', 'cmd');
   if (command) return command;
   const path = text('path', 'file_path', 'file');
   const oldText = text('oldText', 'old_string');

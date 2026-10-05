@@ -1,0 +1,5 @@
+{
+  "name": "agentprof-otel",
+  "version": "0.1.0",
+  "description": "Lifecycle observations for the Agent Profiler OpenTelemetry launcher"
+}

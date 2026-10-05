@@ -375,7 +375,7 @@ export function buildSnapshotPacket(args: {
 }
 
 export function clockIdForProbe(probePassedMonotonic: boolean): number {
-  // The safe default remains the sequence-scoped custom clock. The Phase-0
+  // The safe default remains the sequence-scoped custom clock. The runtime
   // probe may opt into built-in MONOTONIC when it verifies the epoch.
   return probePassedMonotonic ? CLOCK_MONOTONIC : CLOCK_PI_CUSTOM;
 }

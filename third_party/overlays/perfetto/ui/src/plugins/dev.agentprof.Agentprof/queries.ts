@@ -3,6 +3,12 @@
 import {COUNTER_TRACKS_SQL} from './track_names';
 
 // Keep the query model usable by both the UI and Trace Processor validation.
+export const DETECT_SQL = `
+SELECT COUNT(*) AS count FROM slice WHERE category GLOB 'pi.*'
+  OR (category IN ('claude.metadata', 'codex.metadata', 'muse.metadata', 'agentprof.metadata')
+    AND EXTRACT_ARG(arg_set_id, 'debug.kind') = 'capture'
+    AND EXTRACT_ARG(arg_set_id, 'debug.schema_version') = 1)`;
+
 export const SETUP_SQL = `
 CREATE PERFETTO TABLE agentprof_track_process AS
 WITH RECURSIVE ancestry(track_id, ancestor_id) AS (
@@ -34,7 +40,7 @@ FROM slice s JOIN agentprof_track_process m ON m.track_id = s.track_id
 LEFT JOIN track root ON root.name = 'agentprof.capture'
   AND printf('%x', EXTRACT_ARG(root.source_arg_set_id, 'trace_id')) =
     COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.capture_id'), EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_capture_id'))
-WHERE s.category = 'pi.metadata' AND (s.name IN ('tracing', 'tracing-start')
+WHERE s.category IN ('pi.metadata', 'claude.metadata', 'codex.metadata', 'muse.metadata', 'agentprof.metadata') AND (s.name IN ('tracing', 'tracing-start')
   OR s.name GLOB 'profile ([0-9]*)');
 
 CREATE PERFETTO TABLE agentprof_captures AS
@@ -75,7 +81,7 @@ LEFT JOIN thread th ON th.utid = tt.utid
 LEFT JOIN agentprof_slice_capture sc ON sc.id = s.id
 LEFT JOIN process p ON p.upid = m.upid
 LEFT JOIN agentprof_captures cap ON cap.capture_id = COALESCE(sc.capture_id, m.capture_id)
-WHERE s.category GLOB 'pi.*';
+WHERE s.category GLOB 'pi.*' OR s.category GLOB 'claude.*' OR s.category GLOB 'codex.*' OR s.category GLOB 'muse.*' OR s.category GLOB 'agentprof.*';
 
 CREATE PERFETTO TABLE agentprof_tool_arguments AS
 SELECT arg_set_id, JSON_GROUP_OBJECT(CASE WHEN key = 'debug.args' THEN 'value'

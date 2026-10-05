@@ -1,8 +1,7 @@
 # Pi tracing integration
 
-The recorder lives in [packages/pi-tracing](../packages/pi-tracing/), imported
-from the supplied extension. It retains its package name, Pi entry point,
-zero runtime npm dependencies, and MIT license declaration.
+The recorder lives in [packages/pi-tracing](../packages/pi-tracing/). It has a Pi
+extension entry point, zero runtime npm dependencies, and an MIT license declaration.
 
 ## Recording
 
@@ -25,16 +24,13 @@ which the owner merges when tracing stops. Failed finalization retains spools
 and any parseable `.pftrace.part`. The UI exposes dropped events, lane overflows, and incomplete
 spans rather than treating truncated work as completed.
 
-## Integration changes
+## Recorded data and validation
 
-- Added schema/capture metadata at the beginning of each recording.
-- Added structured turn indices, tool IDs/outcomes, provider phase/status,
-  context counts, stream timings, model metadata, and reported usage.
-- Preserved missing usage values and opt-in content capture.
-- Added query validation against Trace Processor and a browser smoke test.
-- Fixed the imported TypeScript setup and environment override type.
-- Used standard TAR packaging for multi-trace tests. REALTIME is the primary
-  trace clock; tests verify same-machine and cross-machine wall-time alignment.
+Capture metadata identifies the harness, model, effort, and session. Events carry
+turn indices, tool IDs and outcomes, provider phases, context counts, stream
+timings, and reported usage. Missing usage stays unknown. Content capture follows
+the configured categories. REALTIME is the primary trace clock; tests verify
+same-machine and cross-machine wall-time alignment, including multi-file imports.
 
 The bundled example is a real Pi 0.87.1 parent with three Opus 5 subagents,
 recorded through this extension on 2026-09-27. Implementation and test workers
@@ -48,8 +44,5 @@ recordings, producing one trace with all three native delegation flows.
 See [the recording notes](../examples/pi-opus-5/README.md) to reproduce it.
 
 A separate synthetic fixture covers overlap, missing usage, and interrupted work.
-Real retry and cancellation behavior still needs validation.
-
-Use real recordings to refine the [data contract](trace-data.md). Next priorities
-are stable operation/request IDs, explicit retry and cancellation outcomes, and
-measured user-wait spans. Keep fields optional so older recordings remain useful.
+The example does not exercise real retries or cancellation. See the
+[data contract](trace-data.md) for field definitions and coverage limits.

@@ -1,6 +1,6 @@
 # Investigating an agent run
 
-Load a Pi recording to open **Overview**. The Summary tab shows recorded activity,
+Load a supported agent recording to open **Overview**. The Summary tab shows recorded activity,
 model responsiveness, tool work, concurrency, and capture health. **Responses**,
 **Tools**, and **Sessions** provide detail tables. Select a response's session or a
 tool call to reveal that event in the timeline; **Open timeline** opens the Agent Profiler
@@ -40,17 +40,20 @@ persistent state. Script duration is excluded from tool totals and concurrency;
 Session subtitles display the harness-provided `session_labels` string list.
 The UI shows distinct labels observed in that capture, without adding subagent
 labels to its launching session. Missing or empty lists produce no subtitle.
-Pi adds `codemode` when that tool is enabled. The built-in **direct vs codemode** example uses the same model,
-prompt, and source snapshot. Compare Recorded window, context usage, and token
-totals together; this example is a single pair, not a general speed benchmark.
+Pi adds `codemode` when that tool is enabled. The built-in **Pi vs Claude Code**
+example uses the same model, prompt, and source snapshot. It pairs the fastest
+correct Pi codemode attempt from three rounds with Claude Code from that round.
+Compare Recorded window, context usage, and token totals together; this is a
+selected example, not a general speed benchmark. See the
+[example notes](../examples/harness-comparison/README.md) for selection and timing details.
 
 ## Follow delegated work
 
-Use recorded parent/child identifiers in **Child launches** to locate subagent
-recordings. The initial UI does not automatically join these files. Compare their
-start and finish times with the parent and inspect where work overlaps. Check
-whether the parent could continue or was waiting for a result, when wait events
-are available.
+Expand a session in **Sessions** to see its recorded subagent sessions. Their
+usage and activity also contribute to the primary session's overview row.
+Follow a delegation flow into the timeline to compare start and finish times
+and inspect where work overlaps. Check whether the primary agent could continue
+or was waiting for a result, when wait events are available.
 
 Overlapping durations must not simply be added to estimate elapsed time.
 Parallel activity can occupy more total agent time than the run's wall time.
@@ -68,6 +71,13 @@ Record comparable runs with the same task, harness settings, and model.
 Consider run duration, individual operation durations, failures, and recorded
 usage together. Model variability, caches, and external services can affect
 results, so a single faster run is not enough to establish an improvement.
+
+The [Pi / Claude Code diagnostic suite](../tools/experiments/harness-comparison/README.md)
+separates serial tool loops, parallel scheduling, bounded coding, and read-only
+delegation. It checks required work and correctness independently of timing,
+retains all attempts, and produces paired traces for the UI. Its report includes
+request-to-headers time: response-only metrics currently use different boundaries
+in the two capture implementations.
 
 ## Compare captures
 

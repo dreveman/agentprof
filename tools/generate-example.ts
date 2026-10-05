@@ -7,13 +7,17 @@ import { Recorder } from "../packages/pi-tracing/extensions/pi-tracing/tracer.ts
 import { assistantAnnotations } from "../packages/pi-tracing/extensions/pi-tracing/annotations.ts";
 import {buildTracePacket, buildTrackEvent, framePacket, TRACK_EVENT_INSTANT} from
   "../packages/pi-tracing/extensions/pi-tracing/encoder.ts";
+import {convertObservations as convertCodex} from '../packages/codex-tracing/convert.ts';
+import {fixture as codexFixture} from '../packages/codex-tracing/fixture.ts';
 
 const outDir = resolve("artifacts/examples");
 await mkdir(outDir, { recursive: true });
+await writeFile(resolve(outDir, 'codex.pftrace'), convertCodex(codexFixture()).trace);
 const config = defaultConfig();
 config.sampleHz = 0;
 config.finalizeDeadlineMs = 5000;
-const recorder = new Recorder({ config, outDir, sessionTag: "example",
+// Keep recorder retention from deleting named browser fixtures during rebuilds.
+const recorder = new Recorder({ config, outDir: resolve(outDir, 'captures'), sessionTag: "example",
   identity: { pid: 1001, processName: "pi-example", labels: ["session:agentprof-example"],
     mainThread: {tid: 1001, name: "pi"} }, machineId: 101 });
 recorder.setRunConfiguration({model: "opus-5", provider: "synthetic", effort: "high",

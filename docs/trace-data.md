@@ -4,6 +4,52 @@ This is the first Agent Profiler data contract, grounded in the Pi recorder. It 
 an evolving adapter convention, not a claim that all coding harnesses expose
 the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 
+Category prefixes identify the recording harness: Pi writes `pi.*`, and the
+Claude Code writes `claude.metadata` and `claude.activity`.
+Codex writes `codex.metadata` and `codex.activity` using the same capture schema.
+The interactive plugin combines native telemetry with scoped lifecycle hooks.
+Recording boundaries remain fixed while late native exports drain. Hooks supply
+prompt boundaries, compaction spans and child relationships. Hook-only tool
+intervals are labeled `timing = hook-dispatch`; native execution intervals take
+precedence. Codex supplies the parent session ID on subagent hooks, so their
+separate `agent_id` identifies the child. Recording controls are excluded from
+tool activity. Interrupted work is marked incomplete.
+Its input tokens include cached input; cache fields must not be added again.
+Codex context samples are request input, and its effective context window is
+read from the captured session metadata. Native startup prewarming is separate
+from normal responses and session token totals. See the
+[Codex recording guide](../packages/codex-tracing/README.md) for timing boundaries.
+All four use the same version-1 capture markers and event kinds. Readers also
+recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
+Claude Code's OpenTelemetry request intervals carry `timing = request-including-retries`;
+direct mod streams use `timing = mod-request-including-retries`. Both boundaries
+differ from Pi's message spans. Direct capture measures first content/text from
+the request start to the corresponding streamed chunk. Tools use the reported
+execution duration, positioned at the post-tool hook; `Tool dispatch` preserves
+the observed interval including permission and hook delays. Compaction usage
+contributes to token counters without counting as assistant turns. Main-session
+context limits come from Claude's session API and are not assigned to subagents.
+Claude's recording continues across clear/resume/branch as separate capture
+windows in one file. Revisited native session IDs use a segment suffix for
+unambiguous joins, with `native_session_id` retaining the original identity.
+Starts during a prompt or child session use `started_before_capture`; reload
+interruptions and work unfinished at stop are marked incomplete. Buffered
+observations survive mod reloads, and file journals support recovery after an
+abrupt process exit. Recording controls are excluded from tool activity.
+See the [Claude recording guide](../packages/claude-tracing/README.md) for coverage.
+
+Muse Code writes `muse.metadata` and `muse.activity`. Its native export supplies
+per-response usage and measured model durations, positioned backwards from the
+completion journal timestamp (`timing = native-duration`). Tool intervals use
+native lifecycle timestamps. First-content latency is not inferred. Input
+includes cached tokens and provides sampled context size; the context limit
+comes from the model catalog. Lightweight hooks supply effort and compaction
+boundaries. Export omissions of live output deltas are recorded separately from
+missing journal records; missing child logs are counted in
+`unavailable_child_sessions`. Partial responses exclude usage from the capture.
+See the [Muse recording guide](../packages/muse-tracing/README.md) for boundaries
+and recovery.
+
 ## Existing timeline model
 
 | Track | Recorded meaning |
@@ -58,8 +104,9 @@ is one-to-one; agents sharing a process must use generic tracks and per-agent
 metadata instead of synthetic processes or process-wide agent labels.
 
 The Agent Profiler workspace reuses upstream process summary rows and labels.
-Multiple captures within a process stay in generic capture groups, alongside
-one native row for each actual OS thread. If a loaded
+Multiple captures within a process stay in generic groups named **Session** or
+**Subagent session**, using the recorded label or a shortened session ID. They
+represent logical sessions, alongside one native row for each actual OS thread. If a loaded
 recording maps several sessions to one process, or one session to several
 processes, its process row does not use the labels to identify an individual
 agent. Capture metadata remains the authoritative session/capture join key.

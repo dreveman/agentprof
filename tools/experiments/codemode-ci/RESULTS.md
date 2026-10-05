@@ -57,17 +57,8 @@ returned data and scratch files; they did not read the fixture or expected
 answer. Both the screening comparison and selected repeated comparison were
 also loaded in the local UI.
 
-Local artifacts are retained under
-`artifacts/experiments/codemode-ci-be9fc03e/`. This includes the original runner
-and tool source, fixture, oracle, prompt, sessions, API logs, trace metrics,
-per-run usage, checksums, and a `summary.json`. The screening pair is under
-`artifacts/experiments/codemode-ci-035aeb48/`.
-
-The candidate `pi-ci-audit.pftrace` in the repeated-run directory contains
-**round 1**, selected for its middle paired speedup. Its SHA-256 is
-`61dab4bc04cc17f6c2d95169e9ceff9cd2f66ca09ee584f3ac51b0a3091d0386`.
-This pair is bundled as the UI's **Open direct vs codemode example**. The
-previous source-inventory example is archived locally under
-`artifacts/experiments/pi-source-inventory-example/`; its runner is in
-`tools/experiments/codemode-inventory/`. In that smaller workload, direct tools
-could already combine the work into a few searches.
+The published [CI audit fixture](../../../examples/pi-codemode/README.md)
+contains **round 1**, selected for its middle paired speedup, with the source
+data, prompt, expected answers, checksums, and validation counts.
+The UI now features the [Pi and Claude Code comparison](../../../examples/harness-comparison/README.md). The
+raw conversations, API logs, and local workspaces are excluded from the repository.

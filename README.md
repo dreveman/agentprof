@@ -8,10 +8,11 @@ See where the time went in an AI coding agent run.
 
 ## What is Agent Profiler?
 
-Agent Profiler is an agent-focused Perfetto UI with a Pi tracing extension. Explore
-turns, provider requests, tool calls, and child-agent launches on a timeline.
+Agent Profiler is an agent-focused Perfetto UI with Pi, Claude Code, Codex and Muse Code recording
+integrations. Explore turns, provider requests, tool calls, and child-agent
+launches on a timeline.
 
-The first integration lets you:
+The integrations let you:
 
 - Group timeline tracks by agent session and inspect overlapping tool calls.
 - Query slow tools, recorded failures, and incomplete operations.
@@ -19,10 +20,10 @@ The first integration lets you:
 - Inspect model response timing and token usage when the harness reports it.
 - Inspect child-launch identifiers and recording health.
 
-**Status:** development preview. The Pi recorder, UI plugin, and real Pi
-workflow and codemode examples are included. [Open the hosted UI](https://ui.agentprof.dev/).
-Automatic child-trace discovery in the UI remains future work. Multiple files
-can be opened together with clock alignment from the recorded snapshots.
+[Open the hosted UI](https://ui.agentprof.dev/) to explore the harness examples
+or load your recordings. Captured subagent sessions appear within their primary
+session. Multiple files can be opened together with clock alignment from the
+recorded snapshots.
 
 ## Getting started
 
@@ -42,6 +43,47 @@ To try the extension from a local checkout without installing it, run
 Recordings include prompts and tool arguments by default. Set
 `PI_TRACING_CAPTURE_CONTENTS=0` to omit tool arguments.
 
+For Claude Code (2.1.289+ with mods enabled, Node.js 22+), install the
+[interactive plugin](packages/claude-tracing/README.md):
+
+```sh
+claude plugin marketplace add dreveman/agentprof
+claude plugin install agentprof@agentprof
+claude
+```
+
+Use the recording button above the prompt, `/tracing start` and `/tracing stop`,
+or let the agent use `tracing_start`, `tracing_stop` and `tracing_status` tools.
+Exit also saves an active recording. Subagents share one trace; reload and
+clear/resume preserve recording. The guide covers keyboard controls, automatic
+recording, recovery and the optional print-mode OpenTelemetry launcher.
+
+For Codex, install the [recording plugin](packages/codex-tracing/README.md):
+
+```sh
+npm install -g github:dreveman/agentprof
+agentprof-codex install
+codex --no-daemon -p agentprof
+```
+
+Review the recording hooks in `/hooks`, then type `tracing start`. Type
+`tracing stop` to save, or exit Codex. Agent tools can also start, stop and
+report recording status. Subagents share the same trace, with native model
+timing, token usage, context limits, and scripts and their nested tools.
+
+For Muse Code, install the [native recording plugin](packages/muse-tracing/README.md):
+
+```sh
+npm install -g github:dreveman/agentprof
+agentprof-muse install
+muse plugins approve agentprof
+muse
+```
+
+Type `tracing start`, run your task, then type `tracing stop` or exit Muse to
+save the file. The agent can also use recording tools. Native session logs
+provide response timing, token usage, tool calls and recorded subagent work.
+
 Build and serve the UI (Python 3.11+, Git, and a C/C++ build environment;
 Perfetto downloads its pinned build dependencies):
 
@@ -50,25 +92,33 @@ python3 tools/perfetto build-ui
 python3 tools/perfetto dev-server --skip-deps
 ```
 
-Open `http://localhost:10000` and choose **Open recordings**. Pi recordings
+Open `http://localhost:10000` and choose **Open recordings**. Pi, Claude Code, Codex and Muse Code recordings
 automatically open **Overview**, with activity, model, tool, concurrency, and
 capture-health summaries. The top bar provides **Overview** and **Timeline** navigation.
 Use the overview tabs for details or **Open timeline** to explore
 the **Agent Profiler** workspace. Use **More options → Query (SQL)** for custom analysis or use the
 command palette (`Ctrl+Shift+P`) to run the built-in `Agent Profiler:` queries.
 
-Choose **Open workflow example** on the home page to explore a real delegated
-coding task using Anthropic's `claude-opus-5` with high effort. A parent launches
+Choose **More options → Open workflow example** to explore a real delegated
+coding task using Anthropic's `claude-opus-5` with high effort. A primary agent launches
 implementation and test workers concurrently, then a reviewer. All four sessions
 are included, with parent/child identifiers and individual usage counters. Reloading reopens the bundled
 recordings, so you can iterate on the UI without uploading files each time.
 
-Choose **Open direct vs codemode example** to compare a CI audit with direct
-and scripted tool calls. Both real Pi runs use Opus 5 at high effort, the same
-synthetic CI data, and 196 API requests, with verified answers. The scripted
-session has a `codemode` label; **Tools → Scripted
-tool use** expands each script into its nested calls. See the
-[comparison notes](examples/pi-codemode/README.md) for results and reproduction.
+The front page offers an example for the selected harness: **Open Claude Code
+example** shows a [recorded coding task](examples/claude-coding/README.md), and
+**Open Codex example** shows a [coding task with scripted tools](examples/codex-coding/README.md).
+Each fixes interval calculations and adds regression tests. All examples remain
+available from the top bar's **More options** menu.
+
+Select Pi and choose **Open Pi vs Claude Code example** to compare the same coding task with
+Pi codemode and Claude Code. This showcase pairs the fastest correct Pi codemode
+run from three trials with Claude Code from the same round. Both use Haiku 4.5
+with thinking off and passed independent correctness checks.
+The Pi session has a `codemode` label; **Tools → Scripted tool use** expands
+each script into its nested calls. See the
+[comparison notes](examples/harness-comparison/README.md) for results,
+measurement boundaries and reproduction.
 
 To rebuild the bundle from the checked-in recordings without calling a model:
 
@@ -78,7 +128,11 @@ npm run trace:example
 ```
 
 This updates `artifacts/examples/agentprof-example.pftrace`,
-`artifacts/examples/agentprof-codemode-example.pftrace`, and their UI bundles.
+`artifacts/examples/agentprof-comparison-example.pftrace`,
+`artifacts/examples/agentprof-claude-example.pftrace`,
+`artifacts/examples/agentprof-codex-example.pftrace`, and their UI bundles.
+The earlier CI audit is retained as an offline fixture at
+`artifacts/examples/agentprof-codemode-example.pftrace`.
 The original recordings, task, prompt, and provenance are in
 [examples/pi-opus-5](examples/pi-opus-5/README.md). Open its `workflow-*.pftrace` files
 with **Open trace file** to compare independent file import with the unified example.
