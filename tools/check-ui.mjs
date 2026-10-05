@@ -145,7 +145,9 @@ try {
   }
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-narrow.png'});
   const recordingAgent = page.getByRole('group', {name: 'Recording agent'});
-  assert.equal(await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert.equal(await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).getAttribute('aria-pressed'), 'true');
+  await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
+  await page.getByText('pi --tracing', {exact: true}).waitFor();
   await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).click();
   await page.getByText('claude plugin install agentprof@agentprof', {exact: true}).waitFor();
   assert.equal(await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).getAttribute('aria-pressed'), 'true');

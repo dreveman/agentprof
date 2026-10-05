@@ -7,7 +7,7 @@ import {AgentprofBrand} from './agentprof_brand';
 import './agentprof_home_page.scss';
 
 export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
-  private agent: 'pi' | 'claude' = 'pi';
+  private agent: 'claude' | 'pi' = 'claude';
 
   view({attrs: {app}}: m.CVnode<{app: App}>) {
     const isPi = this.agent === 'pi';
@@ -47,8 +47,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
         m(
           '.ap-home__agents',
           {role: 'group', 'aria-label': 'Recording agent'},
-          m('span.ap-home__agent-label', 'Agent'),
-          (['pi', 'claude'] as const).map((agent) =>
+          (['claude', 'pi'] as const).map((agent) =>
             m(Button, {
               label: agent === 'pi' ? 'Pi' : 'Claude Code',
               active: this.agent === agent,
