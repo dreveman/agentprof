@@ -10,6 +10,9 @@ for (const [directory, output, module, constant] of [
   ['pi-opus-5', 'agentprof-example', 'example_trace', 'EXAMPLE_TRACE_BASE64'],
   ['pi-codemode', 'agentprof-codemode-example'],
   ['harness-comparison', 'agentprof-comparison-example', 'comparison_example_trace', 'COMPARISON_EXAMPLE_TRACE_BASE64'],
+  ['claude-coding', 'agentprof-claude-example', 'claude_example_trace', 'CLAUDE_EXAMPLE_TRACE_BASE64'],
+  ['codex-coding', 'agentprof-codex-example', 'codex_example_trace', 'CODEX_EXAMPLE_TRACE_BASE64'],
+  ['muse-coding', 'agentprof-muse-example', 'muse_example_trace', 'MUSE_EXAMPLE_TRACE_BASE64'],
 ]) {
   const source = resolve(`examples/${directory}`);
   const manifest = JSON.parse(await readFile(resolve(source, 'recording.json'), 'utf8'));

@@ -145,9 +145,12 @@ try {
   }
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-narrow.png'});
   const recordingAgent = page.getByRole('group', {name: 'Recording agent'});
+  assert.deepEqual(await recordingAgent.getByRole('button').allTextContents(), ['Claude Code', 'Codex', 'Muse Code', 'Pi']);
   assert.equal(await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Claude Code example']);
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
   await page.getByText('pi --tracing', {exact: true}).waitFor();
+  assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Pi vs Claude Code example']);
   await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).click();
   await page.getByText('claude plugin install agentprof@agentprof', {exact: true}).waitFor();
   assert.equal(await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).getAttribute('aria-pressed'), 'true');
@@ -172,14 +175,59 @@ try {
   await action('Dark mode');
   await recordingAgent.getByRole('button', {name: 'Codex', exact: true}).click();
   await recordStep.getByRole('link', {name: 'Codex recording guide'}).waitFor();
-  assert.match(await recordStep.innerText(), /Codex exec/);
-  assert.match(await recordStep.locator('code').first().innerText(), /tools\/record-codex\.ts/);
+  assert.match(await recordStep.innerText(), /Start Codex with the recording profile/);
+  assert.equal(await recordStep.locator('code').first().innerText(), 'codex --no-daemon -p agentprof');
+  assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Codex example']);
   await page.setViewportSize({width: 390, height: 1000});
   assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
   await page.getByText('pi --tracing', {exact: true}).waitFor();
   await page.setViewportSize({width: 1440, height: 1000});
+  for (const [agent, route, traceName, harness, model] of [
+    ['Claude Code', 'claude', 'claude-code-coding', 'claude-code', 'claude-haiku-4-5'],
+    ['Codex', 'codex', 'codex-coding', 'codex', 'gpt-6-luna'],
+    ['Muse Code', 'muse', 'muse-code-coding', 'muse', 'muse-spark-1.3-contributor'],
+  ]) {
+    await recordingAgent.getByRole('button', {name: agent, exact: true}).click();
+    await page.locator('.ap-home__example').click();
+    await page.waitForURL(new RegExp(`agentprof_example=${route}`));
+    await page.locator('.ap-banner').filter({hasText: `Recording ${traceName}`}).waitFor({timeout: 60000});
+    await page.locator('.ap-session-summary tbody tr').waitFor();
+    assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 1);
+    assert.equal(await page.locator('.ap-session-summary .ap-model-name').innerText(), model);
+    const recordedHarness = await page.evaluate(async () => {
+      const result = await window.app.trace.engine.query('SELECT DISTINCT harness FROM agentprof_capture_runs');
+      return result.iter({}).get('harness');
+    });
+    assert.equal(recordedHarness, harness);
+    await page.reload();
+    await page.locator('.ap-banner').filter({hasText: `Recording ${traceName}`}).waitFor({timeout: 60000});
+    await page.locator('.ap-session-summary tbody tr').waitFor();
+    await page.screenshot({path: `artifacts/screenshots/agentprof-${route}-example.png`});
+    if (agent === 'Muse Code') {
+      await page.getByText('7 child sessions have no retained recording. Their model work and token usage are unavailable.', {exact: true}).waitFor();
+      const captures = await page.evaluate(async () => {
+        const result = await window.app.trace.engine.query('SELECT COUNT(*) AS n FROM agentprof_capture_runs');
+        return Number(result.iter({}).get('n'));
+      });
+      assert.equal(captures, 3);
+    }
+    if (agent === 'Codex') {
+      await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+      await page.locator('.ap-script-row').first().waitFor();
+      assert.equal(await page.locator('.ap-script-row').count(), 4);
+      await page.getByRole('button', {name: 'Expand script', exact: true}).first().click();
+      await page.locator('.ap-script-expanded tbody tr').first().waitFor();
+      await page.locator('.ap-script-expanded .ap-table-link').first().click();
+      await page.waitForURL(/#!\/viewer.*agentprof_example=codex/);
+      await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
+    }
+    await more();
+    await page.getByRole('button', {name: 'Close recording', exact: true}).click();
+    await home().waitFor();
+  }
   assert.equal(await page.getByRole('button', {name: 'Open Pi comparison example'}).count(), 0);
+  await more();
   await page.getByRole('button', {name: 'Open workflow example'}).click();
   await page.getByRole('heading', {name: 'What your trace says about agent activity'}).waitFor({timeout: 60000});
   await page.waitForURL(/agentprof_example=1/);
@@ -239,6 +287,7 @@ try {
   await page.getByRole('navigation', {name: 'Main navigation'})
     .getByRole('link', {name: 'Agent Profiler home', exact: true}).click();
   await home().waitFor();
+  await more();
   await page.getByRole('button', {name: 'Open workflow example'}).click();
   const overview = () => page.getByRole('heading', {name: 'What your trace says about agent activity'});
   await overview().waitFor({timeout: 60000});
@@ -763,6 +812,7 @@ try {
   assert.equal(await nav().getByRole('link', {name: 'Timeline', exact: true}).count(), 0);
   await page.reload();
   await home().waitFor();
+  await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
   await page.getByRole('button', {name: 'Open Pi vs Claude Code example'}).click();
   await page.waitForURL(/agentprof_example=comparison/);
   await overview().waitFor({timeout: 60000});

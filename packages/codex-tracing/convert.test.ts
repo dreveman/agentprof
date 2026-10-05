@@ -67,3 +67,17 @@ test('context limits, units, shared axes and capture-end zeros survive import', 
     (SELECT COUNT(*) FROM (SELECT value,ROW_NUMBER() OVER(PARTITION BY track_id ORDER BY ts DESC) AS n FROM counter) WHERE n=1 AND value!=0) = 0 AS zeros;`);
   expect(output.trim().split('\n').at(-1)).toBe('1,1,1,1');
 });
+
+test('interactive reasoning effort changes apply only to subsequent responses', () => {
+  const rows = fixture();
+  rows[0]!.data.recorder = 'codex-plugin-1'; rows[0]!.data.sessionId = rootSession;
+  for (const [time, effort] of [[10, 'low'], [390, 'high']] as const) {
+    rows.push({source: 'session_metadata', timestamp: at(999), data: {session_id: rootSession, record: {
+      type: 'turn_context', timestamp: new Date(Number(BigInt(at(time)) / 1_000_000n)).toISOString(),
+      payload: {model: 'fixture-model', effort},
+    }}});
+  }
+  expect(query(rows, `SELECT GROUP_CONCAT(effort, ',') FROM (
+    SELECT EXTRACT_ARG(arg_set_id, 'debug.effort') AS effort FROM agentprof_slices
+    WHERE kind='assistant-message' AND session='${rootSession}' ORDER BY ts);`).trim().split('\n').at(-1)).toBe('"low,high"');
+});

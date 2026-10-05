@@ -9,6 +9,7 @@ import {MenuDivider, MenuItem, PopupMenu} from '../../widgets/menu';
 import {PopupPosition} from '../../widgets/popup';
 import {AgentprofBrand} from './agentprof_brand';
 import {navigate} from '../../plugins/dev.agentprof.Agentprof/navigation';
+import {EXAMPLES} from '../../plugins/dev.agentprof.Agentprof/examples';
 import './agentprof_topbar.scss';
 
 const REPO = 'https://github.com/dreveman/agentprof';
@@ -185,16 +186,11 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
         },
         actions.slice(visible).map(menuItem),
         visible < actions.length && m(MenuDivider),
-        menuItem({
-          label: 'Open workflow example',
-          icon: 'smart_toy',
-          run: () =>
-            app.commands.runCommand('dev.agentprof.Agentprof.OpenExample'),
-        }),
-        menuItem({
-          label: 'Open Pi vs Claude Code example', icon: 'compare_arrows',
-          run: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenComparisonExample'),
-        }),
+        Object.values(EXAMPLES).map(example => menuItem({
+          label: example.title,
+          icon: example.icon,
+          run: () => app.commands.runCommand(example.commandId),
+        })),
         trace &&
           menuItem({
             label: 'Close recording',

@@ -19,6 +19,10 @@ import {DETECT_SQL, QUERIES, SETUP_SQL} from './queries';
 import {trackDisplayName} from './track_names';
 import {EXAMPLE_TRACE_BASE64} from './example_trace';
 import {COMPARISON_EXAMPLE_TRACE_BASE64} from './comparison_example_trace';
+import {CLAUDE_EXAMPLE_TRACE_BASE64} from './claude_example_trace';
+import {CODEX_EXAMPLE_TRACE_BASE64} from './codex_example_trace';
+import {MUSE_EXAMPLE_TRACE_BASE64} from './muse_example_trace';
+import {EXAMPLES} from './examples';
 
 export default class implements PerfettoPlugin {
   static readonly id = 'dev.agentprof.Agentprof';
@@ -37,27 +41,28 @@ export default class implements PerfettoPlugin {
       // Reload the bundled fixture on refresh, including regenerated data.
       app.navigate(`#!/agentprof?agentprof_example=${id}&local_cache_key=`);
     };
-    const commandId = `${devId()}.OpenExample`;
-    app.commands.registerCommand({
-      id: commandId,
-      name: 'Open workflow example',
-      callback: () => openExample('1', 'pi-workflow', EXAMPLE_TRACE_BASE64),
-    });
-    const comparisonCommandId = `${devId()}.OpenComparisonExample`;
-    app.commands.registerCommand({
-      id: comparisonCommandId, name: 'Open Pi vs Claude Code example',
-      callback: () => openExample('comparison', 'pi-vs-claude-code', COMPARISON_EXAMPLE_TRACE_BASE64),
-    });
-    app.sidebar.addMenuItem({section: 'trace_files', commandId: comparisonCommandId, icon: 'compare_arrows', sortOrder: 2.7});
-    app.sidebar.addMenuItem({
-      section: 'trace_files', commandId, icon: 'smart_toy', sortOrder: 2.6,
+    const examples = [
+      {...EXAMPLES.claude, base64: CLAUDE_EXAMPLE_TRACE_BASE64},
+      {...EXAMPLES.codex, base64: CODEX_EXAMPLE_TRACE_BASE64},
+      {...EXAMPLES.muse, base64: MUSE_EXAMPLE_TRACE_BASE64},
+      {...EXAMPLES.comparison, base64: COMPARISON_EXAMPLE_TRACE_BASE64},
+      {...EXAMPLES.workflow, base64: EXAMPLE_TRACE_BASE64},
+    ];
+    examples.forEach((example, index) => {
+      app.commands.registerCommand({
+        id: example.commandId, name: example.title,
+        callback: () => openExample(example.routeId, example.traceName, example.base64),
+      });
+      app.sidebar.addMenuItem({section: 'trace_files', commandId: example.commandId,
+        icon: example.icon, sortOrder: 2.6 + index / 10});
     });
     const requestedExample = app.initialRouteArgs.agentprof_example;
     const exampleId = requestedExample === 'codemode' ? 'comparison' : requestedExample;
-    if (exampleId === '1' || exampleId === 'comparison') {
+    const example = examples.find(candidate => candidate.routeId === exampleId);
+    if (example !== undefined) {
       // Clear any old cache key before the startup route handler runs.
       window.history.replaceState(null, '', `#!/agentprof?agentprof_example=${exampleId}&local_cache_key=`);
-      void app.commands.runCommand(exampleId === '1' ? commandId : comparisonCommandId);
+      void app.commands.runCommand(example.commandId);
     }
   }
 

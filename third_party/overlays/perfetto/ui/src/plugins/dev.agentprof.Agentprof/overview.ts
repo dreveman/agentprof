@@ -154,7 +154,7 @@ function harnessIcons(v: SqlValue | undefined): m.Children {
     const id = harness.trim().toLowerCase().replace(/[ _]+/g, '-');
     const isClaudeCode = id === 'claude-code' || id === 'claude';
     const isCodex = id === 'codex' || id === 'codex-cli';
-    const name = id === 'pi' ? 'Pi' : isClaudeCode ? 'Claude Code' : isCodex ? 'Codex' : harness;
+    const name = id === 'pi' ? 'Pi' : isClaudeCode ? 'Claude Code' : isCodex ? 'Codex' : id === 'muse' || id === 'muse-code' ? 'Muse Code' : harness;
     return m('span.ap-harness-icon', {role: 'img', 'aria-label': name, title: name},
       id === 'pi' ? m('svg', {viewBox: '0 0 800 800', 'aria-hidden': 'true'},
         m('path', {fill: 'currentColor', d: 'M165.29 165.29H517.36V400H400V282.65H165.29Z'}),
@@ -487,6 +487,8 @@ export class Overview implements m.ClassComponent<Attrs> {
           this.card('Is the recording complete?', `Capture health across ${scope}. Missing measurements remain unknown; incomplete operations are separate from observed errors.`, [
             summary && number(summary.machines) > 1 && m('p.ap-muted', 'Cross-machine timing uses recorded wall clocks and depends on the hosts’ clock synchronization.'),
             summary && answer(`${value(summary.incomplete)} incomplete operations recorded.${aligned ? '' : ' Clock conversion errors were reported.'}`),
+            summary && number(summary.unavailable_children) > 0 && answer(
+              `${value(summary.unavailable_children)} child sessions have no retained recording. Their model work and token usage are unavailable.`),
             this.section('health', rows => [
               rows.some(row => row.metric === 'Lane overflows' && number(row.value) > 0) &&
                 answer('Some concurrent calls could not be recorded because the tool lane limit was reached. Tool counts and timings are incomplete.'),

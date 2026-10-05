@@ -3,8 +3,8 @@ import {test, expect} from 'bun:test';
 import {mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
-import {fixture, rootSession} from './fixture.ts';
-import {sessionMetadata, capturedSessionIds} from './metadata.ts';
+import {fixture, rootSession, childSession} from './fixture.ts';
+import {sessionMetadata, capturedSessionIds, readKnownSession} from './metadata.ts';
 
 test('launcher authenticates local telemetry, handles gzip, preserves stdout and exit code, and refuses overwrite', async () => {
   const folder = mkdtempSync(join(tmpdir(), 'codex-recorder-'));
@@ -65,5 +65,30 @@ test('transcript supplement reads only captured sessions and whitelists metadata
     expect(result.length).toBe(2);
     expect(JSON.stringify(result)).not.toMatch(/private-path|not-recorded|rate_limits/);
     expect(capturedSessionIds(fixture())).toContain(rootSession);
+  } finally {rmSync(folder, {recursive: true, force: true});}
+});
+
+test('forked transcript metadata excludes inherited usage and retains the child context limit', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'codex-fork-metadata-'));
+  try {
+    const path = join(folder, 'child.jsonl');
+    const rows = [
+      {type: 'session_meta', payload: {id: childSession, session_id: rootSession}},
+      {type: 'session_meta', payload: {id: rootSession}},
+      {type: 'turn_context', payload: {turn_id: 'parent-turn', model: 'parent-model', effort: 'high'}},
+      {type: 'token_usage_record', payload: {thread_id: rootSession, turn_id: 'parent-turn'}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 999999}}},
+      {type: 'turn_context', payload: {turn_id: 'child-turn', model: 'child-model', effort: 'low', developer_instructions: 'private'}},
+      {type: 'token_usage_record', payload: {thread_id: childSession, turn_id: 'child-turn'}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 258400, last_token_usage: {input_tokens: 25}}}},
+    ];
+    writeFileSync(path, rows.map(r => JSON.stringify(r)).join('\n'));
+    const result: Record<string, unknown>[] = [];
+    expect(await readKnownSession(path, childSession, r => result.push(r))).toBe(true);
+    expect(result.length).toBe(3);
+    expect(result[1]).toMatchObject({session_id: childSession, record: {type: 'turn_context', payload: {model: 'child-model', effort: 'low'}}});
+    expect(result[2]).toMatchObject({record: {payload: {info: {model_context_window: 258400}}}});
+    expect(JSON.stringify(result)).not.toMatch(/parent-model|999999|private/);
+    expect(await readKnownSession(path, rootSession, () => {throw new Error('Mismatched transcript was read');})).toBe(false);
   } finally {rmSync(folder, {recursive: true, force: true});}
 });

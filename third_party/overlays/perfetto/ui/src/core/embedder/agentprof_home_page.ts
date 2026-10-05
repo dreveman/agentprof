@@ -4,16 +4,19 @@ import type {App} from '../../public/app';
 import {Button} from '../../widgets/button';
 import {HotkeyGlyphs} from '../../widgets/hotkey_glyphs';
 import {AgentprofBrand} from './agentprof_brand';
+import {exampleForAgent, type RecordingAgent} from '../../plugins/dev.agentprof.Agentprof/examples';
 import './agentprof_home_page.scss';
 
 export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
-  private agent: 'claude' | 'pi' | 'codex' = 'claude';
+  private agent: RecordingAgent = 'claude';
 
   view({attrs: {app}}: m.CVnode<{app: App}>) {
     const isPi = this.agent === 'pi';
     const isCodex = this.agent === 'codex';
-    const recorder = isCodex ? 'codex' : 'claude';
-    const agentName = isCodex ? 'Codex' : 'Claude Code';
+    const isMuse = this.agent === 'muse';
+    const recorder = isMuse ? 'muse' : isCodex ? 'codex' : 'claude';
+    const agentName = isMuse ? 'Muse Code' : isCodex ? 'Codex' : 'Claude Code';
+    const example = exampleForAgent(this.agent);
     const command = (text: string) =>
       m(
         '.ap-home__command',
@@ -50,9 +53,9 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
         m(
           '.ap-home__agents',
           {role: 'group', 'aria-label': 'Recording agent'},
-          (['claude', 'pi', 'codex'] as const).map((agent) =>
+          (['claude', 'codex', 'muse', 'pi'] as const).map((agent) =>
             m(Button, {
-              label: agent === 'pi' ? 'Pi' : agent === 'codex' ? 'Codex' : 'Claude Code',
+              label: agent === 'pi' ? 'Pi' : agent === 'codex' ? 'Codex' : agent === 'muse' ? 'Muse Code' : 'Claude Code',
               active: this.agent === agent,
               'aria-pressed': String(this.agent === agent),
               onclick: () => {
@@ -66,22 +69,23 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           'Install agent tracing',
           isPi
             ? 'Install the tracing extension for your Pi account:'
-            : isCodex
-              ? `Install the ${agentName} recorder with Git and npm. Requires a signed-in ${agentName} CLI.`
+            : isMuse
+              ? 'Install the Muse Code plugin. Requires Muse Code 1.4.1 or later with plugins enabled, and Node.js 22 or later.'
+              : isCodex
+              ? 'Install the Codex plugin and recording profile. Requires Codex CLI 0.160.0 or later, and Node.js 22 or later.'
               : 'Install the Claude Code plugin. Requires Claude Code 2.1.289 or later with mods enabled, and Node.js 22 or later.',
           isPi
             ? command('pi install git:github.com/dreveman/agentprof')
-            : !isCodex
+            : !isCodex && !isMuse
               ? m('.ap-home__commands',
                   command('claude plugin marketplace add dreveman/agentprof'),
                   command('claude plugin install agentprof@agentprof'),
                 )
               : m(
                 '.ap-home__commands',
-                command(
-                  'git clone https://github.com/dreveman/agentprof.git ~/agentprof',
-                ),
-                command('npm ci --prefix ~/agentprof'),
+                command('npm install -g github:dreveman/agentprof'),
+                command(`agentprof-${recorder} install`),
+                isMuse ? command('muse plugins approve agentprof') : undefined,
               ),
         ),
         step(
@@ -89,8 +93,10 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           'Record your agent',
           isPi
             ? 'Start Pi with tracing enabled and run your task as usual.'
-            : isCodex
-              ? 'From your project directory, run a task with Codex exec. This integration is a preview.'
+            : isMuse
+              ? 'Start Muse normally, type tracing start, then run your task.'
+              : isCodex
+              ? 'Start Codex with the recording profile. Review the recording hooks in /hooks, then type tracing start.'
               : 'Start Claude normally. Use the recording button or /tracing start, then run your task.',
           isPi
             ? [
@@ -102,7 +108,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                   ' in Pi to manually start or stop recording.',
                 ),
               ]
-            : !isCodex
+            : !isCodex && !isMuse
               ? [
                   command('claude'),
                   m('p.ap-home__record-note',
@@ -118,18 +124,11 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                   ),
                 ]
               : [
-                command(
-                  [
-                    '~/agentprof/node_modules/.bin/bun \\',
-                    `  ~/agentprof/tools/record-${recorder}.ts \\`,
-                    '  agent.pftrace -- --sandbox workspace-write "Your task"',
-                  ].join('\n'),
-                ),
+                command(isMuse ? 'muse' : 'codex --no-daemon -p agentprof'),
                 m(
                   'p.ap-home__record-note',
-                  'Saves ',
-                  m('code', 'agent.pftrace'),
-                  ' on exit and prints its path. Use a new file name for each run. ',
+                  `Type tracing stop to save, or exit ${isMuse ? 'Muse' : 'Codex'} to finish the recording. `,
+                  'Use tracing status to see its path. The agent can also use tracing_start and tracing_stop tools. ',
                   m(
                     'a',
                     {
@@ -163,25 +162,11 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           'button.ap-home__example',
           {
             type: 'button',
-            onclick: () =>
-              app.commands.runCommand('dev.agentprof.Agentprof.OpenExample'),
+            onclick: () => app.commands.runCommand(example.commandId),
           },
-          m('span.ap-home__example-title', 'Open workflow example'),
-          m(
-            'span',
-            'Coding task with a primary agent, parallel implementation and test workers, and a reviewer.',
-          ),
-          m(
-            'span.ap-home__example-meta',
-            'Pi · Anthropic Opus 5 · High effort · 4 sessions',
-          ),
-        ),
-        m('button.ap-home__example', {
-          type: 'button', onclick: () => app.commands.runCommand('dev.agentprof.Agentprof.OpenComparisonExample'),
-        },
-          m('span.ap-home__example-title', 'Open Pi vs Claude Code example'),
-          m('span', 'Coding task run with Pi codemode and Claude Code using the same prompt and model.'),
-          m('span.ap-home__example-meta', 'Pi and Claude Code · Anthropic Haiku 4.5 · Thinking off · 2 sessions'),
+          m('span.ap-home__example-title', example.title),
+          m('span', example.description),
+          m('span.ap-home__example-meta', example.metadata),
         ),
       ),
       m(

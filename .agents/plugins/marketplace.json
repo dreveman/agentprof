@@ -1,0 +1,9 @@
+{
+  "name": "agentprof",
+  "interface": {"displayName": "Agent Profiler"},
+  "plugins": [{
+    "name": "agentprof",
+    "source": {"source": "local", "path": "./packages/codex-tracing"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"}
+  }]
+}

@@ -8,6 +8,9 @@
 !examples/pi-opus-5/*.pftrace
 !examples/pi-codemode/*.pftrace
 !examples/harness-comparison/*.pftrace
+!examples/claude-coding/*.pftrace
+!examples/codex-coding/*.pftrace
+!examples/muse-coding/*.pftrace
 *.perfetto-trace
 *.pftrace.capture/
 /agentprof-traces/

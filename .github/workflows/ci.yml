@@ -102,3 +102,17 @@ jobs:
         run: npm install --global @anthropic-ai/claude-code@2.1.289
       - name: Validate, install and test plugin without model credentials
         run: npm run check:claude-plugin
+
+  codex-plugin:
+    name: Codex plugin installation and tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install tested Codex host
+        run: npm install --global @openai/codex@0.160.0
+      - name: Validate plugin and profile without model credentials
+        run: npm run check:codex-plugin

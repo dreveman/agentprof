@@ -1,5 +1,6 @@
 {
   "name": "agentprof",
+  "version": "0.2.0",
   "private": true,
   "pi": {
     "extensions": [
@@ -10,19 +11,27 @@
     "packages/pi-tracing"
   ],
   "scripts": {
-    "check": "npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json && tsc -p packages/claude-tracing/tsconfig.json && tsc -p packages/codex-tracing/tsconfig.json && bun tools/build-claude-direct.ts --check",
-    "test": "npm run test --workspace pi-tracing && bun test packages/claude-tracing packages/codex-tracing",
+    "check": "npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json && tsc -p packages/claude-tracing/tsconfig.json && tsc -p packages/codex-tracing/tsconfig.json && bun tools/build-claude-direct.ts --check && bun tools/build-codex-plugin.ts --check && tsc -p packages/muse-tracing/tsconfig.json && bun tools/build-muse-plugin.ts --check",
+    "test": "npm run test --workspace pi-tracing && bun test packages/claude-tracing packages/codex-tracing packages/muse-tracing",
     "trace:example": "bun tools/bundle-example.ts",
-    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts && bun tools/check-codemode-example.ts && bun tools/check-comparison-example.ts",
+    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts && bun tools/check-codemode-example.ts && bun tools/check-comparison-example.ts && bun tools/check-harness-examples.ts && bun tools/check-muse-example.ts",
     "trace:fixture": "bun tools/generate-example.ts",
     "trace:record": "python3 tools/record-example.py",
     "trace:record-codemode": "python3 tools/record-codemode-example.py",
     "build:claude": "bun tools/build-claude-direct.ts",
     "check:claude-plugin": "node tools/check-claude-plugin.mjs",
     "trace:record-claude": "bun tools/record-claude.ts",
-    "trace:record-codex": "bun tools/record-codex.ts"
+    "trace:record-codex": "bun tools/record-codex.ts",
+    "build:codex": "bun tools/build-codex-plugin.ts",
+    "check:codex-plugin": "node tools/check-codex-plugin.mjs",
+    "build:muse": "bun tools/build-muse-plugin.ts",
+    "check:muse-plugin": "node tools/check-muse-plugin.mjs"
   },
   "devDependencies": {
     "bun": "1.4.2"
+  },
+  "bin": {
+    "agentprof-codex": "packages/codex-tracing/runtime/codex-tracing.mjs",
+    "agentprof-muse": "packages/muse-tracing/runtime/muse-tracing.mjs"
   }
 }

@@ -7,12 +7,19 @@ the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 Category prefixes identify the recording harness: Pi writes `pi.*`, and the
 Claude Code writes `claude.metadata` and `claude.activity`.
 Codex writes `codex.metadata` and `codex.activity` using the same capture schema.
+The interactive plugin combines native telemetry with scoped lifecycle hooks.
+Recording boundaries remain fixed while late native exports drain. Hooks supply
+prompt boundaries, compaction spans and child relationships. Hook-only tool
+intervals are labeled `timing = hook-dispatch`; native execution intervals take
+precedence. Codex supplies the parent session ID on subagent hooks, so their
+separate `agent_id` identifies the child. Recording controls are excluded from
+tool activity. Interrupted work is marked incomplete.
 Its input tokens include cached input; cache fields must not be added again.
 Codex context samples are request input, and its effective context window is
 read from the captured session metadata. Native startup prewarming is separate
 from normal responses and session token totals. See the
 [Codex recording guide](../packages/codex-tracing/README.md) for timing boundaries.
-All three use the same version-1 capture markers and event kinds. Readers also
+All four use the same version-1 capture markers and event kinds. Readers also
 recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
 Claude Code's OpenTelemetry request intervals carry `timing = request-including-retries`;
 direct mod streams use `timing = mod-request-including-retries`. Both boundaries
@@ -30,6 +37,18 @@ interruptions and work unfinished at stop are marked incomplete. Buffered
 observations survive mod reloads, and file journals support recovery after an
 abrupt process exit. Recording controls are excluded from tool activity.
 See the [Claude recording guide](../packages/claude-tracing/README.md) for coverage.
+
+Muse Code writes `muse.metadata` and `muse.activity`. Its native export supplies
+per-response usage and measured model durations, positioned backwards from the
+completion journal timestamp (`timing = native-duration`). Tool intervals use
+native lifecycle timestamps. First-content latency is not inferred. Input
+includes cached tokens and provides sampled context size; the context limit
+comes from the model catalog. Lightweight hooks supply effort and compaction
+boundaries. Export omissions of live output deltas are recorded separately from
+missing journal records; missing child logs are counted in
+`unavailable_child_sessions`. Partial responses exclude usage from the capture.
+See the [Muse recording guide](../packages/muse-tracing/README.md) for boundaries
+and recovery.
 
 ## Existing timeline model
 
