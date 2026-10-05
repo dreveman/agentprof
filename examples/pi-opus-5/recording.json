@@ -14,7 +14,7 @@
   "recordings": [
     {
       "file": "run-1.pftrace",
-      "sha256": "5def202dcc2b02a6f51b4aeea34d1da3d056e79f8c46daf21d46b7c134b8b459",
+      "sha256": "1569d283b9df8a776f9fe60a8105718a54d140b27de60156252780cfd4c70254",
       "sessionId": "ca3e1d10-e85d-4602-8176-a2d82b99e47d",
       "name": "opus-5-run-1",
       "provider": "anthropic",
@@ -29,11 +29,12 @@
       "startNs": "1790534747790000000",
       "endNs": "1790534769487101252",
       "promptFile": "prompt.txt",
-      "originalSha256": "0ec8bd005ef0a8fc8932052a80ed22a2c384d1588d1a3c6bdd8c1b4931d1aaa3"
+      "originalSha256": "0ec8bd005ef0a8fc8932052a80ed22a2c384d1588d1a3c6bdd8c1b4931d1aaa3",
+      "preContextSha256": "5def202dcc2b02a6f51b4aeea34d1da3d056e79f8c46daf21d46b7c134b8b459"
     },
     {
       "file": "run-2.pftrace",
-      "sha256": "7fb0ab9a02050652839630e65ffee296bbac1d5b7554fc8bc145353a03eefcdc",
+      "sha256": "19cb3126bf85f0242e8d4bedc2ab5cc47d48d51a430b7a38d0a2aab78de67918",
       "sessionId": "22f1b054-8e01-4af2-ad5e-491c277592b4",
       "name": "opus-5-run-2",
       "provider": "anthropic",
@@ -48,11 +49,12 @@
       "startNs": "1790534750216000000",
       "endNs": "1790534780811954234",
       "promptFile": "prompt.txt",
-      "originalSha256": "cae04218359957a9c91433de16a09eae7dc47e6dde853c130af2988381083e9e"
+      "originalSha256": "cae04218359957a9c91433de16a09eae7dc47e6dde853c130af2988381083e9e",
+      "preContextSha256": "7fb0ab9a02050652839630e65ffee296bbac1d5b7554fc8bc145353a03eefcdc"
     },
     {
       "file": "workflow-parent.pftrace",
-      "sha256": "e421972fc383e1456e4e5acb77f6ae1bafddc134b40699ea919c81ab55c705ef",
+      "sha256": "54c277a8e69da22110a84e66d4aa75f22eeab8add1ba37bcaddd1918be5e135e",
       "sessionId": "a3d7f647-c777-4e5b-97bb-09ff4f28c41e",
       "name": "workflow-parent",
       "role": "parent",
@@ -68,11 +70,12 @@
       "startNs": "1790534998761500000",
       "endNs": "1790535334281145723",
       "promptFile": "workflow-prompt.txt",
-      "originalSha256": "1aaf5409aab833bdd22e7db134d1fdab04344e08fd5ba77e4d3e1835aa587b6d"
+      "originalSha256": "1aaf5409aab833bdd22e7db134d1fdab04344e08fd5ba77e4d3e1835aa587b6d",
+      "preContextSha256": "e421972fc383e1456e4e5acb77f6ae1bafddc134b40699ea919c81ab55c705ef"
     },
     {
       "file": "workflow-implementation.pftrace",
-      "sha256": "f848d91ed490b2ce5560663bd2e423b32c916a8ecc1d56dec97aba6ca5e5750d",
+      "sha256": "99eabfcc73bc52ffe585c074ea5afba6b62bb7c650d3772e1921cb96c7a45b34",
       "sessionId": "3431a18f-5717-4bc0-85c0-445054f6fed7",
       "name": "workflow-implementation",
       "role": "implementation",
@@ -89,11 +92,12 @@
       "startNs": "1790535046006500000",
       "endNs": "1790535066729156731",
       "promptFile": "workflow-implementation-prompt.txt",
-      "originalSha256": "cd48666a050c6599bd2963515c682390e15c71f8bd3350b46643e5c61b146115"
+      "originalSha256": "cd48666a050c6599bd2963515c682390e15c71f8bd3350b46643e5c61b146115",
+      "preContextSha256": "f848d91ed490b2ce5560663bd2e423b32c916a8ecc1d56dec97aba6ca5e5750d"
     },
     {
       "file": "workflow-tests.pftrace",
-      "sha256": "9aa84e6ce471efc2165dbda64b234044bb3d98a9ecfad7d4538551e33dcd4fa1",
+      "sha256": "1e98bda2a8fb5b5c8551e9e022f62b432b168d59319592dfa83a1925ac591819",
       "sessionId": "17444d7c-b716-49d7-a858-b7d3f4116ba8",
       "name": "workflow-tests",
       "role": "tests",
@@ -110,11 +114,12 @@
       "startNs": "1790535046001000000",
       "endNs": "1790535150885115090",
       "promptFile": "workflow-tests-prompt.txt",
-      "originalSha256": "2d76f6ed29d452027ae1bcdad88f32ece3a42a42a1a981d774ef1c5f47c54b82"
+      "originalSha256": "2d76f6ed29d452027ae1bcdad88f32ece3a42a42a1a981d774ef1c5f47c54b82",
+      "preContextSha256": "9aa84e6ce471efc2165dbda64b234044bb3d98a9ecfad7d4538551e33dcd4fa1"
     },
     {
       "file": "workflow-reviewer.pftrace",
-      "sha256": "8423669a11cfb7a9df2a2b6ce9a97ab8b00743794d2aa9066895c07afd1454a9",
+      "sha256": "b3e2778dd7beeac5ed90817595ce4ef1cb5ce661fea87a5250c68ce150d7dbdf",
       "sessionId": "878058fb-ac98-4387-ac6f-969ae7bb1463",
       "name": "workflow-reviewer",
       "role": "reviewer",
@@ -131,7 +136,8 @@
       "startNs": "1790535163314000000",
       "endNs": "1790535295462497554",
       "promptFile": "workflow-reviewer-prompt.txt",
-      "originalSha256": "e85176742c7e5d4bb941012ba303403d4432042890cbac674b8cd20c4703ae75"
+      "originalSha256": "e85176742c7e5d4bb941012ba303403d4432042890cbac674b8cd20c4703ae75",
+      "preContextSha256": "8423669a11cfb7a9df2a2b6ce9a97ab8b00743794d2aa9066895c07afd1454a9"
     }
   ],
   "workflow": {
@@ -161,5 +167,6 @@
     "tokens": 1000000,
     "source": "Pi 0.87.1 model catalog",
     "originalRecordingDate": "2026-09-27"
-  }
+  },
+  "contextData": "Category estimates reconstructed from the original saved session messages, including recorded system sections and tool definitions, at each recorded request. These partial transcript observations preserve all original timing, token usage and tool data; they do not assert a complete provider payload."
 }

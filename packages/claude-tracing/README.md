@@ -115,6 +115,10 @@ Direct capture records:
 - Main-session context readings and the window reported by Claude's session API.
   A child's context size comes from its own input usage; its model limit remains
   unknown because the session API describes the main conversation.
+- Native context composition estimates at capture start, model steps and
+  completed compaction, with counts for retained prompts and tool results.
+  See [context measurements](../../docs/context-data.md) for attribution limits
+  and the Overview card and Context tab. Child breakdowns remain unavailable.
 
 The plugin forwards events and results unchanged and does not record response
 text or tool output. It batches observations once per second into private

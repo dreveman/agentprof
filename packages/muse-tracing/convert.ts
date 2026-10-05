@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import {attachContext} from '../agent-tracing/context.ts';
+import {ContextTracker, estimateContextTokens, type ContextItem} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Attrs, type Slice, type Session, type Counter} from '../agent-tracing/trace.ts';
 import {fnv1a64} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {promptAnnotations, toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
@@ -60,6 +62,11 @@ export function convert(capture: Capture, native: NativeSession[]) {
       return {model: name, provider, ...(hook?.effort ? {effort: hook.effort} : {}), ...(limit ? {context_window_tokens: limit} : {})};
     };
     Object.assign(session.attrs, configuration(start));
+    const contextTracker = new ContextTracker();
+    let contextItems: ContextItem[] = [];
+    const compactEnds = capture.hooks.filter(h => h.session === id && h.event === 'PostCompact').map(h => BigInt(h.at)).sort(compareTime);
+    let compactIndex = 0;
+    let requestContext: {at: bigint; items: ContextItem[]; categories: Record<string, number>} | undefined;
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
       if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
@@ -89,6 +96,41 @@ export function convert(capture: Capture, native: NativeSession[]) {
     const responses: Slice[] = [];
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
+      while (compactIndex < compactEnds.length && compactEnds[compactIndex]! <= at) {
+        // The exported journal does not expose the replacement summary. Start a
+        // partial baseline instead of asserting an empty post-compaction context.
+        contextItems = []; requestContext = undefined; contextTracker.reset(); compactIndex++;
+      }
+      // Native journal contents are observable, but may differ from the final request.
+      if (r.kind === 'assistant_message_committed' && integer(d.context_tokens) !== undefined) contextItems.push({
+        id: string(d.message_id) || r.id, category: 'assistant', tokens: d.context_tokens, chars: d.context_chars,
+        label: 'Assistant history', source_kind: 'response'});
+      if (r.kind === 'model_input_trace_recorded' && Array.isArray(d.aggregates)) {
+        const categories: Record<string, number> = {};
+        for (const a of d.aggregates) {
+          const bytes = integer(a.bytes); if (bytes === undefined || !bytes) continue;
+          const key = a.lane === 'system_base' ? 'system' : a.lane === 'tool_result' ? 'results'
+            : a.lane === 'tool_specs' ? 'tools' : a.source === 'current_user' ? 'prompts'
+            : a.lane === 'history' && a.destination === 'message.role:assistant' ? 'assistant'
+            : a.lane === 'history' ? 'messages' : 'unattributed';
+          categories[key] = (categories[key] ?? 0) + Math.ceil(bytes / 4);
+        }
+        if (integer(d.omitted_bytes)) categories.unattributed = (categories.unattributed ?? 0) + Math.ceil(d.omitted_bytes / 4);
+        requestContext = {at, items: [...contextItems], categories};
+      }
+      if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
+        const chars = string(d.prompt).length;
+        contextItems.push({id: r.id, category: 'prompts', chars, tokens: estimateContextTokens(chars), source_kind: 'prompt', label: 'User prompt'});
+      }
+      if (r.kind === 'tool_result_batch_committed') for (const result of d.results ?? []) {
+        const n = integer(result.context_tokens); if (n !== undefined) contextItems.push({id: `result:${result.call_id}`, category: 'results',
+          tokens: n, chars: integer(result.context_chars), source_id: string(result.call_id), source_kind: 'tool', label: 'Tool result'});
+      }
+      if (r.kind === 'assistant_tool_calls_committed') for (const call of d.tool_calls ?? []) {
+        const chars = typeof call.args === 'string' ? call.args.length : JSON.stringify(call.args ?? {}).length;
+        contextItems.push({id: `call:${call.call_id}`, category: 'assistant', chars, tokens: estimateContextTokens(chars), source_kind: 'tool', source_id: string(call.call_id), label: 'Tool arguments'});
+      }
+
       if (r.kind === 'model_completed') {
         const duration = integer(d.duration_ms), begin = duration !== undefined ? at - BigInt(duration) * 1000000n : at;
         const compaction = capture.hooks.some(h => h.session === id && h.event === 'PreCompact' && BigInt(h.at) <= begin &&
@@ -107,8 +149,16 @@ export function convert(capture: Capture, native: NativeSession[]) {
         const response = add(id, r.id, compaction ? 'Compaction responses' : 'Responses', 'response', begin, at, attrs);
         if (response) {
           responses.push(response); edge(prompts.get(r.run), response);
+          if (!compaction && (requestContext || contextItems.length)) {
+            const snapshot = contextTracker.snapshot(requestContext?.items ?? contextItems,
+              {stage: requestContext ? 'request-input' : 'transcript-observed', basis: requestContext ? 'native-bytes/4' : 'chars/4',
+                ...(requestContext ? {categories: requestContext.categories, item_stage: 'transcript-observed', reported_tokens: integer(attrs.context_tokens)} : {}),
+                coverage: 'partial', model: string(attrs.model), window_tokens: integer(attrs.context_window_tokens)});
+            attachContext(response, snapshot, counters, requestContext ? max(response.start, requestContext.at) : at);
+          }
           if (!compaction) add(id, `${r.id}:turn`, 'Turns', 'turn', begin, at, {kind: 'turn'});
         }
+        requestContext = undefined;
       }
       if (r.kind === 'tool_batch_effect' && d.kind === 'started') {
         emittedTasks.add(string(d.task_id));

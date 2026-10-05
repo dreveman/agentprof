@@ -15,3 +15,8 @@ the run. The native journal was re-exported after fixing exit handling and child
 path resolution, retaining the original boundaries and measured durations.
 Only workspace and home path strings were sanitized. The recording manifest
 pins the trace, prompt and resulting source files by SHA-256.
+
+Context composition was re-exported from the original native request-lane byte
+counts, with partial item attribution from the journal. The estimates use
+bytes/4; reported model usage is independent. Each retained session has its own
+breakdown, with the original timings and usage preserved.

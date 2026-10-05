@@ -137,6 +137,12 @@ visible.
 
 ## Tracks, flows, and child agents
 
+Context composition is sampled from the observed outgoing transcript and after
+compaction. Category counters and bounded item changes identify prompts and
+tool results that grow context, using character-based estimates without copying
+their content. See the shared [context measurements](../../docs/context-data.md)
+for coverage and how to explore the Overview card and Context tab.
+
 The repository includes a [recorded subagent workflow](../../examples/pi-opus-5/README.md)
 and an example launcher that forwards `PI_SUBAGENT_EXTENSIONS`, enables tracing
 in children, and sets `DEVMATE_PARENT_SESSION_ID` and `PI_SUBAGENT_TYPE`. Each

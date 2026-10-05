@@ -9,7 +9,7 @@ export type Attrs = Record<string, DebugAnnotationValue>;
 export interface Observation {source: string; timestamp: string; data: Record<string, unknown>}
 export interface Slice {id: string; session: string; track: string; name: string; start: bigint; end?: bigint; attrs: Attrs; flows: bigint[]}
 export interface Session {id: string; start: bigint; end: bigint; attrs: Attrs}
-export interface Counter {session: string; name: string; unit: string; axis?: string; samples: {at: bigint; value: number}[]}
+export interface Counter {session: string; name: string; unit: string; axis?: string; group?: 'Context'; samples: {at: bigint; value: number}[]}
 export const compareTime = (a: bigint, b: bigint) => a < b ? -1 : a > b ? 1 : 0;
 
 export function writeTrace(options: {
@@ -62,11 +62,17 @@ export function writeTrace(options: {
         if (slice.end !== undefined) event(slice.end, slice.end === slice.start ? 1 : -2, lane.uuid, TRACK_EVENT_END);
       }
     }
+    const describedGroups = new Set<string>();
     for (const counter of options.counters.filter(c => c.session === session.id && c.samples.length)) {
       const id = uuid(`${session.id}:counter:${counter.name}`);
-      packet({trackDescriptor: buildTrackDescriptor({uuid: id, parentUuid: root, name: counter.name,
+      const parent = counter.group ? uuid(`${session.id}:group:${counter.group}`) : root;
+      if (counter.group && !describedGroups.has(counter.group)) {
+        packet({trackDescriptor: buildTrackDescriptor({uuid: parent, parentUuid: root, name: counter.group})});
+        describedGroups.add(counter.group);
+      }
+      packet({trackDescriptor: buildTrackDescriptor({uuid: id, parentUuid: parent, name: counter.name,
         counter: {unit: 0, unitName: counter.unit, ...(counter.axis ? {yAxisShareKey: counter.axis} : {})}})});
-      event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
+      if (!counter.group) event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
       for (const sample of counter.samples.sort((a, b) => compareTime(a.at, b.at)))
         event(sample.at, 2, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, BigInt(sample.value));
       event(session.end, 3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);

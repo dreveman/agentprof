@@ -97,6 +97,31 @@ test('context limits are sampled for the response, never borrowed from a later m
     WHERE kind = 'assistant-message' AND ts = (SELECT MAX(ts) FROM agentprof_slices WHERE kind = 'assistant-message');`)).toBe('1');
 }, 30000);
 
+test('native composition retains sparse changes without adding free space, item details or child windows', () => {
+  const rows = fixture();
+  const reading = (messages: number, delta: unknown[], extra = {}) => ({window: 200000,
+    breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: messages},
+      {name: 'System prompt', kind: 'used', tokens: 20}, {name: 'Free space', kind: 'free', tokens: 199800},
+      {name: 'MCP tools', kind: 'deferred', tokens: 50}], raw_max_tokens: 200000, auto_compact_threshold: 167000},
+    item_changes: delta, removed_items: [], ...extra});
+  const initial = rows.find(r => r.data.event === 'session' && r.data.phase === 'begin')!;
+  initial.data.context = reading(10, [{id: 'prompt', category: 'prompts', tokens: 10}], {items_reset: true});
+  rows.find(r => r.data.event === 'response' && r.data.id === 'prompt:0' && r.data.phase === 'begin')!.data.context = reading(10, []);
+  rows.find(r => r.data.event === 'response' && r.data.id === 'prompt:1' && r.data.phase === 'begin')!.data.context = reading(100,
+    [{id: 'result', category: 'results', tokens: 90, source_id: 'bash', source_kind: 'tool'}]);
+  const compact = rows.find(r => r.data.event === 'compaction' && r.data.phase === 'end')!;
+  compact.data.context = reading(5, [{id: 'summary', category: 'summaries', tokens: 5}], {removed_items: ['prompt', 'result']});
+  compact.data.model = 'fixture-model';
+  expect(query(rows, `SELECT
+    (SELECT COUNT(*) FROM agentprof_context_snapshots)=4,
+    (SELECT MAX(estimated_tokens) FROM agentprof_context_snapshots)=120,
+    (SELECT COUNT(*) FROM agentprof_context_snapshots WHERE session='session/worker')=0,
+    (SELECT COUNT(*) FROM agentprof_context_changes WHERE delta_tokens=90 AND tool='Bash' AND NOT baseline)=1,
+    (SELECT COUNT(*) FROM agentprof_context_changes WHERE change='removed' AND NOT baseline)=2,
+    (SELECT MAX(reported_tokens) FROM agentprof_context_snapshots)=57,
+    (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`)).toBe('1,1,1,1,1,1,1');
+}, 30000);
+
 test('child causal link survives estimated execution start after actual child start', () => {
   const rows = fixture();
   rows.find(r => r.data.event === 'execution' && r.data.id === 'launch')!.data.duration_ms = 500;

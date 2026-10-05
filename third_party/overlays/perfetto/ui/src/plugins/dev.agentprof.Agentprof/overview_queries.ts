@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import {CONTEXT_SETUP_SQL, CONTEXT_QUERIES} from './context_queries';
 import {SESSION_HIERARCHY_SQL} from './session_hierarchy';
 
 export const OVERVIEW_SETUP_SQL = `
@@ -104,6 +105,7 @@ SELECT ts, LEAD(ts) OVER (ORDER BY ts) - ts AS dur,
   SUM(models) OVER (ORDER BY ts) AS models,
   SUM(scripts) OVER (ORDER BY ts) AS scripts
 FROM deltas;
+${CONTEXT_SETUP_SQL}
 `;
 
 function activitySeriesSql(includeSubagents: boolean): string {
@@ -154,6 +156,7 @@ function activitySeriesSql(includeSubagents: boolean): string {
 }
 
 export const OVERVIEW_QUERIES = {
+  ...CONTEXT_QUERIES,
   runs: `WITH totals AS (
     SELECT h.root_capture_id AS capture_id, MIN(r.start_ts) AS start_ts,
       (MAX(r.end_ts) - MIN(r.start_ts)) / 1e6 AS duration_ms,

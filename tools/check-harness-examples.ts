@@ -26,7 +26,8 @@ try {
       'prompt',(SELECT EXTRACT_ARG(arg_set_id,'debug.text') FROM agentprof_slices WHERE kind='prompt' LIMIT 1),
       'errors',(SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0),
       'local_paths',(SELECT COUNT(*) FROM args WHERE string_value GLOB '*/home/*'),
-      'counter_tracks',(SELECT COUNT(*) FROM counter_track WHERE unit='tokens'),
+      'counter_tracks',(SELECT COUNT(*) FROM counter_track WHERE unit='tokens'
+        AND name IN ('Input tokens','Output tokens','Context size','Context window')),
       'nonzero_ends',(SELECT COUNT(*) FROM (
         SELECT value, ROW_NUMBER() OVER(PARTITION BY track_id ORDER BY ts DESC) AS n FROM counter
       ) WHERE n=1 AND value!=0),

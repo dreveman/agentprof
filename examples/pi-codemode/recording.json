@@ -37,12 +37,13 @@
       "reportedCostUsd": 1.86572225,
       "traceSha256": "ce3c18a371d851714f964401b9e60548a5c931100510fd53f0478beeb6cdb0a2",
       "file": "classic.pftrace",
-      "sha256": "ce3c18a371d851714f964401b9e60548a5c931100510fd53f0478beeb6cdb0a2",
+      "sha256": "0d4b371e03831a159d16b6ec4ca7acf6520b13b9d0952cee5ab273a98045df35",
       "provider": "anthropic",
       "model": "claude-opus-5",
       "effort": "high",
       "toolEventsSha256": "bcf378afe03cabba5a11293592f2683b7739cdc12f9d8cb63935884f657c94ae",
-      "toolArgumentsSha256": "8feb047ce617e533c413e6bd1292647aa4285ef0b6538514282856d30480fd82"
+      "toolArgumentsSha256": "8feb047ce617e533c413e6bd1292647aa4285ef0b6538514282856d30480fd82",
+      "preContextSha256": "ce3c18a371d851714f964401b9e60548a5c931100510fd53f0478beeb6cdb0a2"
     },
     {
       "round": 1,
@@ -66,16 +67,18 @@
       "reportedCostUsd": 0.06329325000000001,
       "traceSha256": "a16bff4e4ac53b277f0b51233083139664be2f8161e72c8c10cbcfea35d50b3a",
       "file": "codemode.pftrace",
-      "sha256": "a16bff4e4ac53b277f0b51233083139664be2f8161e72c8c10cbcfea35d50b3a",
+      "sha256": "e947385be9831e5b56bf476c274f31fbfd3aa8d899ea00ffd4847b0e95017ce1",
       "provider": "anthropic",
       "model": "claude-opus-5",
       "effort": "high",
       "toolEventsSha256": "33984f1dd2b8934a41b42ec011e37855393e431644918fa5314753d199e03898",
-      "toolArgumentsSha256": "8feb047ce617e533c413e6bd1292647aa4285ef0b6538514282856d30480fd82"
+      "toolArgumentsSha256": "8feb047ce617e533c413e6bd1292647aa4285ef0b6538514282856d30480fd82",
+      "preContextSha256": "a16bff4e4ac53b277f0b51233083139664be2f8161e72c8c10cbcfea35d50b3a"
     }
   ],
   "bundledFiles": [
     "classic.pftrace",
     "codemode.pftrace"
-  ]
+  ],
+  "contextData": "Category estimates reconstructed from the original saved session messages, including recorded system sections and tool definitions, at each recorded request. These partial transcript observations preserve all original timing, token usage and tool data; they do not assert a complete provider payload."
 }

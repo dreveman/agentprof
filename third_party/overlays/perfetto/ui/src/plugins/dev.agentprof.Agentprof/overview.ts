@@ -12,12 +12,13 @@ import {navigate} from './navigation';
 import type {Trace} from '../../public/trace';
 import type {SqlValue} from '../../trace_processor/query_result';
 import {OVERVIEW_QUERIES} from './overview_queries';
+import {ContextView, contextSummary} from './context_view';
 import {toolDescription} from './tool_description';
 import './overview.scss';
 
 type Row = Record<string, SqlValue>;
 type Section = keyof typeof OVERVIEW_QUERIES;
-type Tab = 'Summary' | 'Responses' | 'Tools' | 'Sessions';
+type Tab = 'Summary' | 'Responses' | 'Tools' | 'Sessions' | 'Context';
 interface State {rows?: Row[]; error?: string}
 interface Attrs {trace: Trace}
 
@@ -217,6 +218,12 @@ export class Overview implements m.ClassComponent<Attrs> {
     if (!state?.rows) return m('.ap-muted', {role: 'status'}, 'Reading the trace…');
     if (!allowEmpty && state.rows.length === 0) return m('.ap-muted', 'Not recorded in this trace.');
     return render(state.rows);
+  }
+
+  private context(trace: Trace): m.Children {
+    return this.section('context_snapshots', snapshots => this.section('context_changes', changes =>
+      this.section('context_history', history => this.section('context_compactions', compactions =>
+        m(ContextView, {trace, snapshots, changes, history, compactions, detailed: true}), true), true), true), true);
   }
 
   private card(title: string, description: string, body: m.Children, tab?: Tab): m.Children {
@@ -470,6 +477,8 @@ export class Overview implements m.ClassComponent<Attrs> {
                 m('.ap-legend', segments.map(([name, ms, cls]) => m('span', m(`i.ap-${cls}`), `${name}: ${duration(ms)}`)))),
                 m('p.ap-muted', 'Provider response-header time is not full request latency. Missing model durations and unfinished tools are excluded.')];
             })),
+          this.card('What filled the context?', 'Combined composition from each session’s latest recorded breakdown.',
+            this.section('context_snapshots', contextSummary, true), 'Context'),
           this.card(singleModel ? 'How responsive was the model?' : 'How responsive were model responses?', `Responses grouped by provider and model across ${scope}. First content is measured from message start and may include thinking or tool-call content.`, models(), 'Responses'),
           this.card('Which tools took the most time?', `Completed tool work across ${scope}. Work can overlap; its sum is not elapsed wall time.`, tools(), 'Tools'),
           this.card('Was work happening in parallel?', `Concurrency of completed tools across ${scope}, over their measured active time.`,
@@ -515,14 +524,16 @@ export class Overview implements m.ClassComponent<Attrs> {
           this.card('Slow and incomplete calls', 'Up to 100 calls. Incomplete durations show only the observed interval.',
             this.section('slow', rows => this.table(rows, [['tool', 'Tool'], ['description', 'Description'],
               ['duration_ms', 'Observed duration'], ['is_error', 'Error'], ['incomplete', 'Incomplete']], trace))),
-        ] : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. The Overview combines their activity.',
+        ] : this.tab === 'Context' ? this.card('Context over time',
+          'Inspect requests and the largest recorded additions. Counts are estimates unless marked as reported.', this.context(trace))
+          : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. The Overview combines their activity.',
           this.section('sessions', rows => this.section('capture_activity', seriesRows =>
             this.sessionTable(rows.filter(row => number(row.capture_id) === number(row.root_capture_id)),
               rows, trace, aligned, activitySeries(seriesRows))))),
       );
     const tabs: [Tab, string][] = [
       ['Summary', 'dashboard'], ['Responses', 'forum'],
-      ['Tools', 'build'], ['Sessions', 'account_tree'],
+      ['Tools', 'build'], ['Context', 'data_usage'], ['Sessions', 'account_tree'],
     ];
     return m('.ap-page', m('.ap-inner',
       m('header.ap-header',

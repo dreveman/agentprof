@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Read the documented export envelope, retaining only profiling measurements.
+import {estimateContextTokens} from '../pi-tracing/extensions/pi-tracing/context.ts';
 export const object = (v: unknown): Record<string, any> => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, any> : {};
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
 export const integer = (v: unknown): number | undefined => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
@@ -13,6 +14,8 @@ const fields: Record<string, readonly string[]> = {
   session_end: ['exit_reason'],
   started: ['prompt', 'task_id'],
   terminal: ['terminal', 'reason', 'duration_ms'],
+  model_input_trace_recorded: ['schema_version', 'model_step', 'scope'],
+  assistant_message_committed: ['message_id'],
   model_completed: ['duration_ms', 'model', 'usage', 'finish_reason'],
   model_response_created: ['response_id'],
   assistant_tool_calls_committed: ['tool_calls'],
@@ -46,10 +49,24 @@ export function readExport(raw: unknown, id: string): NativeSession {
     const child = validSession(string(inner.child_session_id)) ? string(inner.child_session_id) : '';
     if (!keys && !child) return;
     const data = Object.fromEntries((keys ?? []).filter(k => inner[k] !== undefined).map(k => [k, inner[k]]));
+    if (kind === 'assistant_message_committed') {
+      const chars = string(inner.text).length; data.context_chars = chars; data.context_tokens = estimateContextTokens(chars);
+    }
+    if (kind === 'model_input_trace_recorded' && inner.schema_version === 2 && inner.scope === 'full_request') {
+      const b = object(inner.bounded);
+      data.aggregates = (Array.isArray(b.aggregates) ? b.aggregates : []).map((raw: unknown) => {
+        const a = object(raw);
+        return {bytes: integer(a.byte_count), lane: string(a.logical_lane?.value),
+          destination: string(a.provider_wire_destination?.value), source: string(a.source?.value)};
+      });
+      data.omitted_bytes = integer(b.omitted_aggregate_lane_bytes) ?? 0;
+      data.omitted_groups = integer(b.omitted_aggregate_group_count) ?? 0;
+    }
     if (kind === 'tool_result_batch_committed') data.results = (inner.results ?? []).map((result: any) => {
       let outcome = {}; try {outcome = object(JSON.parse(result.text));} catch {}
       const value = object(outcome);
-      return {call_id: string(result.tool_call_id),
+      const chars = string(result.text).length;
+      return {call_id: string(result.tool_call_id), context_chars: chars, context_tokens: estimateContextTokens(chars),
         ...(Number.isSafeInteger(value.exit_code) && typeof value.terminal_status === 'string' ?
           {exit_code: value.exit_code, terminal_status: value.terminal_status} : {})};
     });

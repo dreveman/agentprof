@@ -203,3 +203,51 @@
   }
   @media (max-width: 800px) {.ap-inner {width: 100%;} .ap-header, .ap-content {padding: 16px;} .ap-tabs > .pf-tabs__tabs {padding-inline: 10px;} .ap-headline-row {grid-template-columns: 1fr;}}
 }
+
+.ap-context {
+  min-width: 0;
+  .ap-context-controls, .ap-context-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  select {
+    max-width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--pf-color-border);
+    border-radius: 4px;
+    color: inherit;
+    background: var(--pf-color-background);
+    font: inherit;
+  }
+  .ap-context-chart { width: 100%; height: auto; display: block; overflow: hidden; }
+  .ap-context-chart text { font-size: 13px; }
+  .ap-context-chart g[role="button"] { cursor: pointer; }
+  .ap-context-chart g:focus circle { stroke: currentColor; stroke-width: 2px; }
+  .ap-context-capacity {
+    display: flex;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 5px;
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    span { height: 100%; }
+  }
+  .ap-context-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px 24px; margin: 16px 0; }
+  .ap-context-category {
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    i { width: 10px; height: 10px; flex: none; border-radius: 2px; }
+    > span:first-of-type { flex: 1; }
+    strong { font-weight: 500; }
+    .ap-muted { min-width: 42px; text-align: right; }
+  }
+  .ap-context-table { width: 100%; table-layout: fixed; }
+  .ap-context-table th:first-child { width: 40%; }
+  .ap-context-table td { overflow-wrap: anywhere; cursor: pointer; }
+  .ap-context-table .pf-button { max-width: 100%; }
+  .ap-context-row--expanded, .ap-context-detail { background: color-mix(in srgb, currentColor 5%, transparent); }
+  .ap-context-row--expanded td { border-bottom: 0; }
+  .ap-context-detail td { padding: 12px; cursor: default; }
+}

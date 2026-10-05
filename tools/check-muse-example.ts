@@ -34,7 +34,8 @@ try {
     'flows',(SELECT COUNT(*) FROM flow),
     'missingArgs',(SELECT COUNT(*) FROM agentprof_tool_calls WHERE arguments IS NULL),
     'localPaths',(SELECT COUNT(*) FROM args WHERE string_value GLOB '*/home/*'),
-    'units',(SELECT COUNT(*) FROM counter_track WHERE unit='tokens'),
+    'units',(SELECT COUNT(*) FROM counter_track WHERE unit='tokens'
+      AND name IN ('Input tokens','Output tokens','Context size','Context window')),
     'nonzeroEnds',(SELECT COUNT(*) FROM (SELECT value,ROW_NUMBER() OVER(PARTITION BY track_id ORDER BY ts DESC) n FROM counter) WHERE n=1 AND value!=0),
     'shellErrors',(SELECT COUNT(*) FROM agentprof_tool_calls WHERE name='bash' AND is_error=1),
     'categories',(SELECT JSON_GROUP_ARRAY(category) FROM (SELECT DISTINCT category FROM agentprof_slices))

@@ -33,6 +33,9 @@ var SIBLING_MERGE_BY_TRACK_NAME = 1;
 var SIBLING_MERGE_NONE = 2;
 var CLOCK_REALTIME = 1;
 var CLOCK_BOOTTIME = 6;
+var COUNTER_UNIT_UNSPECIFIED = 0;
+var COUNTER_UNIT_COUNT = 2;
+var COUNTER_UNIT_BYTES = 3;
 var textEncoder = new TextEncoder;
 function encodeVarint(value) {
   let x = typeof value === "number" ? BigInt(value) : value;
@@ -372,6 +375,100 @@ function currentMachineIdentity() {
   return cachedMachineIdentity;
 }
 
+// packages/pi-tracing/extensions/pi-tracing/context.ts
+var CONTEXT_CATEGORIES = {
+  system: "System instructions",
+  rules: "Rules and memory",
+  skills: "Skills",
+  tools: "Tool definitions",
+  environment: "Environment",
+  prompts: "User prompts",
+  assistant: "Assistant history",
+  results: "Tool results",
+  summaries: "Compaction summaries",
+  overhead: "Harness overhead",
+  messages: "Conversation",
+  unattributed: "Unattributed"
+};
+var estimateContextTokens = (chars) => Math.ceil(chars / 4);
+var count = (v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+class ContextTracker {
+  previous;
+  model;
+  reset() {
+    this.previous = undefined;
+    this.model = undefined;
+  }
+  snapshot(items, options) {
+    const baseline = this.previous === undefined || options.model !== this.model;
+    const previous = baseline ? new Map : this.previous;
+    const current = new Map(items.filter((i) => count(i.tokens) !== undefined).map((i) => {
+      const item = Object.fromEntries(Object.entries(i).filter(([, value]) => value !== undefined));
+      return [item.id, item];
+    }));
+    const categories = {};
+    for (const item of current.values())
+      categories[item.category] = (categories[item.category] ?? 0) + item.tokens;
+    const changes = [];
+    for (const item of current.values()) {
+      const old = previous.get(item.id);
+      if (!old || old.tokens !== item.tokens || old.category !== item.category)
+        changes.push({
+          ...item,
+          change: !old ? baseline ? "baseline" : "added" : "replaced",
+          delta_tokens: item.tokens - (old?.tokens ?? 0)
+        });
+    }
+    for (const item of previous.values())
+      if (!current.has(item.id))
+        changes.push({ ...item, change: "removed", delta_tokens: -item.tokens });
+    changes.sort((a, b) => Math.abs(b.delta_tokens) - Math.abs(a.delta_tokens));
+    this.previous = current;
+    this.model = options.model;
+    const measured = options.categories ?? categories;
+    return {
+      version: 1,
+      stage: options.stage,
+      basis: options.basis ?? "chars/4",
+      coverage: options.coverage ?? "partial",
+      baseline,
+      ...options.item_stage ? { item_stage: options.item_stage } : {},
+      categories: measured,
+      ...Object.keys(measured).length ? { estimated_tokens: Object.values(measured).reduce((a, b) => a + b, 0) } : {},
+      ...count(options.reported_tokens) !== undefined ? { reported_tokens: options.reported_tokens } : {},
+      ...count(options.window_tokens) !== undefined ? { window_tokens: options.window_tokens } : {},
+      ...count(options.compact_threshold_tokens) !== undefined ? { compact_threshold_tokens: options.compact_threshold_tokens } : {},
+      ...count(options.effective_window_tokens) !== undefined ? { effective_window_tokens: options.effective_window_tokens } : {},
+      ...options.model ? { model: options.model } : {},
+      changes: changes.slice(0, 64),
+      omitted_changes: Math.max(0, changes.length - 64)
+    };
+  }
+}
+
+// packages/pi-tracing/extensions/pi-tracing/tracks.ts
+var DEFAULT_COUNTERS = [
+  ...Object.entries(CONTEXT_CATEGORIES).map(([key, name]) => ({
+    key: `context.${key}`,
+    trackName: name,
+    unit: COUNTER_UNIT_UNSPECIFIED,
+    unitName: "tokens",
+    yAxisShareKey: "llm.context.tokens",
+    category: "llm",
+    group: "Context"
+  })),
+  { key: "llm.tokens.input", trackName: "Input tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
+  { key: "llm.tokens.output", trackName: "Output tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
+  { key: "llm.context.estimated_tokens", trackName: "Context size", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", yAxisShareKey: "llm.context.tokens", category: "llm" },
+  { key: "llm.context.window_tokens", trackName: "Context window", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", yAxisShareKey: "llm.context.tokens", category: "llm" },
+  { key: "runtime.rss", trackName: "Resident memory", group: "Runtime", unit: COUNTER_UNIT_BYTES, unitName: "bytes" },
+  { key: "runtime.heap", trackName: "JS heap", group: "Runtime", unit: COUNTER_UNIT_BYTES, unitName: "bytes" },
+  { key: "runtime.cpu", trackName: "CPU time (interval)", description: "Process CPU time consumed since the previous sample, in microseconds; not utilization.", group: "Runtime", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "us" },
+  { key: "tracing.droppedEvents", trackName: "Dropped events", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" },
+  { key: "tracing.queueDepth", trackName: "Queue depth", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" },
+  { key: "tracing.laneOverflows", trackName: "Lane overflows", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" }
+];
+
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
@@ -424,6 +521,23 @@ function randomToken() {
   const bytes = new Uint8Array(8);
   crypto.getRandomValues(bytes);
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// packages/agent-tracing/context.ts
+function attachContext(slice, snapshot, counters, at = slice.start) {
+  slice.attrs.context = { ...snapshot, sample_offset_ns: Number(at - slice.start) };
+  for (const [key, value] of Object.entries(snapshot.categories)) {
+    const name = CONTEXT_CATEGORIES[key] ?? key;
+    let counter = counters.find((c) => c.session === slice.session && c.name === `Context: ${name}`);
+    if (!counter) {
+      counter = { session: slice.session, name: `Context: ${name}`, group: "Context", unit: "tokens", axis: "llm.context.tokens", samples: [] };
+      counters.push(counter);
+    }
+    counter.samples.push({ at, value });
+  }
+  for (const c of counters.filter((c) => c.session === slice.session && c.group === "Context"))
+    if (!Object.keys(snapshot.categories).some((key) => c.name === `Context: ${CONTEXT_CATEGORIES[key] ?? key}`))
+      c.samples.push({ at, value: 0 });
 }
 
 // packages/agent-tracing/trace.ts
@@ -492,15 +606,22 @@ function writeTrace(options) {
           event(slice.end, slice.end === slice.start ? 1 : -2, lane.uuid, TRACK_EVENT_END);
       }
     }
+    const describedGroups = new Set;
     for (const counter of options.counters.filter((c) => c.session === session.id && c.samples.length)) {
       const id = uuid(`${session.id}:counter:${counter.name}`);
+      const parent = counter.group ? uuid(`${session.id}:group:${counter.group}`) : root;
+      if (counter.group && !describedGroups.has(counter.group)) {
+        packet({ trackDescriptor: buildTrackDescriptor({ uuid: parent, parentUuid: root, name: counter.group }) });
+        describedGroups.add(counter.group);
+      }
       packet({ trackDescriptor: buildTrackDescriptor({
         uuid: id,
-        parentUuid: root,
+        parentUuid: parent,
         name: counter.name,
         counter: { unit: 0, unitName: counter.unit, ...counter.axis ? { yAxisShareKey: counter.axis } : {} }
       }) });
-      event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
+      if (!counter.group)
+        event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
       for (const sample of counter.samples.sort((a, b) => compareTime(a.at, b.at)))
         event(sample.at, 2, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, BigInt(sample.value));
       event(session.end, 3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
@@ -523,6 +644,8 @@ var fields = {
   session_end: ["exit_reason"],
   started: ["prompt", "task_id"],
   terminal: ["terminal", "reason", "duration_ms"],
+  model_input_trace_recorded: ["schema_version", "model_step", "scope"],
+  assistant_message_committed: ["message_id"],
   model_completed: ["duration_ms", "model", "usage", "finish_reason"],
   model_response_created: ["response_id"],
   assistant_tool_calls_committed: ["tool_calls"],
@@ -562,6 +685,25 @@ function readExport(raw, id) {
     if (!keys && !child)
       return;
     const data = Object.fromEntries((keys ?? []).filter((k) => inner[k] !== undefined).map((k) => [k, inner[k]]));
+    if (kind === "assistant_message_committed") {
+      const chars = string(inner.text).length;
+      data.context_chars = chars;
+      data.context_tokens = estimateContextTokens(chars);
+    }
+    if (kind === "model_input_trace_recorded" && inner.schema_version === 2 && inner.scope === "full_request") {
+      const b = object(inner.bounded);
+      data.aggregates = (Array.isArray(b.aggregates) ? b.aggregates : []).map((raw) => {
+        const a = object(raw);
+        return {
+          bytes: integer(a.byte_count),
+          lane: string(a.logical_lane?.value),
+          destination: string(a.provider_wire_destination?.value),
+          source: string(a.source?.value)
+        };
+      });
+      data.omitted_bytes = integer(b.omitted_aggregate_lane_bytes) ?? 0;
+      data.omitted_groups = integer(b.omitted_aggregate_group_count) ?? 0;
+    }
     if (kind === "tool_result_batch_committed")
       data.results = (inner.results ?? []).map((result) => {
         let outcome = {};
@@ -569,8 +711,11 @@ function readExport(raw, id) {
           outcome = object(JSON.parse(result.text));
         } catch {}
         const value = object(outcome);
+        const chars = string(result.text).length;
         return {
           call_id: string(result.tool_call_id),
+          context_chars: chars,
+          context_tokens: estimateContextTokens(chars),
           ...Number.isSafeInteger(value.exit_code) && typeof value.terminal_status === "string" ? { exit_code: value.exit_code, terminal_status: value.terminal_status } : {}
         };
       });
@@ -678,6 +823,11 @@ function convert(capture, native) {
       return { model: name, provider, ...hook?.effort ? { effort: hook.effort } : {}, ...limit ? { context_window_tokens: limit } : {} };
     };
     Object.assign(session.attrs, configuration(start));
+    const contextTracker = new ContextTracker;
+    let contextItems = [];
+    const compactEnds = capture.hooks.filter((h) => h.session === id && h.event === "PostCompact").map((h) => BigInt(h.at)).sort(compareTime);
+    let compactIndex = 0;
+    let requestContext;
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
       if (r.family === "run" && r.kind === "started" && !controlPrompt(string(d.prompt))) {
@@ -724,6 +874,57 @@ function convert(capture, native) {
     const responses = [];
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
+      while (compactIndex < compactEnds.length && compactEnds[compactIndex] <= at) {
+        contextItems = [];
+        requestContext = undefined;
+        contextTracker.reset();
+        compactIndex++;
+      }
+      if (r.kind === "assistant_message_committed" && integer(d.context_tokens) !== undefined)
+        contextItems.push({
+          id: string(d.message_id) || r.id,
+          category: "assistant",
+          tokens: d.context_tokens,
+          chars: d.context_chars,
+          label: "Assistant history",
+          source_kind: "response"
+        });
+      if (r.kind === "model_input_trace_recorded" && Array.isArray(d.aggregates)) {
+        const categories = {};
+        for (const a of d.aggregates) {
+          const bytes = integer(a.bytes);
+          if (bytes === undefined || !bytes)
+            continue;
+          const key = a.lane === "system_base" ? "system" : a.lane === "tool_result" ? "results" : a.lane === "tool_specs" ? "tools" : a.source === "current_user" ? "prompts" : a.lane === "history" && a.destination === "message.role:assistant" ? "assistant" : a.lane === "history" ? "messages" : "unattributed";
+          categories[key] = (categories[key] ?? 0) + Math.ceil(bytes / 4);
+        }
+        if (integer(d.omitted_bytes))
+          categories.unattributed = (categories.unattributed ?? 0) + Math.ceil(d.omitted_bytes / 4);
+        requestContext = { at, items: [...contextItems], categories };
+      }
+      if (r.family === "run" && r.kind === "started" && !controlPrompt(string(d.prompt))) {
+        const chars = string(d.prompt).length;
+        contextItems.push({ id: r.id, category: "prompts", chars, tokens: estimateContextTokens(chars), source_kind: "prompt", label: "User prompt" });
+      }
+      if (r.kind === "tool_result_batch_committed")
+        for (const result of d.results ?? []) {
+          const n = integer(result.context_tokens);
+          if (n !== undefined)
+            contextItems.push({
+              id: `result:${result.call_id}`,
+              category: "results",
+              tokens: n,
+              chars: integer(result.context_chars),
+              source_id: string(result.call_id),
+              source_kind: "tool",
+              label: "Tool result"
+            });
+        }
+      if (r.kind === "assistant_tool_calls_committed")
+        for (const call of d.tool_calls ?? []) {
+          const chars = typeof call.args === "string" ? call.args.length : JSON.stringify(call.args ?? {}).length;
+          contextItems.push({ id: `call:${call.call_id}`, category: "assistant", chars, tokens: estimateContextTokens(chars), source_kind: "tool", source_id: string(call.call_id), label: "Tool arguments" });
+        }
       if (r.kind === "model_completed") {
         const duration = integer(d.duration_ms), begin = duration !== undefined ? at - BigInt(duration) * 1000000n : at;
         const compaction = capture.hooks.some((h) => h.session === id && h.event === "PreCompact" && BigInt(h.at) <= begin && at <= BigInt(capture.hooks.find((n) => n.session === id && n.event === "PostCompact" && BigInt(n.at) >= BigInt(h.at))?.at ?? capture.end));
@@ -753,9 +954,21 @@ function convert(capture, native) {
         if (response) {
           responses.push(response);
           edge(prompts.get(r.run), response);
+          if (!compaction && (requestContext || contextItems.length)) {
+            const snapshot = contextTracker.snapshot(requestContext?.items ?? contextItems, {
+              stage: requestContext ? "request-input" : "transcript-observed",
+              basis: requestContext ? "native-bytes/4" : "chars/4",
+              ...requestContext ? { categories: requestContext.categories, item_stage: "transcript-observed", reported_tokens: integer(attrs.context_tokens) } : {},
+              coverage: "partial",
+              model: string(attrs.model),
+              window_tokens: integer(attrs.context_window_tokens)
+            });
+            attachContext(response, snapshot, counters, requestContext ? max(response.start, requestContext.at) : at);
+          }
           if (!compaction)
             add(id, `${r.id}:turn`, "Turns", "turn", begin, at, { kind: "turn" });
         }
+        requestContext = undefined;
       }
       if (r.kind === "tool_batch_effect" && d.kind === "started") {
         emittedTasks.add(string(d.task_id));

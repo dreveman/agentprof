@@ -132,6 +132,9 @@ var SIBLING_MERGE_BY_TRACK_NAME = 1;
 var SIBLING_MERGE_NONE = 2;
 var CLOCK_REALTIME = 1;
 var CLOCK_BOOTTIME = 6;
+var COUNTER_UNIT_UNSPECIFIED = 0;
+var COUNTER_UNIT_COUNT = 2;
+var COUNTER_UNIT_BYTES = 3;
 var textEncoder = new TextEncoder;
 function encodeVarint(value) {
   let x = typeof value === "number" ? BigInt(value) : value;
@@ -476,6 +479,173 @@ function currentMachineIdentity() {
   return cachedMachineIdentity;
 }
 
+// packages/pi-tracing/extensions/pi-tracing/context.ts
+var CONTEXT_CATEGORIES = {
+  system: "System instructions",
+  rules: "Rules and memory",
+  skills: "Skills",
+  tools: "Tool definitions",
+  environment: "Environment",
+  prompts: "User prompts",
+  assistant: "Assistant history",
+  results: "Tool results",
+  summaries: "Compaction summaries",
+  overhead: "Harness overhead",
+  messages: "Conversation",
+  unattributed: "Unattributed"
+};
+var estimateContextTokens = (chars) => Math.ceil(chars / 4);
+var obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
+var str = (v) => typeof v === "string" ? v : "";
+var count = (v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+function instructionCategory(name) {
+  if (/rule|memory|claude.?md|agents.?md|instruction.?file/i.test(name))
+    return "rules";
+  if (/skill/i.test(name))
+    return "skills";
+  if (/environment|date|workspace|session.?info|project|email/i.test(name))
+    return "environment";
+  if (/reminder|wrapper/i.test(name))
+    return "overhead";
+  if (/tool|agent|command/i.test(name))
+    return "tools";
+  return "system";
+}
+function contentChars(value) {
+  if (typeof value === "string")
+    return value.length;
+  if (!Array.isArray(value))
+    return 0;
+  return value.reduce((n, raw) => {
+    const b = obj(raw);
+    return n + str(b.text ?? b.thinking).length + (b.type === "toolCall" || b.type === "tool_use" ? str(b.name).length + JSON.stringify(b.arguments ?? b.input ?? {}).length : 0);
+  }, 0);
+}
+function transcriptItems(messages) {
+  if (!Array.isArray(messages))
+    return [];
+  const items = [];
+  const sections = new Map, tools = new Map;
+  messages.forEach((raw, index) => {
+    const m = obj(raw), role = str(m.role), id = str(m.id ?? m.uuid) || `message:${role}:${m.timestamp ?? index}`;
+    const category = role === "system" ? "system" : role === "assistant" ? "assistant" : role === "toolResult" || role === "tool" ? "results" : /compaction|summary/i.test(role) ? "summaries" : role === "user" ? "prompts" : "unattributed";
+    const chars = contentChars(m.content ?? m.text ?? m.summary);
+    if (chars)
+      items.push({
+        id,
+        category,
+        chars,
+        tokens: estimateContextTokens(chars),
+        source_id: str(m.toolCallId ?? m.tool_use_id),
+        source_kind: category === "results" ? "tool" : category === "prompts" ? "prompt" : "response",
+        label: category === "results" ? str(m.toolName ?? m.name) || "Tool result" : CONTEXT_CATEGORIES[category]
+      });
+    for (const [name, text] of Object.entries(obj(m.sections))) {
+      if (text === null)
+        sections.delete(name);
+      else if (typeof text === "string")
+        sections.set(name, {
+          id: `section:${name}`,
+          category: instructionCategory(name),
+          chars: text.length,
+          tokens: estimateContextTokens(text.length),
+          label: name.slice(0, 96)
+        });
+    }
+    for (const [i, tool] of (Array.isArray(m.toolsAdded) ? m.toolsAdded : []).entries()) {
+      const chars = JSON.stringify(tool).length;
+      const name = str(obj(tool).name) || String(i);
+      tools.set(name, {
+        id: `tool:${name}`,
+        category: "tools",
+        tokens: estimateContextTokens(chars),
+        chars,
+        label: name.slice(0, 96)
+      });
+    }
+    for (const tool of Array.isArray(m.toolsRemoved) ? m.toolsRemoved : [])
+      tools.delete(typeof tool === "string" ? tool : str(obj(tool).name));
+  });
+  return [...items, ...sections.values(), ...tools.values()];
+}
+
+class ContextTracker {
+  previous;
+  model;
+  reset() {
+    this.previous = undefined;
+    this.model = undefined;
+  }
+  snapshot(items, options) {
+    const baseline = this.previous === undefined || options.model !== this.model;
+    const previous = baseline ? new Map : this.previous;
+    const current = new Map(items.filter((i) => count(i.tokens) !== undefined).map((i) => {
+      const item = Object.fromEntries(Object.entries(i).filter(([, value]) => value !== undefined));
+      return [item.id, item];
+    }));
+    const categories = {};
+    for (const item of current.values())
+      categories[item.category] = (categories[item.category] ?? 0) + item.tokens;
+    const changes = [];
+    for (const item of current.values()) {
+      const old = previous.get(item.id);
+      if (!old || old.tokens !== item.tokens || old.category !== item.category)
+        changes.push({
+          ...item,
+          change: !old ? baseline ? "baseline" : "added" : "replaced",
+          delta_tokens: item.tokens - (old?.tokens ?? 0)
+        });
+    }
+    for (const item of previous.values())
+      if (!current.has(item.id))
+        changes.push({ ...item, change: "removed", delta_tokens: -item.tokens });
+    changes.sort((a, b) => Math.abs(b.delta_tokens) - Math.abs(a.delta_tokens));
+    this.previous = current;
+    this.model = options.model;
+    const measured = options.categories ?? categories;
+    return {
+      version: 1,
+      stage: options.stage,
+      basis: options.basis ?? "chars/4",
+      coverage: options.coverage ?? "partial",
+      baseline,
+      ...options.item_stage ? { item_stage: options.item_stage } : {},
+      categories: measured,
+      ...Object.keys(measured).length ? { estimated_tokens: Object.values(measured).reduce((a, b) => a + b, 0) } : {},
+      ...count(options.reported_tokens) !== undefined ? { reported_tokens: options.reported_tokens } : {},
+      ...count(options.window_tokens) !== undefined ? { window_tokens: options.window_tokens } : {},
+      ...count(options.compact_threshold_tokens) !== undefined ? { compact_threshold_tokens: options.compact_threshold_tokens } : {},
+      ...count(options.effective_window_tokens) !== undefined ? { effective_window_tokens: options.effective_window_tokens } : {},
+      ...options.model ? { model: options.model } : {},
+      changes: changes.slice(0, 64),
+      omitted_changes: Math.max(0, changes.length - 64)
+    };
+  }
+}
+
+// packages/pi-tracing/extensions/pi-tracing/tracks.ts
+var DEFAULT_COUNTERS = [
+  ...Object.entries(CONTEXT_CATEGORIES).map(([key, name]) => ({
+    key: `context.${key}`,
+    trackName: name,
+    unit: COUNTER_UNIT_UNSPECIFIED,
+    unitName: "tokens",
+    yAxisShareKey: "llm.context.tokens",
+    category: "llm",
+    group: "Context"
+  })),
+  { key: "llm.tokens.input", trackName: "Input tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
+  { key: "llm.tokens.output", trackName: "Output tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
+  { key: "llm.context.estimated_tokens", trackName: "Context size", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", yAxisShareKey: "llm.context.tokens", category: "llm" },
+  { key: "llm.context.window_tokens", trackName: "Context window", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", yAxisShareKey: "llm.context.tokens", category: "llm" },
+  { key: "runtime.rss", trackName: "Resident memory", group: "Runtime", unit: COUNTER_UNIT_BYTES, unitName: "bytes" },
+  { key: "runtime.heap", trackName: "JS heap", group: "Runtime", unit: COUNTER_UNIT_BYTES, unitName: "bytes" },
+  { key: "runtime.cpu", trackName: "CPU time (interval)", description: "Process CPU time consumed since the previous sample, in microseconds; not utilization.", group: "Runtime", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "us" },
+  { key: "tracing.droppedEvents", trackName: "Dropped events", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" },
+  { key: "tracing.queueDepth", trackName: "Queue depth", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" },
+  { key: "tracing.laneOverflows", trackName: "Lane overflows", group: "Tracing", unit: COUNTER_UNIT_COUNT, unitName: "count" }
+];
+
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
@@ -528,6 +698,23 @@ function randomToken() {
   const bytes = new Uint8Array(8);
   crypto.getRandomValues(bytes);
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// packages/agent-tracing/context.ts
+function attachContext(slice, snapshot, counters, at = slice.start) {
+  slice.attrs.context = { ...snapshot, sample_offset_ns: Number(at - slice.start) };
+  for (const [key, value] of Object.entries(snapshot.categories)) {
+    const name = CONTEXT_CATEGORIES[key] ?? key;
+    let counter = counters.find((c) => c.session === slice.session && c.name === `Context: ${name}`);
+    if (!counter) {
+      counter = { session: slice.session, name: `Context: ${name}`, group: "Context", unit: "tokens", axis: "llm.context.tokens", samples: [] };
+      counters.push(counter);
+    }
+    counter.samples.push({ at, value });
+  }
+  for (const c of counters.filter((c) => c.session === slice.session && c.group === "Context"))
+    if (!Object.keys(snapshot.categories).some((key) => c.name === `Context: ${CONTEXT_CATEGORIES[key] ?? key}`))
+      c.samples.push({ at, value: 0 });
 }
 
 // packages/agent-tracing/trace.ts
@@ -596,15 +783,22 @@ function writeTrace(options) {
           event(slice.end, slice.end === slice.start ? 1 : -2, lane.uuid, TRACK_EVENT_END);
       }
     }
+    const describedGroups = new Set;
     for (const counter of options.counters.filter((c) => c.session === session.id && c.samples.length)) {
       const id = uuid(`${session.id}:counter:${counter.name}`);
+      const parent = counter.group ? uuid(`${session.id}:group:${counter.group}`) : root;
+      if (counter.group && !describedGroups.has(counter.group)) {
+        packet({ trackDescriptor: buildTrackDescriptor({ uuid: parent, parentUuid: root, name: counter.group }) });
+        describedGroups.add(counter.group);
+      }
       packet({ trackDescriptor: buildTrackDescriptor({
         uuid: id,
-        parentUuid: root,
+        parentUuid: parent,
         name: counter.name,
         counter: { unit: 0, unitName: counter.unit, ...counter.axis ? { yAxisShareKey: counter.axis } : {} }
       }) });
-      event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
+      if (!counter.group)
+        event(session.start, -3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
       for (const sample of counter.samples.sort((a, b) => compareTime(a.at, b.at)))
         event(sample.at, 2, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, BigInt(sample.value));
       event(session.end, 3, id, TRACK_EVENT_COUNTER, undefined, undefined, undefined, 0n);
@@ -1247,6 +1441,15 @@ function convertObservations(rows) {
       session.start = max(first, session.start);
       session.end = min(last, session.end);
     }
+  for (const { session, record } of metadata)
+    if (record.type === "context_snapshot") {
+      const at = isoTime(record.timestamp);
+      if (at === undefined || at < first || at > last)
+        continue;
+      const operation = slices.filter((s) => s.session === session && s.attrs.kind === "assistant-message" && s.start <= at).sort((a, b) => compareTime(b.start, a.start))[0];
+      if (operation)
+        attachContext(operation, record.payload, counters, at);
+    }
   const trace = writeTrace({
     capture,
     pid,
@@ -1373,6 +1576,9 @@ import { createInterface } from "node:readline";
 async function readKnownSession(path, id, emit) {
   const lines = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
   let matched = false, owner = id;
+  let items = [];
+  let model;
+  const tracker = new ContextTracker;
   let context;
   for await (const line of lines) {
     if (line.length > 8 * 1024 * 1024)
@@ -1402,6 +1608,47 @@ async function readKnownSession(path, id, emit) {
     }
     if (!matched)
       continue;
+    if (owner === id && r.type === "response_item") {
+      if (p.type === "message")
+        items.push(...transcriptItems([{ ...p, id: string(p.id) || `message:${items.length}` }]));
+      if (["function_call_output", "custom_tool_call_output"].includes(string(p.type))) {
+        const chars = typeof p.output === "string" ? p.output.length : JSON.stringify(p.output ?? "").length;
+        items.push({
+          id: `result:${p.call_id}`,
+          category: "results",
+          tokens: estimateContextTokens(chars),
+          chars,
+          source_id: string(p.call_id),
+          source_kind: "tool",
+          label: "Tool result"
+        });
+      }
+      if (["function_call", "custom_tool_call"].includes(string(p.type))) {
+        const chars = string(p.arguments ?? p.input).length;
+        items.push({
+          id: `call:${p.call_id}`,
+          category: "assistant",
+          tokens: estimateContextTokens(chars),
+          chars,
+          source_id: string(p.call_id),
+          source_kind: "tool",
+          label: "Tool arguments"
+        });
+      }
+    }
+    if (owner === id && r.type === "compacted") {
+      items = Array.isArray(p.replacement_history) ? p.replacement_history.flatMap((m, i) => transcriptItems([{ ...object(m), id: `compact:${i}` }])) : [];
+      if (typeof p.message === "string")
+        items.push({
+          id: "summary",
+          category: "summaries",
+          chars: p.message.length,
+          tokens: estimateContextTokens(p.message.length),
+          label: "Compaction summary"
+        });
+    }
+    if (r.type === "turn_context" && owner === id)
+      model = string(p.model) || undefined;
     if (r.type === "turn_context")
       context = {
         type: r.type,
@@ -1411,12 +1658,25 @@ async function readKnownSession(path, id, emit) {
     if (r.type === "token_usage_record") {
       owner = string(p.thread_id);
       if (owner === id && context && object(context.payload).turn_id === p.turn_id) {
+        model = string(object(context.payload).model) || undefined;
         emit({ session_id: id, record: context });
         context = undefined;
       }
     }
     if (r.type === "event_msg" && p.type === "token_count" && owner === id) {
       const info = object(p.info);
+      if (items.length)
+        emit({ session_id: id, record: {
+          type: "context_snapshot",
+          timestamp: r.timestamp,
+          payload: tracker.snapshot(items, {
+            stage: "transcript-observed",
+            basis: "chars/4",
+            coverage: "partial",
+            model,
+            window_tokens: typeof info.model_context_window === "number" ? info.model_context_window : undefined
+          })
+        } });
       emit({ session_id: id, record: { type: r.type, timestamp: r.timestamp, payload: {
         type: "token_count",
         info: {

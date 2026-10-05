@@ -98,6 +98,10 @@ to the children's first prompts with native flows. Packet timestamps use the
 parent's clock calibration; per-process measurement values are unchanged.
 
 The historical `workflow-*.pftrace` files remain as source/provenance fixtures.
+Context categories were reconstructed at each recorded request from the original
+saved messages, system sections and tool definitions. They are marked as partial
+transcript observations, since outgoing provider transformations are unavailable.
+Each worker has its own breakdown; original timings and usage are unchanged.
 Opening those individually tests comparison between separate recordings; their
 cross-file flow IDs are not joined by Perfetto. Native and browser checks verify
 the unified recording's three flows, concurrent workers, and later reviewer stage.

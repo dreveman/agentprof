@@ -1,7 +1,7 @@
 // pi-tracing: local Perfetto capture for Pi.
 // Uses Pi's own packages; prompt text is captured by default.
 
-import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir, buildSessionContext, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {Type} from "@earendil-works/pi-ai";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -22,6 +22,8 @@ import { defaultOutDir, describeBytes, Recorder, sanitizeArgv0, sanitizeSessionT
 import type { TraceManifest } from "./tracer.ts";
 import type { TrackSet } from "./tracks.ts";
 import { randomFlowId } from "./tracks.ts";
+import {CONTEXT_CATEGORIES, ContextTracker, transcriptItems, type ContextItem} from "./context.ts";
+import type {DebugAnnotationValue} from "./encoder.ts";
 import {CodemodeCalls} from "./codemode.ts";
 import { childPromptFlowId, describeChildLaunch, detectChildRole, extractChildSessionId, mergeExtensionPath } from "./workflow.ts";
 
@@ -108,11 +110,13 @@ interface SessionState {
   childPromptPending: boolean;
   linkedChildSessions: Set<string>;
   contextMessages: number | undefined;
+  contextItems: ContextItem[];
+  contextTracker: ContextTracker;
   providerSpan: number | null;
   operationSpan: number | null;
   attemptSpan: number | null;
   turnSpan: number | null;
-  compaction: {span: number | null; beforeTokens: number | undefined} | null;
+  compaction: {span: number | null; beforeTokens: number | undefined; at: bigint} | null;
   toolSpans: Map<string, number>;
   toolLastPartialBytes: Map<string, number>;
   /** toolCallId -> flow linkage: the id shared by the main-thread issue event
@@ -271,6 +275,8 @@ export default function (pi: ExtensionAPI) {
     state.promptData = {};
     state.promptInputFlow = undefined;
     state.contextMessages = undefined;
+    state.contextItems = [];
+    state.contextTracker.reset();
     state.providerSpan = null;
     state.operationSpan = null;
     state.attemptSpan = null;
@@ -642,6 +648,8 @@ export default function (pi: ExtensionAPI) {
         entry => entry.type === "message" && entry.message.role === "user"),
       linkedChildSessions: new Set(),
       contextMessages: undefined,
+      contextItems: [],
+      contextTracker: new ContextTracker(),
       providerSpan: null,
       operationSpan: null,
       attemptSpan: null,
@@ -877,9 +885,14 @@ export default function (pi: ExtensionAPI) {
       const track = providerTrack();
       if (track === null || !state.recorder.categoryOn("llm")) return;
       if (state.providerSpan !== null) return;
+      const snapshot = state.contextTracker.snapshot(state.contextItems, {stage: 'request-input',
+        model: ctx.model?.id, window_tokens: ctx.model?.contextWindow,
+        basis: 'chars/4', coverage: 'partial'});
+      for (const key of Object.keys(CONTEXT_CATEGORIES)) state.recorder.emitCounter(`context.${key}`, snapshot.categories[key] ?? 0);
       // Pi's after_provider_response runs at response headers, before streaming.
       state.providerSpan = state.recorder.beginSlice({ cat: "llm", trackUuid: track, name: "request",
         annotations: { "kind": "provider-request", "phase": "response-headers",
+          context: snapshot as unknown as DebugAnnotationValue,
           ...(state.contextMessages === undefined ? {} : {"context_messages": state.contextMessages}),
           ...(ctx.model ? { "provider": ctx.model.provider, "model": ctx.model.id } : {}) } });
     });
@@ -900,7 +913,7 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
-  const finishCompaction = (state: SessionState, annotations: Record<string, string | number | boolean>, tNs: bigint) => {
+  const finishCompaction = (state: SessionState, annotations: Record<string, DebugAnnotationValue>, tNs: bigint) => {
     const pending = state.compaction;
     if (pending?.span !== null && pending?.span !== undefined) {
       state.recorder.emitEnd(pending.span, annotations, tNs);
@@ -927,7 +940,7 @@ export default function (pi: ExtensionAPI) {
         name: "compact", tNs, annotations: {"kind": "compaction", "reason": event.reason,
           "will_retry": event.willRetry,
           ...(beforeTokens === undefined ? {} : {"tokens_before": beforeTokens})}});
-      state.compaction = {span, beforeTokens};
+      state.compaction = {span, beforeTokens, at: tNs};
     });
   });
 
@@ -940,10 +953,17 @@ export default function (pi: ExtensionAPI) {
       const after = tokenCount(ctx.getContextUsage()?.tokens);
       if (after === undefined) state.recorder.invalidateContextTokens(tNs);
       else state.recorder.recordContextTokens(after, tNs);
+      const staticItems = state.contextItems.filter(item => ['system', 'rules', 'skills', 'tools', 'environment', 'overhead'].includes(item.category));
+      const retained = buildSessionContext(ctx.sessionManager.getEntries(), ctx.sessionManager.getLeafId()).messages;
+      state.contextItems = [...staticItems, ...transcriptItems(retained)];
+      const snapshot = state.contextTracker.snapshot(state.contextItems, {stage: 'post-compaction', model: ctx.model?.id,
+        window_tokens: ctx.model?.contextWindow, basis: 'chars/4', coverage: 'partial'});
+      for (const key of Object.keys(CONTEXT_CATEGORIES)) state.recorder.emitCounter(`context.${key}`, snapshot.categories[key] ?? 0, tNs);
+      const context = {...snapshot, sample_offset_ns: Number(tNs - (state.compaction?.at ?? tNs))} as unknown as DebugAnnotationValue;
       const usage = event.compactionEntry.usage;
       if (usage !== undefined) state.recorder.recordTokenUsage({usage}, tNs);
       const reported = reportedTokenUsage({usage});
-      finishCompaction(state, {"status": "success", "reason": event.reason,
+      finishCompaction(state, {context, "status": "success", "reason": event.reason,
         "will_retry": event.willRetry, "from_extension": event.fromExtension,
         "context_after_known": after !== undefined,
         ...(after === undefined ? {} : {"tokens_after": after}),
@@ -969,7 +989,13 @@ export default function (pi: ExtensionAPI) {
       // This is the count observed by our context hook, before later handlers
       // may transform the transcript. Reuse it for retries of this context.
       state.contextMessages = Array.isArray(messages) ? messages.length : undefined;
+      state.contextItems = transcriptItems(messages);
     });
+  });
+
+  // The full context hook includes system sections. Observation never rewrites it.
+  pi.on("context_with_system", (event, ctx) => {
+    withSession(ctx, state => {state.contextItems = transcriptItems(event.messages);});
   });
 
   // -- tools: canonical span = execution start -> end --

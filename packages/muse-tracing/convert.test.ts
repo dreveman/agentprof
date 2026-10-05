@@ -68,8 +68,8 @@ test('Muse measurements import with scoped sessions, usage, context, flows and r
     (SELECT SUM(dur) FROM agentprof_messages)=145000000,
     (SELECT SUM(input_tokens) FROM agentprof_capture_runs)=250,
     (SELECT COUNT(*) FROM agentprof_capture_runs WHERE harness='muse' AND context_window_tokens=1000)=2,
-    (SELECT COUNT(*) FROM counter_track WHERE unit='tokens')=8,
-    (SELECT COUNT(*) FROM counter_track WHERE EXTRACT_ARG(source_arg_set_id,'y_axis_share_key')='llm.context.tokens')=4,
+    (SELECT COUNT(*) FROM counter_track WHERE unit='tokens' AND name NOT GLOB 'Context:*')=8,
+    (SELECT COUNT(*) FROM counter_track WHERE EXTRACT_ARG(source_arg_set_id,'y_axis_share_key')='llm.context.tokens' AND name NOT GLOB 'Context:*')=4,
     (SELECT COUNT(*) FROM (SELECT value, ROW_NUMBER() OVER(PARTITION BY track_id ORDER BY ts DESC) n FROM counter) WHERE n=1 AND value!=0)=0,
     (SELECT COUNT(*) FROM agentprof_tool_calls WHERE is_error=1)=1,
     (SELECT COUNT(*) FROM flow)>=5,
@@ -130,4 +130,29 @@ test('typed shell exit codes distinguish failed commands from successful tool di
     results: [{call_id: 'call1', exit_code: 7, terminal_status: 'failed'}],
   }});
   expect(query(f, `SELECT COUNT(*) FROM agentprof_tool_calls WHERE is_error=1 AND EXTRACT_ARG(arg_set_id,'debug.exit_code')=7;`)).toBe('1');
+});
+
+test('native request composition is scoped to each request and excludes later results and raw text', () => {
+  const f = fixture();
+  const extra = native(root, [
+    [24, 'run', 'model_input_trace_recorded', {schema_version: 2, scope: 'full_request', model_step: 1,
+      bounded: {aggregates: [{byte_count: 80, logical_lane: {value: 'system_base'},
+        provider_wire_destination: {value: 'system'}, source: {value: 'base'}},
+        {byte_count: 40, logical_lane: {value: 'history'}, source: {value: 'current_user'}}], raw_text: 'SECRET_SYSTEM'}}],
+    [132, 'run', 'assistant_message_committed', {message_id: 'answer-1', text: 'SECRET_ASSISTANT'}],
+    [216, 'run', 'tool_result_batch_committed', {results: [{tool_call_id: 'call1', text: 'x'.repeat(400)}]}],
+    [224, 'run', 'model_input_trace_recorded', {schema_version: 2, scope: 'full_request', model_step: 2,
+      bounded: {aggregates: [{byte_count: 80, logical_lane: {value: 'system_base'}},
+        {byte_count: 200, logical_lane: {value: 'tool_result'}}]}}],
+  ]);
+  f.raw.events.push(...extra.events.map(e => ({...e, envelope: {...e.envelope, id: `extra:${e.envelope.id}`}})));
+  f.sessions[0] = readExport(f.raw, root);
+  expect(JSON.stringify(f.sessions)).not.toMatch(/SECRET_SYSTEM|SECRET_ASSISTANT|x{400}/);
+  expect(query(f, `SELECT
+    (SELECT COUNT(*) FROM agentprof_context_snapshots WHERE basis='native-bytes/4' AND session='${root}')=2,
+    (SELECT MIN(estimated_tokens) FROM agentprof_context_snapshots WHERE session='${root}')=30,
+    (SELECT MAX(estimated_tokens) FROM agentprof_context_snapshots WHERE session='${root}')=70,
+    (SELECT COUNT(*) FROM agentprof_context_changes WHERE source_id='call1' AND category='results' AND delta_tokens=100 AND NOT baseline)=1,
+    (SELECT COUNT(*) FROM agentprof_context_changes WHERE category='results' AND baseline)=0,
+    (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`)).toBe('1,1,1,1,1,1');
 });

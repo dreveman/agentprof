@@ -30,6 +30,18 @@ export function trackDisplayName(name: string): string {
 export const COUNTER_TRACKS_SQL = `
 CREATE PERFETTO TABLE agentprof_counter_tracks AS
 WITH names(metric, display_name, group_name) AS (VALUES
+  ('context.system', 'System instructions', 'Context'),
+  ('context.rules', 'Rules and memory', 'Context'),
+  ('context.skills', 'Skills', 'Context'),
+  ('context.tools', 'Tool definitions', 'Context'),
+  ('context.environment', 'Environment', 'Context'),
+  ('context.prompts', 'User prompts', 'Context'),
+  ('context.assistant', 'Assistant history', 'Context'),
+  ('context.results', 'Tool results', 'Context'),
+  ('context.summaries', 'Compaction summaries', 'Context'),
+  ('context.overhead', 'Harness overhead', 'Context'),
+  ('context.messages', 'Conversation', 'Context'),
+  ('context.unattributed', 'Unattributed', 'Context'),
   ('llm.tokens.input', 'Input tokens', NULL),
   ('llm.tokens.output', 'Output tokens', NULL),
   ('llm.context.estimated_tokens', 'Context size', NULL),
@@ -42,7 +54,7 @@ WITH names(metric, display_name, group_name) AS (VALUES
   ('tracing.laneOverflows', 'Lane overflows', 'Tracing')
 )
 SELECT t.id, n.metric AS name, n.display_name, n.group_name, m.capture_id
-FROM counter_track t JOIN names n ON t.name IN (n.metric, n.display_name)
+FROM counter_track t JOIN names n ON t.name IN (n.metric, n.display_name, 'Context: ' || n.display_name)
   OR (n.metric = 'llm.context.estimated_tokens' AND t.name = 'Context size (est.)')
 JOIN agentprof_track_process m ON m.track_id = t.id;
 `;

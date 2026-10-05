@@ -92,3 +92,33 @@ test('forked transcript metadata excludes inherited usage and retains the child 
     expect(await readKnownSession(path, rootSession, () => {throw new Error('Mismatched transcript was read');})).toBe(false);
   } finally {rmSync(folder, {recursive: true, force: true});}
 });
+
+test('transcript context counts retained content and compaction changes without copying raw data', async () => {
+  const folder = mkdtempSync(join(tmpdir(), 'codex-context-'));
+  try {
+    const path = join(folder, 'session.jsonl');
+    const rows = [
+      {type: 'session_meta', payload: {id: rootSession}},
+      {type: 'turn_context', payload: {model: 'one'}},
+      {type: 'response_item', payload: {type: 'message', role: 'user', id: 'user', content: [{type: 'input_text', text: 'PRIVATE_PROMPT'}]}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 1000}}},
+      {type: 'response_item', payload: {type: 'function_call_output', call_id: 'read1', output: 'x'.repeat(400)}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 1000}}},
+      {type: 'compacted', payload: {replacement_history: [], message: 'SUMMARY'}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 1000}}},
+      {type: 'turn_context', payload: {model: 'two'}},
+      {type: 'event_msg', payload: {type: 'token_count', info: {model_context_window: 2000}}},
+    ];
+    writeFileSync(path, rows.map(r => JSON.stringify(r)).join('\n'));
+    const result: any[] = [];
+    await readKnownSession(path, rootSession, r => result.push(r));
+    expect(JSON.stringify(result)).not.toMatch(/PRIVATE_PROMPT|SUMMARY|x{400}/);
+    const snapshots = result.filter(r => r.record.type === 'context_snapshot').map(r => r.record.payload);
+    expect(snapshots.length).toBe(4);
+    expect(snapshots[0]).toMatchObject({baseline: true, stage: 'transcript-observed', categories: {prompts: 4}});
+    expect(snapshots[1].changes[0]).toMatchObject({source_id: 'read1', delta_tokens: 100, change: 'added'});
+    expect(snapshots[2].changes.some((c: any) => c.source_id === 'read1' && c.change === 'removed')).toBe(true);
+    expect(snapshots[2].categories).toEqual({summaries: 2});
+    expect(snapshots[3]).toMatchObject({baseline: true, model: 'two', window_tokens: 2000});
+  } finally {rmSync(folder, {recursive: true, force: true});}
+});
