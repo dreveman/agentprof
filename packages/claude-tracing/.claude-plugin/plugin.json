@@ -1,5 +1,20 @@
 {
   "name": "agentprof",
-  "version": "0.1.0",
-  "description": "Local Agent Profiler capture prototype for Claude Code"
+  "version": "0.2.0",
+  "description": "Local Agent Profiler tracing for Claude Code",
+  "author": {"name": "Agent Profiler"},
+  "homepage": "https://ui.agentprof.dev",
+  "repository": "https://github.com/dreveman/agentprof",
+  "license": "Apache-2.0",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "auto_start": {
+      "type": "boolean", "title": "Record automatically", "default": false,
+      "description": "Start a new recording when Claude launches and save it on exit."
+    },
+    "show_controls": {
+      "type": "boolean", "title": "Show recording controls", "default": true,
+      "description": "Show recording status and a start/stop button above the prompt."
+    }
+  }
 }

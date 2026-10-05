@@ -43,9 +43,20 @@ To try the extension from a local checkout without installing it, run
 Recordings include prompts and tool arguments by default. Set
 `PI_TRACING_CAPTURE_CONTENTS=0` to omit tool arguments.
 
-For Claude Code, use the [capture launcher](packages/claude-tracing/README.md).
-It records a print-mode (`-p`) task and its subagents into one trace. The home
-page's agent selector shows setup and recording commands for either integration.
+For Claude Code (2.1.289+ with mods enabled, Node.js 22+), install the
+[interactive plugin](packages/claude-tracing/README.md):
+
+```sh
+claude plugin marketplace add dreveman/agentprof
+claude plugin install agentprof@agentprof
+claude
+```
+
+Use the recording button above the prompt, `/tracing start` and `/tracing stop`,
+or let the agent use `tracing_start`, `tracing_stop` and `tracing_status` tools.
+Exit also saves an active recording. Subagents share one trace; reload and
+clear/resume preserve recording. The guide covers keyboard controls, automatic
+recording, recovery and the optional print-mode OpenTelemetry launcher.
 
 Build and serve the UI (Python 3.11+, Git, and a C/C++ build environment;
 Perfetto downloads its pinned build dependencies):

@@ -5,6 +5,7 @@ import {buildClockSnapshot, buildTracePacket, buildTrackDescriptor, buildTrackEv
   SIBLING_MERGE_BY_TRACK_NAME, SIBLING_MERGE_NONE, type DebugAnnotationValue} from '../pi-tracing/extensions/pi-tracing/encoder.ts';
 import {fnv1a64} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {promptAnnotations, toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
+import {convertDirectObservations} from './direct.ts';
 
 type ObjectValue = Record<string, unknown>;
 type Attrs = Record<string, DebugAnnotationValue>;
@@ -45,6 +46,7 @@ function attributes(raw: unknown): Attrs {
 const compareTime = (a: bigint, b: bigint) => a < b ? -1 : a > b ? 1 : 0;
 
 export function convertObservations(rows: Observation[]): {trace: Uint8Array; summary: ObjectValue} {
+  if (rows.some(row => row.source === 'claude.mod')) return convertDirectObservations(rows);
   const processStart = rows.find(r => r.source === 'process_start');
   if (!processStart || integer(processStart.data.pid) === undefined) throw new Error('Missing recorded Claude process identity');
   const first = BigInt(processStart.timestamp);

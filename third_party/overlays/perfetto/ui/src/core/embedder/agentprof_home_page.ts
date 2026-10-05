@@ -64,15 +64,13 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           'Install agent tracing',
           isPi
             ? 'Install the tracing extension for your Pi account:'
-            : 'Install the Claude Code recorder with Git and npm. Requires a signed-in Claude Code CLI.',
+            : 'Install the Claude Code plugin. Requires Claude Code 2.1.289 or later with mods enabled, and Node.js 22 or later.',
           isPi
             ? command('pi install git:github.com/dreveman/agentprof')
             : m(
                 '.ap-home__commands',
-                command(
-                  'git clone https://github.com/dreveman/agentprof.git ~/agentprof',
-                ),
-                command('npm ci --prefix ~/agentprof'),
+                command('claude plugin marketplace add dreveman/agentprof'),
+                command('claude plugin install agentprof@agentprof'),
               ),
         ),
         step(
@@ -80,7 +78,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
           'Record your agent',
           isPi
             ? 'Start Pi with tracing enabled and run your task as usual.'
-            : 'From your project directory, run a task in Claude Code’s print mode. This integration is a preview.',
+            : 'Start Claude normally. Use the recording button or /tracing start, then run your task.',
           isPi
             ? [
                 command('pi --tracing'),
@@ -92,18 +90,14 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                 ),
               ]
             : [
-                command(
-                  [
-                    '~/agentprof/node_modules/.bin/bun \\',
-                    '  ~/agentprof/tools/record-claude.ts \\',
-                    '  agent.pftrace -- -p -- "Your task"',
-                  ].join('\n'),
-                ),
+                command('claude'),
                 m(
                   'p.ap-home__record-note',
-                  'Saves ',
-                  m('code', 'agent.pftrace'),
-                  ' on exit and prints its path. Use a new file name for each run. ',
+                  'Press ',
+                  m(HotkeyGlyphs, {hotkey: 'Ctrl+X'}),
+                  ', then Tab and R to start or stop recording. ',
+                  'Use /tracing stop to save, or exit Claude to finish the recording. ',
+                  'The agent can also use tracing_start and tracing_stop tools. ',
                   m(
                     'a',
                     {

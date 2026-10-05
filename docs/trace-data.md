@@ -5,12 +5,25 @@ an evolving adapter convention, not a claim that all coding harnesses expose
 the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 
 Category prefixes identify the recording harness: Pi writes `pi.*`, and the
-Claude Code capture prototype writes `claude.metadata` and `claude.activity`.
+Claude Code writes `claude.metadata` and `claude.activity`.
 Both use the same version-1 capture markers and event kinds. Readers also
 recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
-Native request intervals carry `timing = request-including-retries`; their
-boundaries differ from Pi's message spans. See the
-[prototype notes](../packages/claude-tracing/README.md) for capture coverage.
+Claude Code's OpenTelemetry request intervals carry `timing = request-including-retries`;
+direct mod streams use `timing = mod-request-including-retries`. Both boundaries
+differ from Pi's message spans. Direct capture measures first content/text from
+the request start to the corresponding streamed chunk. Tools use the reported
+execution duration, positioned at the post-tool hook; `Tool dispatch` preserves
+the observed interval including permission and hook delays. Compaction usage
+contributes to token counters without counting as assistant turns. Main-session
+context limits come from Claude's session API and are not assigned to subagents.
+Claude's recording continues across clear/resume/branch as separate capture
+windows in one file. Revisited native session IDs use a segment suffix for
+unambiguous joins, with `native_session_id` retaining the original identity.
+Starts during a prompt or child session use `started_before_capture`; reload
+interruptions and work unfinished at stop are marked incomplete. Buffered
+observations survive mod reloads, and file journals support recovery after an
+abrupt process exit. Recording controls are excluded from tool activity.
+See the [Claude recording guide](../packages/claude-tracing/README.md) for coverage.
 
 ## Existing timeline model
 

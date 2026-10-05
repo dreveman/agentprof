@@ -44,7 +44,7 @@ const server = Bun.serve({hostname: '127.0.0.1', port: 0, maxRequestBodySize: 8 
   },
 });
 const endpoint = `http://127.0.0.1:${server.port}`;
-const plugin = resolve(import.meta.dir, '../packages/claude-tracing');
+const plugin = resolve(import.meta.dir, '../packages/claude-tracing/legacy');
 const start = timestamp();
 const child = Bun.spawn(['claude', '--plugin-dir', plugin, '--output-format', 'stream-json', '--verbose', ...childArgs], {
   stdin: 'inherit', stdout: 'pipe', stderr: 'inherit',

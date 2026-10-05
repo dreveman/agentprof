@@ -1,0 +1,12 @@
+{
+  "name": "agentprof",
+  "owner": {"name": "Agent Profiler"},
+  "metadata": {"description": "Coding agent tracing for Agent Profiler"},
+  "plugins": [
+    {
+      "name": "agentprof",
+      "source": "./packages/claude-tracing",
+      "description": "Record Claude Code sessions for Agent Profiler"
+    }
+  ]
+}

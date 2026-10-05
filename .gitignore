@@ -9,6 +9,8 @@
 !examples/pi-codemode/*.pftrace
 !examples/harness-comparison/*.pftrace
 *.perfetto-trace
+*.pftrace.capture/
+/agentprof-traces/
 *.agentprof
 /traces/
 

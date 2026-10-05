@@ -147,12 +147,12 @@ try {
   const recordingAgent = page.getByRole('group', {name: 'Recording agent'});
   assert.equal(await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).getAttribute('aria-pressed'), 'true');
   await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).click();
-  await page.getByText('npm ci --prefix ~/agentprof', {exact: true}).waitFor();
+  await page.getByText('claude plugin install agentprof@agentprof', {exact: true}).waitFor();
   assert.equal(await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).getAttribute('aria-pressed'), 'true');
   assert.equal(await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).getAttribute('aria-pressed'), 'false');
   const recordStep = page.locator('.ap-home__step').filter({has: page.getByRole('heading', {name: 'Record your agent', exact: true})});
-  assert.match(await recordStep.innerText(), /project directory.*print mode/);
-  assert.match(await recordStep.locator('code').first().innerText(), /tools\/record-claude\.ts \\\n  agent\.pftrace -- -p -- "Your task"/);
+  assert.match(await recordStep.innerText(), /Start Claude normally/);
+  assert.equal(await recordStep.locator('code').first().innerText(), 'claude');
   assert.match(await recordStep.getByRole('link', {name: 'Claude Code recording guide'}).getAttribute('href'), /packages\/claude-tracing\/README\.md$/);
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({width, height: 1000});
@@ -165,7 +165,7 @@ try {
   }
   await action('Dark mode');
   await recordingAgent.getByRole('button', {name: 'Claude Code', exact: true}).click();
-  await page.getByText('npm ci --prefix ~/agentprof', {exact: true}).waitFor();
+  await page.getByText('claude plugin install agentprof@agentprof', {exact: true}).waitFor();
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-claude-dark.png'});
   await action('Dark mode');
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
