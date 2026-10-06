@@ -118,6 +118,10 @@ overwritten. Interrupt signals are forwarded to Codex so it can flush telemetry.
   scripts and their nested tool calls.
 - Cumulative input/output counters, sampled context size and the effective
   model context limit. Counters return to zero when the capture ends.
+- Partial composition estimates from the captured session's durable transcript,
+  with retained tool-result counts and observed compaction replacements. These
+  do not expose Codex's complete outgoing request. See
+  [context measurements](../../docs/context-data.md) for interpretation and UI.
 - Child-session relationships when Codex records source metadata, and flows
   from prompts through model/tool work and into observed child prompts.
 

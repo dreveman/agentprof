@@ -18,6 +18,11 @@ Input tokens include cached input; the context limit comes from Codex session
 metadata. This is a workflow example, not a speed comparison with the other
 harness examples, which use different models and timing boundaries.
 
+Context categories were re-exported from the original durable session transcript
+using character-count estimates. They cover observed history with partial
+attribution; provider instructions and tool definitions remain unavailable.
+The original timings and reported usage are unchanged.
+
 [recording.json](recording.json) contains checksums and validated measurements.
 `npm run trace:example` rebuilds the UI bundle without running a model.
 `npm run check:example` verifies trace import, identity, usage, context counters,

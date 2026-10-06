@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import {attachContext} from '../agent-tracing/context.ts';
+import {ContextTracker, instructionCategory, type ContextItem} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Observation, type Session, type Slice, type Counter, type Attrs} from '../agent-tracing/trace.ts';
 import {fnv1a64} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {promptAnnotations, toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
@@ -91,6 +93,8 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     if (!from || !to || to.start < from.start) return;
     const id = fnv1a64(`${capture}:${from.id}:${to.id}`) || 1n; from.flows.push(id); to.flows.push(id);
   };
+  const contextTrackers = new Map<string, ContextTracker>();
+  const contextSamples: {slice: Slice; input: Data; stage: string; model: string; at: bigint; reported?: number}[] = [];
   const prompts = new Map<string, Slice>(), inputs = new Map<string, Slice>(), responses: Slice[] = [];
   const tools = new Map<string, Slice>(), dispatches = new Map<string, Slice>();
   const executions = new Map(events.filter(r => r.data.event === 'execution').map(r => [`${scope(r.data)}:${r.data.id}`, r]));
@@ -130,10 +134,12 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     if (!d.agent_id) {
       const reading = contextRows.find(v => scope(v.data) === session.id && v.data.id === d.id && BigInt(v.timestamp) >= end) ??
         contextRows.findLast(v => scope(v.data) === session.id && BigInt(v.timestamp) <= start);
-      const window = reading?.data.model === model ? tokens(object(reading.data.context).window) : undefined;
+      const window = tokens(object(d.context).window) ?? (reading?.data.model === model ? tokens(object(reading.data.context).window) : undefined);
       if (window) attrs.context_window_tokens = window;
     }
     const response = add(r, 'Responses', 'response', start, end, attrs); responses.push(response);
+    if (d.context && !d.agent_id) contextSamples.push({slice: response, input: object(d.context), model,
+      stage: 'request-input', at: start, reported: tokens(attrs.context_tokens)});
     add(r, 'Turns', 'turn', start, end, {kind: 'turn', ...(attrs.incomplete ? {incomplete: true} : {})}, ':turn');
     edge(prompts.get(`${session.id}:${d.turn_id}`) ?? slices.find(s => s.session === session.id && s.attrs.kind === 'prompt' && s.start <= start && s.end! >= start), response);
   }
@@ -178,10 +184,46 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
       ...usageAttrs(result.usage), ...(!close || result.incomplete ? {incomplete: true} : {success: result.success === true}),
       ...(result.skipped ? {skipped: true} : {})};
     for (const k of ['pre_tokens', 'post_tokens']) {const n = tokens(result[k]); if (n !== undefined) attrs[k] = n;}
-    add(r, 'Compaction', r.data.trigger === 'precompute' ? 'precompute' : 'compact', BigInt(r.timestamp), close ? BigInt(close.timestamp) : captureEnd(r.data), attrs);
+    const compact = add(r, 'Compaction', r.data.trigger === 'precompute' ? 'precompute' : 'compact', BigInt(r.timestamp), close ? BigInt(close.timestamp) : captureEnd(r.data), attrs);
+    if (result.context && !r.data.agent_id) contextSamples.push({slice: compact, input: object(result.context),
+      stage: 'post-compaction', at: compact.end!, model: text(result.model)});
+  }
+  for (const r of events.filter(r => r.data.event === 'session' && r.data.phase === 'begin' && object(r.data.context).breakdown)) {
+    const session = sessions.get(scope(r.data))!;
+    const profile: Slice = {id: `profile:${session.id}`, session: session.id, track: 'Session', name: 'profile (1)',
+      start: session.start, end: session.end, attrs: session.attrs, flows: []};
+    contextSamples.push({slice: profile, input: object(r.data.context), model: text(r.data.model), stage: 'capture-start', at: profile.start});
+  }
+  const retainedItems = new Map<string, Map<string, ContextItem>>();
+  for (const sample of contextSamples.sort((a, b) => compareTime(a.at, b.at))) {
+    const {slice, input, model, stage, at, reported} = sample, breakdown = object(input.breakdown);
+    const tracker = contextTrackers.get(slice.session) ?? new ContextTracker(); contextTrackers.set(slice.session, tracker);
+    const categories: Record<string, number> = {};
+    for (const raw of Array.isArray(breakdown.categories) ? breakdown.categories : []) {
+      const c = object(raw), n = tokens(c.tokens); if (c.kind !== 'used' || n === undefined) continue;
+      const name = text(c.name);
+      const key = /message|conversation/i.test(name) ? 'messages' : /system|tool|memory|rule|skill|agent|command|environment|reminder/i.test(name)
+        ? instructionCategory(name) : 'unattributed';
+      categories[key] = (categories[key] ?? 0) + n;
+    }
+    let items = (Array.isArray(input.items) ? input.items : []) as ContextItem[];
+    if (Array.isArray(input.item_changes)) {
+      const retained = input.items_reset ? new Map<string, ContextItem>() : retainedItems.get(slice.session) ?? new Map<string, ContextItem>();
+      for (const item of input.item_changes as ContextItem[]) retained.set(item.id, item);
+      for (const id of Array.isArray(input.removed_items) ? input.removed_items : []) retained.delete(String(id));
+      retainedItems.set(slice.session, retained); items = [...retained.values()];
+      if (input.items_reset) tracker.reset();
+    }
+    attachContext(slice, tracker.snapshot(items, {stage, basis: Object.keys(categories).length ? 'native-summary' : 'chars/4', coverage: 'partial', model,
+      ...(Object.keys(categories).length ? {categories} : {}), window_tokens: tokens(input.window), reported_tokens: reported,
+      effective_window_tokens: tokens(breakdown.raw_max_tokens), compact_threshold_tokens: tokens(breakdown.auto_compact_threshold)}), counters, at);
   }
   for (const session of sessions.values()) {
     const work = responses.filter(s => s.session === session.id);
+    const firstModel = text(work[0]?.attrs.model), requested = text(session.attrs.model);
+    if (requested && firstModel && requested !== firstModel && requested.replace(/-\d{8}$/, '') === firstModel.replace(/-\d{8}$/, '')) {
+      session.attrs.requested_model = requested; session.attrs.model = firstModel;
+    }
     const usageWork = slices.filter(s => s.session === session.id && ['assistant-message', 'compaction'].includes(text(s.attrs.kind)))
       .sort((a, b) => compareTime(a.end!, b.end!));
     let config: Slice | undefined, previous = '';

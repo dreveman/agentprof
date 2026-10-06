@@ -47,7 +47,7 @@ let totalCalls = 0;
 for (const run of manifest.recordings) {
   const bytes = await readFile(resolve(source, run.file));
   assert.equal(createHash('sha256').update(bytes).digest('hex'), run.sha256);
-  assert.equal(run.sha256, run.traceSha256, 'Keep the original trace bytes');
+  assert.equal(run.preContextSha256, run.traceSha256, 'Preserve provenance of the original recording');
   assert.equal(createHash('sha256').update(toolInputs).digest('hex'), run.toolArgumentsSha256);
   assert.deepEqual(answers.find((answer: {sessionId: string}) => answer.sessionId === run.sessionId)?.answer, expected);
   const inputs = inputRuns.find((r: {sessionId: string}) => r.sessionId === run.sessionId);

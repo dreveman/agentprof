@@ -1,3 +1,4 @@
+import {CONTEXT_CATEGORIES} from './context.ts';
 // Track model: root process descriptor + named generic child tracks +
 // free-lane tool allocator + one counter track per metric. Categories are
 // filters and never become threads; see tracks.ts consumers in tracer.ts.
@@ -34,11 +35,13 @@ export interface CounterSpec {
   unitName: string;
   yAxisShareKey?: string;
   category?: "llm" | "runtime";
-  group?: "Runtime" | "Tracing";
+  group?: "Runtime" | "Tracing" | "Context";
   description?: string;
 }
 
 export const DEFAULT_COUNTERS: CounterSpec[] = [
+  ...Object.entries(CONTEXT_CATEGORIES).map(([key, name]): CounterSpec => ({key: `context.${key}`, trackName: name,
+    unit: COUNTER_UNIT_UNSPECIFIED, unitName: 'tokens', yAxisShareKey: 'llm.context.tokens', category: 'llm', group: 'Context'})),
   { key: "llm.tokens.input", trackName: "Input tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
   { key: "llm.tokens.output", trackName: "Output tokens", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", category: "llm" },
   { key: "llm.context.estimated_tokens", trackName: "Context size", unit: COUNTER_UNIT_UNSPECIFIED, unitName: "tokens", yAxisShareKey: "llm.context.tokens", category: "llm" },
@@ -152,6 +155,7 @@ export interface TrackSet {
   workflowUuid: bigint;
   runtimeUuid: bigint;
   tracingUuid: bigint;
+  contextUuid: bigint;
   lanes: ToolLaneAllocator;
   workflowLanes: ToolLaneAllocator;
   counters: Map<string, bigint>;
@@ -178,6 +182,7 @@ export function createTrackSet(laneCap: number, osTracks?: {processUuid: bigint;
     workflowUuid,
     runtimeUuid: randomUuid64(used),
     tracingUuid: randomUuid64(used),
+    contextUuid: randomUuid64(used),
     lanes: new ToolLaneAllocator(laneCap, used),
     workflowLanes: new ToolLaneAllocator(laneCap, used),
     counters: new Map(),
@@ -244,13 +249,14 @@ export function buildDescriptorPreamble(args: {
     buildTrackDescriptor({ uuid: tracks.compactionUuid, parentUuid: tracks.rootUuid, name: "Compaction" }),
     buildTrackDescriptor({ uuid: tracks.workflowUuid, parentUuid: tracks.rootUuid, name: "Workflow" }),
     buildTrackDescriptor({ uuid: tracks.runtimeUuid, parentUuid: tracks.rootUuid, name: "Runtime" }),
+    buildTrackDescriptor({uuid: tracks.contextUuid, parentUuid: tracks.rootUuid, name: "Context"}),
     buildTrackDescriptor({ uuid: tracks.tracingUuid, parentUuid: tracks.rootUuid, name: "Tracing" }),
   ];
   for (const spec of counterSpecs) {
     descriptors.push(
       buildTrackDescriptor({
         uuid: counterTrackUuid(tracks, spec),
-        parentUuid: spec.group === "Runtime" ? tracks.runtimeUuid : spec.group === "Tracing" ? tracks.tracingUuid : tracks.rootUuid,
+        parentUuid: spec.group === "Runtime" ? tracks.runtimeUuid : spec.group === "Tracing" ? tracks.tracingUuid : spec.group === "Context" ? tracks.contextUuid : tracks.rootUuid,
         name: spec.trackName,
         description: spec.description,
         counter: { unit: spec.unit, unitName: spec.unitName,

@@ -5,7 +5,7 @@
   "recorder": "native-plugin",
   "description": "Fix interval union duration and peak concurrency, add four regression tests, and run all tests.",
   "bundledFile": "coding.pftrace",
-  "sha256": "79476a251a8ee9a4d26746673765d7f8a3b82fb7c6ea27cb8d9b305c322741ba",
+  "sha256": "8e7ea011ac9282b64b3a1869c99f0ba1bbee77eb7d15423ee338f8fba5c4ade4",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "redactions": [
     "Scratch workspace paths replaced with /workspace/intervals and home paths with /user. Measured times and native session identities are unchanged."
@@ -24,8 +24,8 @@
       "responses": 8,
       "tools": 8,
       "turns": 8,
-      "inputTokens": 230875.0,
-      "outputTokens": 1560.0,
+      "inputTokens": 230875,
+      "outputTokens": 1560,
       "contextWindowTokens": 1007997,
       "peakContext": 31919,
       "incomplete": 0,
@@ -41,8 +41,8 @@
       "responses": 1,
       "tools": 1,
       "turns": 1,
-      "inputTokens": 8289.0,
-      "outputTokens": 637.0,
+      "inputTokens": 8289,
+      "outputTokens": 637,
       "contextWindowTokens": 1007997,
       "peakContext": 8289,
       "incomplete": 0,
@@ -58,8 +58,8 @@
       "responses": 1,
       "tools": 1,
       "turns": 1,
-      "inputTokens": 6702.0,
-      "outputTokens": 393.0,
+      "inputTokens": 6702,
+      "outputTokens": 393,
       "contextWindowTokens": 1007997,
       "peakContext": 6702,
       "incomplete": 0,
@@ -74,5 +74,6 @@
     "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b",
     "additional.test.mjs": "2a886a72f690c76388a821368fda4864749b923f1ecb4e3ddf300e79916e1104"
   },
-  "source": "One live Muse Code task with the native plugin and automatic start. Re-exported after verifying shutdown handling and relative child-log links; original recording clocks and boundaries are preserved."
+  "source": "One live Muse Code task with the native plugin and automatic start. Re-exported after verifying shutdown handling and relative child-log links; original recording clocks and boundaries are preserved.",
+  "contextData": "Re-exported from the original native session exports. Category counts use request-lane bytes/4 with partial transcript attribution; measured timings and usage are unchanged."
 }

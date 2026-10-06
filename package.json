@@ -14,7 +14,7 @@
     "check": "npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json && tsc -p packages/claude-tracing/tsconfig.json && tsc -p packages/codex-tracing/tsconfig.json && bun tools/build-claude-direct.ts --check && bun tools/build-codex-plugin.ts --check && tsc -p packages/muse-tracing/tsconfig.json && bun tools/build-muse-plugin.ts --check",
     "test": "npm run test --workspace pi-tracing && bun test packages/claude-tracing packages/codex-tracing packages/muse-tracing tools/check-example-privacy.test.ts",
     "trace:example": "bun tools/bundle-example.ts",
-    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts && bun tools/check-codemode-example.ts && bun tools/check-comparison-example.ts && bun tools/check-harness-examples.ts && bun tools/check-muse-example.ts && bun tools/check-example-privacy.ts",
+    "check:example": "npm run trace:fixture && bun tools/check-example.ts && npm run trace:example && bun tools/check-recorded-example.ts && bun tools/check-codemode-example.ts && bun tools/check-comparison-example.ts && bun tools/check-harness-examples.ts && bun tools/check-muse-example.ts && bun tools/check-example-context.ts && bun tools/check-example-privacy.ts",
     "trace:fixture": "bun tools/generate-example.ts",
     "trace:record": "python3 tools/record-example.py",
     "trace:record-codemode": "python3 tools/record-codemode-example.py",

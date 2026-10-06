@@ -5,7 +5,7 @@
   "recorder": "interactive-plugin",
   "description": "Fix interval union duration and peak concurrency, add four regression tests, and run all tests.",
   "bundledFile": "coding.pftrace",
-  "sha256": "f771dc595007fac54473338461635b8b4d4eb1d3862040dbc70ab1a1285312a3",
+  "sha256": "c1d16e80ff6e634bcea8fb756c0adf2bb4a2af29e9c3220f064ce29fc1311d62",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "redactions": [
     "Scratch workspace paths replaced with /workspace/intervals; measurements and session identity are unchanged."
@@ -20,13 +20,13 @@
     "provider": "openai",
     "model": "gpt-6-luna",
     "effort": "low",
-    "inputTokens": 74115.0,
-    "outputTokens": 1034.0,
+    "inputTokens": 74115,
+    "outputTokens": 1034,
     "responses": 5,
     "turns": 5,
     "tools": 6,
     "contextWindowTokens": 258400,
-    "peakContext": 16861.0,
+    "peakContext": 16861,
     "incomplete": 0,
     "startNs": "1791198104940000000",
     "endNs": "1791198117834000000",
@@ -39,5 +39,6 @@
     "intervals.mjs": "2a1755c9e769a6f3017d5eefddd93dba602309c8c102ed143032feb35670b723",
     "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b"
   },
-  "source": "One live Codex run using the interactive recording plugin with automatic start and save on exit."
+  "source": "One live Codex run using the interactive recording plugin with automatic start and save on exit.",
+  "contextData": "Re-exported from the original native telemetry and durable session transcript. Category counts use characters/4 and partial transcript attribution; measured timings and usage are unchanged."
 }

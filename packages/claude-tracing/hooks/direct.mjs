@@ -2,6 +2,7 @@
 // Observe the normal session without changing prompts, streams or tool results.
 let capture, session, segment = 0, awaitingSession = false, legacy = false, transition = 'idle', ending = false, initialized = false;
 let controls = Promise.resolve(), checkpoints = Promise.resolve();
+let countScope, countedItems = new Map();
 const controlTools = new Map(), prompts = new Map(), toolScopes = new Map(), agents = new Map();
 const epoch = Date.now(), monotonic = performance.now();
 const encoder = new TextEncoder();
@@ -10,6 +11,45 @@ const text = value => typeof value === 'string' ? value.slice(0, 128 * 1024) : u
 const usage = value => value && Object.fromEntries(['model', 'input_tokens', 'output_tokens',
   'cache_read_input_tokens', 'cache_creation_input_tokens'].filter(k => value[k] !== undefined).map(k => [k, value[k]]));
 const context = value => value && {tokens: value.tokens, window: value.window};
+const readContext = async ($, includeMessages = false) => {
+  let usage;
+  try {usage = await $.session.usage({breakdown: 'summary'});} catch {usage = await $.session.usage();}
+  const value = context(usage.context) ?? {}, b = usage.context?.breakdown;
+  if (b) value.breakdown = {
+    categories: b.categories.map(c => ({name: c.name, tokens: c.tokens, kind: c.kind})),
+    raw_max_tokens: b.rawMaxTokens, auto_compact_threshold: b.autoCompactThreshold,
+    total_tokens: b.totalTokens,
+  };
+  if (includeMessages) try {
+    // Counts and call identities only, never a second copy of transcript text.
+    value.items = (await $.session.messages()).flatMap((message, index) => {
+      const role = message.role, items = [], chars = (message.text ?? '').length;
+      if (chars) items.push({id: `message:${index}`, category: role === 'assistant' ? 'assistant' : 'prompts',
+        chars, tokens: Math.ceil(chars / 4), label: role === 'assistant' ? 'Assistant history' : 'User prompt', source_kind: role === 'assistant' ? 'response' : 'prompt'});
+      for (const result of message.toolResults ?? []) {
+        const chars = (result.text ?? '').length;
+        items.push({id: `result:${result.tool_use_id}`, category: 'results', chars, tokens: Math.ceil(chars / 4),
+          source_id: result.tool_use_id, source_kind: 'tool', label: 'Tool result'});
+      }
+      for (const call of message.toolUses ?? []) {
+        const chars = JSON.stringify(call.input ?? {}).length + (call.tool ?? '').length;
+        items.push({id: `call:${call.tool_use_id}`, category: 'assistant', chars, tokens: Math.ceil(chars / 4),
+          source_id: call.tool_use_id, source_kind: 'tool', label: 'Tool arguments'});
+      }
+      return items;
+    });
+  } catch {value.items_unavailable = true;}
+  if (b && includeMessages) {
+    const details = [
+      ...(b.memoryFiles ?? []).map((entry, index) => ({id: `memory:${entry.type}:${index}`, category: 'rules', tokens: entry.tokens, label: 'Memory file'})),
+      ...(b.mcpTools ?? []).filter(entry => entry.isLoaded).map(entry => ({id: `schema:${entry.name}`, category: 'tools', tokens: entry.tokens, label: entry.name.slice(0, 96)})),
+      ...(b.skills?.skillFrontmatter ?? []).map(entry => ({id: `skill:${entry.name}`, category: 'skills', tokens: entry.tokens, label: entry.name.slice(0, 96)})),
+      ...(b.agents ?? []).map(entry => ({id: `agent:${entry.agentType}`, category: 'tools', tokens: entry.tokens, label: entry.agentType.slice(0, 96)})),
+    ];
+    value.items = [...(value.items ?? []), ...details];
+  }
+  return value;
+};
 // A callback retains its recording and conversation segment, even when /resume
 // revisits the same native session id or a new recording starts before it ends.
 const scope = agentId => ({capture, session, segment, agent_id: agentId});
@@ -20,6 +60,18 @@ const record = (scope, event, phase, id, data = {}, timestamp = now()) => {
   try {
     const row = {source: 'claude.mod', timestamp,
       data: {event, phase, id, session_id: scope.session, segment: scope.segment, agent_id: scope.agent_id, ...data}};
+    const reading = row.data.context;
+    if (reading?.items) {
+      const identity = `${c.captureId}:${scope.session}:${scope.segment}`;
+      const reset = identity !== countScope;
+      const previous = reset ? new Map() : countedItems;
+      const current = new Map(reading.items.map(item => [item.id, item]));
+      const changed = [...current.values()].filter(item => JSON.stringify(previous.get(item.id)) !== JSON.stringify(item));
+      row.data.context = {...reading, items_reset: reset, item_changes: changed,
+        removed_items: [...previous.keys()].filter(id => !current.has(id))};
+      delete row.data.context.items;
+      countScope = identity; countedItems = current;
+    }
     line = JSON.stringify(row) + '\n';
     if (line.length > 512 * 1024) {
       // Preserve the operation even when a very large tool input cannot fit.
@@ -101,7 +153,7 @@ const startRecording = async ($, path) => {
   transition = 'starting';
   try {
     const root = await $.session.id(), model = await $.session.model(), version = (await $.session.version()).version;
-    const reading = context((await $.session.usage()).context);
+    const reading = await readContext($, true);
     let provider = 'anthropic';
     if (['1', 'true'].includes(await $.env.get('CLAUDE_CODE_USE_BEDROCK'))) provider = 'bedrock';
     else if (['1', 'true'].includes(await $.env.get('CLAUDE_CODE_USE_VERTEX'))) provider = 'vertex';
@@ -250,7 +302,7 @@ export function register(on, options) {
       session = e.session_id; segment++; awaitingSession = false; prompts.clear(); agents.clear(); toolScopes.clear();
       if (capture?.active) {
         try {record(scope(), 'session', 'begin', session, {model: e.model, provider: capture.provider,
-          version: capture.version, context: context((await $.session.usage()).context)});}
+          version: capture.version, context: await readContext($)});}
         catch (error) {fail($, capture, error);}
       }
     }
@@ -274,9 +326,12 @@ export function register(on, options) {
   on('turn.step', async function* ($, e, next) {
     const s = scope(e.agentId), c = s.capture;
     if (!c?.active || c.error) return yield* next(e);
-    const id = `${e.turnId}:${e.index}`, start = performance.now();
+    const id = `${e.turnId}:${e.index}`;
     let firstContent, firstText, complete = false;
-    record(s, 'response', 'begin', id, {turn_id: e.turnId, model: e.model, effort: e.effort});
+    let inputContext;
+    if (!e.agentId) try {inputContext = await readContext($, true);} catch {}
+    const start = performance.now();
+    record(s, 'response', 'begin', id, {turn_id: e.turnId, model: e.model, effort: e.effort, context: inputContext});
     await retain($, c);
     const stream = next(e);
     try {
@@ -288,7 +343,7 @@ export function register(on, options) {
             stop_reason: item.value?.stopReason, first_content_ms: firstContent, first_text_ms: firstText});
           // The session API describes the main conversation, never a child's window.
           if (!e.agentId && c.active) {
-            try {record(s, 'context', 'sample', id, {model: await $.session.model(), context: context((await $.session.usage()).context)});} catch {}
+            try {record(s, 'context', 'sample', id, {model: await $.session.model(), context: await readContext($)});} catch {}
           }
           await retain($, c);
           return item.value;
@@ -357,7 +412,9 @@ export function register(on, options) {
     let completed = false;
     try {
       const result = await next(e); completed = true;
-      record(s, 'compaction', 'end', id, {success: !result.skip, skipped: Boolean(result.skip),
+      let compactContext, compactModel;
+      if (!e.agentId && !result.skip) try {compactContext = await readContext($, true); compactModel = await $.session.model();} catch {}
+      record(s, 'compaction', 'end', id, {context: compactContext, model: compactModel, success: !result.skip, skipped: Boolean(result.skip),
         pre_tokens: result.tokensBefore, post_tokens: result.tokensAfter, usage: usage(result.usage)});
       return result;
     } finally {

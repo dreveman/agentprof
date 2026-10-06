@@ -18,6 +18,7 @@ The integrations let you:
 - Query slow tools, recorded failures, and incomplete operations.
 - Follow agent-written scripts into their nested tool calls.
 - Inspect model response timing and token usage when the harness reports it.
+- Explore context composition over time and follow large additions to tool calls.
 - Inspect child-launch identifiers and recording health.
 
 [Open the hosted UI](https://ui.agentprof.dev/) to explore the harness examples
@@ -95,6 +96,10 @@ python3 tools/perfetto dev-server --skip-deps
 Open `http://localhost:10000` and choose **Open recordings**. Pi, Claude Code, Codex and Muse Code recordings
 automatically open **Overview**, with activity, model, tool, concurrency, and
 capture-health summaries. The top bar provides **Overview** and **Timeline** navigation.
+The **Context** tab breaks down observed context and its largest additions by
+session. Estimates and unavailable categories are identified explicitly; see
+[context measurements](docs/context-data.md). The bundled examples include
+context breakdowns for each harness.
 Use the overview tabs for details or **Open timeline** to explore
 the **Agent Profiler** workspace. Use **More options → Query (SQL)** for custom analysis or use the
 command palette (`Ctrl+Shift+P`) to run the built-in `Agent Profiler:` queries.

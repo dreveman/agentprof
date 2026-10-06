@@ -292,8 +292,9 @@ def record(batch, round_number, case, variant, args, agent_dir):
             command[1:1] = ['-e', 'builtin:codemode']
     else:
         allowed = 'Bash' if case in ['serial', 'parallel'] else 'Read,Bash,Edit,Write' if case == 'coding' else 'Read,Agent,TaskOutput'
-        command = [str(ROOT / 'node_modules/.bin/bun'), str(ROOT / 'tools/record-claude.ts'), str(work / 'trace.pftrace'),
-            '--', '-p', '--model', args.model, '--session-id', session, '--max-budget-usd', '2',
+        env['AGENTPROF_TRACE_FILE'] = str(work / 'trace.pftrace')
+        command = ['claude', '--plugin-dir', str(ROOT / 'packages/claude-tracing'),
+            '--output-format', 'stream-json', '--verbose', '-p', '--model', args.model, '--session-id', session, '--max-budget-usd', '2',
             '--forward-subagent-text', '--tools', allowed, '--allowedTools', allowed,
             '--disable-slash-commands', '--setting-sources', '', '--settings', '{"alwaysThinkingEnabled":false}',
             '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}']
@@ -321,6 +322,11 @@ def record(batch, round_number, case, variant, args, agent_dir):
                 process.wait()
             code = 124
     elapsed = time.monotonic() - started
+    if harness == 'claude-code' and code == 0:
+        # The interactive plugin finishes publication after the CLI exits.
+        deadline = time.monotonic() + 30
+        while not (work / 'trace.pftrace').exists() and time.monotonic() < deadline:
+            time.sleep(0.1)
     if harness == 'pi':
         traces = list((agent_dir / 'pi-tracing').glob(f'{session[:8]}-*.pftrace'))
         if len(traces) == 1:

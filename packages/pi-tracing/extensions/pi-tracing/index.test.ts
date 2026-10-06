@@ -382,6 +382,9 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
       AND EXTRACT_ARG(arg_set_id, 'debug.parent_session') = '11111111-1111-4111-8111-111111111111'
       AND EXTRACT_ARG(arg_set_id, 'debug.subagent_type') = 'test-child') = 1`;
     query(traces[0]!, `SELECT CASE WHEN ${common} AND
+      (SELECT COUNT(*) FROM slice WHERE name = 'compact'
+        AND EXTRACT_ARG(arg_set_id, 'debug.context.stage') = 'post-compaction'
+        AND EXTRACT_ARG(arg_set_id, 'debug.context.sample_offset_ns') = dur) = 1 AND
       (SELECT MAX(EXTRACT_ARG(arg_set_id, 'debug.context_window_tokens'))
         FROM slice WHERE name IN ('profile (1)', 'run-configuration')) = 200000 AND
       (SELECT EXTRACT_ARG(arg_set_id, 'debug.peak_context_tokens')

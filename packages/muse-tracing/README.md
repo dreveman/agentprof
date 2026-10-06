@@ -67,6 +67,11 @@ Session logging must remain enabled (do not pass `--no-session-log`).
   use native lifecycle timestamps and include dispatch overhead. A successful
   tool lifecycle does not establish a successful shell exit unless Muse records
   that outcome separately.
+- Context composition uses native outgoing-request lane byte counts when
+  available, with transcript counts for partial item attribution. Older journals
+  fall back to transcript estimates. See
+  [context measurements](../../docs/context-data.md) for coverage and the
+  Overview card and Context tab.
 - Child sessions referenced by the recorded session are included in the same
   trace. Muse can omit retained logs for some background reminder agents. Their
   usage is unavailable; `unavailable_child_sessions` records the missing count.

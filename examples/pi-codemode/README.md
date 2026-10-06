@@ -10,6 +10,10 @@ This is round 1 of three paired trials recorded on 2026-10-02 with Pi 1.0.0 and
 `anthropic/claude-opus-5` at high effort. It was selected for its middle paired
 wall-time speedup. This offline fixture preserves that pair's original sessions.
 
+Context categories were reconstructed at each request from the original saved
+messages, system sections and tool definitions. They are marked as partial
+transcript observations. Original timing, usage, tool calls and answers are unchanged.
+
 | Measurement | Direct tools | Codemode |
 | --- | ---: | ---: |
 | Wall time, including process startup/exit | 216.4 s | 19.2 s |

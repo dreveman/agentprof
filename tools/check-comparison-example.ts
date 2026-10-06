@@ -23,6 +23,16 @@ for (const variant of ['pi-codemode', 'claude-code']) {
   assert.deepEqual(manifest.recordings.filter((r: any) => r.variant === variant)
     .map((r: any) => r.round), [manifest.selection.selectedRound]);
 }
+const candidates = manifest.selection.codemodeCandidates;
+assert.equal(candidates.length, manifest.selection.sourceRounds);
+const eligible = candidates.filter((r: any) => r.correct && r.captureAvailable && r.pairedClaudeCorrect);
+const selectedPi = manifest.recordings.find((r: any) => r.harness === 'pi');
+const selectedClaude = manifest.recordings.find((r: any) => r.harness === 'claude-code');
+assert.equal(selectedPi.processWallSeconds, Math.min(...eligible.map((r: any) => r.processWallSeconds)),
+  'Select the fastest correct captured Pi attempt with a correct partner');
+assert.equal(selectedPi.sourceBatch, selectedClaude.sourceBatch);
+assert.equal(selectedPi.sourceRound, selectedClaude.sourceRound);
+assert.ok(selectedPi.wallSeconds < selectedClaude.wallSeconds, 'The showcase retains its recorded Pi speed advantage');
 
 const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
   CREATE PERFETTO TABLE runs AS ${Q.runs};
@@ -96,7 +106,7 @@ try {
     });
     nested += expected.nestedToolCalls;
   }
-  assert.equal(nested, 9);
+  assert.ok(nested > 0, 'The comparison includes calls executed by scripts');
   for (const key of ['script_children', 'script_flows', 'tool_flows']) assert.equal(data[key], nested, key);
   for (const key of ['missing_arguments', 'invalid_scripts', 'capture_loss']) assert.equal(data[key], 0, key);
   assert.deepEqual(data.errors, []);

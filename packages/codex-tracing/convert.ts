@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import {attachContext} from '../agent-tracing/context.ts';
+import type {ContextSnapshot} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Attrs, type Observation, type Slice, type Session, type Counter} from '../agent-tracing/trace.ts';
 import {fnv1a64} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {promptAnnotations, toolArgumentAnnotations, scriptAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
@@ -293,6 +295,12 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   if (!plugin && !responses.length && !toolSlices.length) throw new Error('No Codex model/tool telemetry captured; check the installed CLI telemetry support.');
   if (plugin) for (const session of sessions.values()) {
     session.start = max(first, session.start); session.end = min(last, session.end);
+  }
+  for (const {session, record} of metadata) if (record.type === 'context_snapshot') {
+    const at = isoTime(record.timestamp); if (at === undefined || at < first || at > last) continue;
+    const operation = slices.filter(s => s.session === session && s.attrs.kind === 'assistant-message' && s.start <= at)
+      .sort((a, b) => compareTime(b.start, a.start))[0];
+    if (operation) attachContext(operation, record.payload as ContextSnapshot, counters, at);
   }
   const trace = writeTrace({capture, pid, machineId: integer(processStart.data.machineId) ?? 0,
     processName: 'codex', processLabel: 'Codex', category: 'codex', sessions: [...sessions.values()].filter(s => s.end >= s.start), slices, counters,

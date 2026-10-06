@@ -109,7 +109,7 @@ export default class implements PerfettoPlugin {
     const order: Record<string, number> = {
       'Requests': 5, 'Responses': 10, 'Tools': 20, 'Compaction': 25,
       'Context size': 30, 'Context window': 31,
-      'Token usage': 40, 'Runtime': 60, 'Tracing': 70,
+      'Token usage': 40, 'Context': 45, 'Runtime': 60, 'Tracing': 70,
     };
     const groups = new Map<TrackNode, Map<string, TrackNode>>();
     const collapsedGroup = (parent: TrackNode, name: string): TrackNode => {

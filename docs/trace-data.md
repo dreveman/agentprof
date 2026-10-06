@@ -310,6 +310,10 @@ changes require a schema-version change and reader updates.
 
 ## Token counters
 
+Context composition snapshots and category counters use the additional
+[context data contract](context-data.md). Reported totals remain independent
+from the breakdown estimates.
+
 All four token tracks use absolute counter values and the `tokens` unit. They
 belong to the recorded session's process and follow the `llm` category, independently
 of runtime sampling and `sampleHz`.
