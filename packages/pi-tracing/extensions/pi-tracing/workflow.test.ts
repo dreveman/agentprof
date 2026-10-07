@@ -73,12 +73,18 @@ describe("pi-tracing workflow helpers", () => {
   test("subagent role detection ignores malformed parent", () => {
     const role = detectChildRole({
       PI_SUBAGENT_TYPE: "code-search",
-      DEVMATE_PARENT_SESSION_ID: "not-a-uuid",
+      PI_TRACING_PARENT_SESSION_ID: "not-a-uuid",
       PI_SUBAGENT_SESSION_KEY: "some-key",
     });
     expect(role?.role).toBe("subagent");
     expect(role?.parentSession).toBeUndefined();
     expect(role?.sessionKeyBytes).toBeGreaterThan(0);
+  });
+
+  test('optional parent session metadata is plugin-neutral', () => {
+    expect(detectChildRole({PI_SUBAGENT_TYPE: 'code-search',
+      PI_TRACING_PARENT_SESSION_ID: '019ffdb0-3e55-713c-a283-1373113797d5'})?.parentSession)
+      .toBe('019ffdb0-3e55-713c-a283-1373113797d5');
   });
 
   test("plain orchestrator has no child role", () => {

@@ -69,7 +69,7 @@ The initial source is in `task/`; it is intentionally incorrect.
 `workflow-prompt.txt` contains the parent's instruction. `subagents.ts` is a small
 example-only launcher: its `subagent` tool starts a real Pi child and returns the
 session UUID immediately, and `wait_subagents` collects the result after exit.
-It forwards the tracing extension, sets `DEVMATE_PARENT_SESSION_ID` and
+It forwards the tracing extension, sets `PI_TRACING_PARENT_SESSION_ID` and
 `PI_SUBAGENT_TYPE`, and permits one implementation, tests, and reviewer worker.
 Children share the scratch directory with separate context windows. The parent
 assigns disjoint files to the concurrent workers; the reviewer has read/bash tools.

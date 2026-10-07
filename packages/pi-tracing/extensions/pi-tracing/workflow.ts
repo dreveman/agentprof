@@ -155,7 +155,7 @@ export function detectChildRole(env: NodeJS.ProcessEnv): ChildRoleInfo | null {
   const subagentType = env["PI_SUBAGENT_TYPE"];
   if (typeof subagentType === "string" && subagentType !== "") {
     const info: ChildRoleInfo = { role: "subagent", subagentType: subagentType.slice(0, 64) };
-    const parent = env["DEVMATE_PARENT_SESSION_ID"];
+    const parent = env["PI_TRACING_PARENT_SESSION_ID"];
     if (typeof parent === "string" && UUID_PATTERN.test(parent)) info.parentSession = parent;
     const sessionKey = env["PI_SUBAGENT_SESSION_KEY"];
     if (typeof sessionKey === "string") {

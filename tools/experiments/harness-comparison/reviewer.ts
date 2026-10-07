@@ -33,7 +33,7 @@ export default function (pi: ExtensionAPI) {
       const error = openSync(join(directory, 'stderr.log'), 'wx', 0o600);
       try {
         child = spawn('pi', args, {cwd: ctx.cwd, env: {...process.env,
-          PI_SUBAGENT_TYPE: 'comparison-reviewer', DEVMATE_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()},
+          PI_SUBAGENT_TYPE: 'comparison-reviewer', PI_TRACING_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()},
           stdio: ['ignore', output, error]});
       } finally {closeSync(output); closeSync(error);}
       const childProcess = child;

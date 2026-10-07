@@ -147,7 +147,7 @@ for coverage and how to explore the Overview card and Context tab.
 
 The repository includes a [recorded subagent workflow](../../examples/pi-opus-5/README.md)
 and an example launcher that forwards `PI_SUBAGENT_EXTENSIONS`, enables tracing
-in children, and sets `DEVMATE_PARENT_SESSION_ID` and `PI_SUBAGENT_TYPE`. Each
+in children, and sets `PI_TRACING_PARENT_SESSION_ID` and `PI_SUBAGENT_TYPE`. Each
 launch returns the child session UUID for the parent recorder to capture.
 
 - Pi's main OS thread carries the `profile (N)` capture span, prompt, attempt,
@@ -188,7 +188,7 @@ launch returns the child session UUID for the parent recorder to capture.
   `PI_TRACING=0` blocks inheritance even while recording.
   Each trace carries a random `session:<uuid>` process label; subagents
   additionally annotate the `profile (N)` span with the launching session ID
-  (`DEVMATE_PARENT_SESSION_ID`) and their role. Supported child-tool results
+  (`PI_TRACING_PARENT_SESSION_ID`) and their role. Supported child-tool results
   contribute a detached child session ID (`child_session`) when present.
 - **One file per recording:** the top-level session and local descendants share
   a recording directory inherited through `PI_TRACING_RECORDING_DIR`. Each

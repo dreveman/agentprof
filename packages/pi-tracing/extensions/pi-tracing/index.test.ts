@@ -398,7 +398,7 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
       cwd: dir, encoding: 'utf8', timeout: 15000,
       env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
         PI_SUBAGENT_TYPE: 'test-child', PI_TRACING_CAPTURE_CONTENTS: undefined,
-        DEVMATE_PARENT_SESSION_ID: '11111111-1111-4111-8111-111111111111'},
+        PI_TRACING_PARENT_SESSION_ID: '11111111-1111-4111-8111-111111111111'},
     });
     expect(result.status, result.stderr).toBe(0);
     const traces = (await readdir(join(dir, 'pi-tracing'))).filter(name => name.endsWith('.pftrace')).sort();
@@ -583,7 +583,7 @@ hookTest('real Pi processes inherit one recording through parallel children and 
               '--no-skills', '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
               '--mode', 'json', '-p', '/family'], {
               cwd: ctx.cwd, env: {...process.env, FAMILY_ROLE: name, PI_SUBAGENT_TYPE: name,
-                DEVMATE_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()}, stdio: ['ignore', 'ignore', 'pipe']});
+                PI_TRACING_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()}, stdio: ['ignore', 'ignore', 'pipe']});
             let stderr = ''; child.stderr.on('data', data => stderr += data);
             await new Promise((resolve, reject) => {
               child.on('error', reject); child.on('close', code => code === 0 ? resolve() : reject(new Error(stderr)));
