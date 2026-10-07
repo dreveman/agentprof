@@ -2,6 +2,32 @@
 
 import {COUNTER_TRACKS_SQL} from './track_names';
 
+// Perfetto's intrinsic slice table has no child-by-parent index. Materialize
+// parent edges only on tracks containing capture markers into an indexed
+// temporary SQLite table, then propagate
+// each marker downward exactly once. Stop at a nested marker: the nearest
+// enclosing capture owns its descendants. Drop the lookup after setup.
+export const SLICE_CAPTURE_SQL = `
+CREATE TABLE agentprof_slice_parent_lookup AS
+SELECT s.id, s.parent_id FROM slice s WHERE s.parent_id IS NOT NULL
+  AND s.track_id IN (SELECT DISTINCT marker.track_id FROM slice marker
+    JOIN agentprof_capture_markers m ON m.slice_id = marker.id);
+CREATE INDEX agentprof_slice_parent_idx ON agentprof_slice_parent_lookup(parent_id);
+CREATE PERFETTO TABLE agentprof_slice_capture AS
+WITH RECURSIVE captured(id, capture_id) AS (
+  SELECT slice_id, capture_id FROM agentprof_capture_markers
+  UNION ALL
+  SELECT s.id, c.capture_id FROM agentprof_slice_parent_lookup s
+    JOIN captured c ON s.parent_id = c.id
+    WHERE s.id NOT IN (SELECT slice_id FROM agentprof_capture_markers)
+)
+SELECT c.id, c.capture_id FROM captured c JOIN slice s ON s.id = c.id
+WHERE s.category GLOB 'pi.*' OR s.category GLOB 'claude.*' OR s.category GLOB 'codex.*'
+  OR s.category GLOB 'muse.*' OR s.category GLOB 'agentprof.*';
+DROP INDEX agentprof_slice_parent_idx;
+DROP TABLE agentprof_slice_parent_lookup;
+`;
+
 // Keep the query model usable by both the UI and Trace Processor validation.
 export const DETECT_SQL = `
 SELECT COUNT(*) AS count FROM slice WHERE category GLOB 'pi.*'
@@ -47,13 +73,7 @@ CREATE PERFETTO TABLE agentprof_captures AS
 SELECT capture_id, MAX(recorded_id) AS recorded_id, MAX(session_id) AS session_id,
   MAX(label) AS label FROM agentprof_capture_markers GROUP BY capture_id;
 
-CREATE PERFETTO TABLE agentprof_slice_capture AS
-WITH RECURSIVE captured(id, capture_id) AS (
-  SELECT slice_id, capture_id FROM agentprof_capture_markers
-  UNION ALL
-  SELECT s.id, c.capture_id FROM slice s JOIN captured c ON s.parent_id = c.id
-)
-SELECT * FROM captured;
+${SLICE_CAPTURE_SQL}
 
 CREATE PERFETTO TABLE agentprof_slices AS
 SELECT s.*, COALESCE(t.name, th.name || ' ' || th.tid, 'Thread ' || th.tid) AS track_name,
