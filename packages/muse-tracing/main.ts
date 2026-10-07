@@ -44,8 +44,8 @@ try {
   if (action === 'hook') {
     const payload = object(JSON.parse(readFileSync(0, 'utf8')));
     try {
-      const result = await hook(data, payload);
-      await ensureWatcher(data, string(payload.session_id), script);
+      const result = await hook(data, payload, process.ppid,
+        () => ensureWatcher(data, string(payload.session_id), script));
       console.log(JSON.stringify(result));
     }
     catch (error) {

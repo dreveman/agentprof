@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // packages/muse-tracing/main.ts
 import { spawnSync } from "node:child_process";
-import { readFileSync as readFileSync3 } from "node:fs";
+import { readFileSync as readFileSync4 } from "node:fs";
 import { mkdir as mkdir2 } from "node:fs/promises";
 import { dirname as dirname2, resolve as resolve2, join as join2 } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1148,6 +1148,42 @@ function convert(capture, native) {
   } };
 }
 
+// packages/agent-tracing/process-identity.ts
+import { readFileSync as readFileSync3 } from "node:fs";
+function linuxProcessStartMarker(stat) {
+  const close = stat.lastIndexOf(")");
+  const fields = close < 0 ? [] : stat.slice(close + 1).trim().split(/\s+/);
+  const value = fields[19];
+  return value && /^\d+$/.test(value) ? value : undefined;
+}
+function processStartMarker(pid, platform = process.platform, read = (path, encoding) => readFileSync3(path, encoding)) {
+  if (platform !== "linux" || !Number.isSafeInteger(pid) || pid <= 0)
+    return;
+  try {
+    return linuxProcessStartMarker(read(`/proc/${pid}/stat`, "utf8"));
+  } catch {
+    return;
+  }
+}
+function sameProcess(pid, marker, exists = pidExists, start = processStartMarker) {
+  if (!exists(pid))
+    return false;
+  if (!marker)
+    return true;
+  const current = start(pid);
+  return current === undefined || current === marker;
+}
+function pidExists(pid, signal = process.kill) {
+  if (!Number.isSafeInteger(pid) || pid <= 0)
+    return false;
+  try {
+    signal(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
 // packages/muse-tracing/record.ts
 var execute = promisify(execFile);
 var now = () => (BigInt(Date.now()) * 1000000n).toString();
@@ -1361,7 +1397,8 @@ async function control(data, id, action, output) {
         clocks: [clock()],
         catalog: models,
         hooks: [],
-        capture_contents: config?.capture_contents !== false && captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS)
+        capture_contents: config?.capture_contents !== false && captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS),
+        processStartMarker: record.processStartMarker ?? processStartMarker(record.pid)
       };
       if (record.model)
         record.capture.hooks.push({
@@ -1377,6 +1414,7 @@ async function control(data, id, action, output) {
       record.summary = undefined;
       record.stopping = false;
       record.watcher = undefined;
+      record.watcherStartMarker = undefined;
       await atomicJson(path, record);
     } else if (["stop", "recover", "finish"].includes(action) && record.capture) {
       if (!record.stopping) {
@@ -1392,7 +1430,7 @@ async function control(data, id, action, output) {
         const end = sessions[0]?.records.findLast((r) => r.kind === "session_end");
         if (end && BigInt(end.at) >= BigInt(record.capture.start) && BigInt(end.at) <= BigInt(record.capture.end))
           record.capture.end = end.at;
-        if (!end && !alive(record.pid) || end?.data.exit_reason && end.data.exit_reason !== "clean")
+        if (!end && !sameProcess(record.pid, record.capture.processStartMarker) || end?.data.exit_reason && end.data.exit_reason !== "clean")
           record.capture.incomplete = true;
       }
       const converted = convert(record.capture, sessions);
@@ -1418,27 +1456,44 @@ async function control(data, id, action, output) {
     };
   });
 }
-async function hook(data, payload, pid = process.ppid) {
+async function binaryForPid(pid) {
+  if (process.platform === "linux")
+    try {
+      const executable = await readlink(`/proc/${pid}/exe`);
+      if (/(?:^|\/)muse(?:-bin[^/]*)?$/.test(executable))
+        return executable;
+    } catch {}
+  return "muse";
+}
+async function hook(data, payload, pid = process.ppid, onWatcherNeeded) {
   const id = string(payload.session_id), event = string(payload.hook_event_name), at = now();
+  const marker = processStartMarker(pid);
+  let missingWatcher = false;
   const command = string(payload.prompt).trim();
   await locked(data, id, async (path) => {
     let record = await readJson(path);
-    if (!record) {
-      let binary = "muse";
-      if (process.platform === "linux")
-        try {
-          const executable = await readlink(`/proc/${pid}/exe`);
-          if (/(?:^|\/)muse(?:-bin[^/]*)?$/.test(executable))
-            binary = executable;
-        } catch {}
-      record = { session: id, pid, cwd: string(payload.cwd) || process.cwd(), binary, lastSeen: at };
-    }
-    if (event === "SessionStart" && record.pid !== pid) {
-      if (record.capture)
+    if (!record)
+      record = {
+        session: id,
+        pid,
+        processStartMarker: marker,
+        cwd: string(payload.cwd) || process.cwd(),
+        binary: await binaryForPid(pid),
+        lastSeen: at
+      };
+    const changed = record.pid !== pid || !!record.processStartMarker && !!marker && record.processStartMarker !== marker;
+    if (changed) {
+      if (event !== "SessionStart" || record.capture)
         throw new Error(`Previous capture needs recovery: agentprof-muse recover --session ${id}`);
       record.pid = pid;
+      record.processStartMarker = marker;
       record.cwd = string(payload.cwd) || record.cwd;
-    }
+      record.binary = await binaryForPid(pid);
+      record.watcher = undefined;
+      record.watcherStartMarker = undefined;
+      record.configuration = undefined;
+    } else if (!record.processStartMarker)
+      record.processStartMarker = marker;
     record.lastSeen = at;
     if (payload.model)
       record.model = string(payload.model);
@@ -1470,13 +1525,21 @@ async function hook(data, payload, pid = process.ppid) {
       if (BigInt(at) - BigInt(record.capture.clocks.at(-1).realtimeNs) > 60000000000n)
         record.capture.clocks.push(clock());
     }
+    missingWatcher = !!record.capture && !record.stopping && (!record.watcher || !sameProcess(record.watcher, record.watcherStartMarker));
     await atomicJson(path, record);
   });
   if (event === "SubagentStart" && validSession(string(payload.child_session_id))) {
     const child = string(payload.child_session_id), parent = await readJson(statePath(data, id));
     if (child !== id)
       await locked(data, child, async (path) => {
-        const record = await readJson(path) ?? { session: child, pid, cwd: parent.cwd, binary: parent.binary, lastSeen: at };
+        const record = await readJson(path) ?? {
+          session: child,
+          pid,
+          processStartMarker: marker,
+          cwd: parent.cwd,
+          binary: parent.binary,
+          lastSeen: at
+        };
         record.parentSession = id;
         await atomicJson(path, record);
       });
@@ -1484,11 +1547,15 @@ async function hook(data, payload, pid = process.ppid) {
   if (event === "UserPromptSubmit" && controlPrompt(command)) {
     const [, action, output] = /^(?:\/)?tracing (start|stop|status)(?:\s+(.+))?$/.exec(command);
     const result = await control(data, id, action, output);
+    if (result.state === "recording")
+      await onWatcherNeeded?.();
     const message = `Agent Profiler: ${result.state}${result.output_path ? ` — ${result.output_path}` : ""}`;
     return { decision: "block", reason: message, systemMessage: message };
   }
   if (event === "SessionStart" && payload.source !== "fork" && !(await readJson(statePath(data, id)))?.parentSession && (await readJson(join(data, "config.json")))?.auto_start) {
     const result = await control(data, id, "start");
+    if (result.state === "recording")
+      await onWatcherNeeded?.();
     return { systemMessage: `Agent Profiler recording: ${result.output_path}` };
   }
   if (event === "SessionEnd") {
@@ -1496,20 +1563,14 @@ async function hook(data, payload, pid = process.ppid) {
     if (result.state === "saved")
       return { systemMessage: `Agent Profiler trace saved: ${result.output_path}` };
   }
+  if (missingWatcher)
+    await onWatcherNeeded?.();
   return {};
-}
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === "EPERM";
-  }
 }
 async function ensureWatcher(data, id, script) {
   await locked(data, id, async (path) => {
     const record = await readJson(path);
-    if (!record?.capture || record.watcher && alive(record.watcher))
+    if (!record?.capture || record.watcher && sameProcess(record.watcher, record.watcherStartMarker))
       return;
     const log = await open(join(data, "watcher.log"), "a", 384);
     try {
@@ -1525,6 +1586,7 @@ async function ensureWatcher(data, id, script) {
       });
       child.unref();
       record.watcher = child.pid;
+      record.watcherStartMarker = child.pid === undefined ? undefined : processStartMarker(child.pid);
       await atomicJson(path, record);
     } finally {
       await log.close();
@@ -1536,11 +1598,12 @@ async function watch(data, id) {
   if (!initial?.capture)
     return;
   const captureId = initial.capture.id;
+  const owner = { pid: initial.pid, marker: initial.capture.processStartMarker ?? initial.processStartMarker };
   while (true) {
     const record = await readJson(statePath(data, id));
     if (record?.capture?.id !== captureId)
       return;
-    if (!alive(record.pid)) {
+    if (!sameProcess(owner.pid, owner.marker)) {
       const result = await control(data, id, "finish");
       console.log(`Agent Profiler trace saved: ${result.output_path}`);
       return;
@@ -1608,10 +1671,9 @@ var action = args.shift();
 var data = dataDirectory();
 try {
   if (action === "hook") {
-    const payload = object(JSON.parse(readFileSync3(0, "utf8")));
+    const payload = object(JSON.parse(readFileSync4(0, "utf8")));
     try {
-      const result = await hook(data, payload);
-      await ensureWatcher(data, string(payload.session_id), script);
+      const result = await hook(data, payload, process.ppid, () => ensureWatcher(data, string(payload.session_id), script));
       console.log(JSON.stringify(result));
     } catch (error) {
       const message = `Agent Profiler: ${String(error)}`;

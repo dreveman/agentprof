@@ -4,9 +4,11 @@ import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync}
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {spawn, spawnSync} from 'node:child_process';
+import {createServer as httpServer} from 'node:http';
+import {createHash} from 'node:crypto';
 import {Collector} from './plugin-collector.ts';
-import {configure, stateDirectory} from './plugin-config.ts';
+import {configure, readConnection, stateDirectory} from './plugin-config.ts';
 import {publish} from './plugin-journal.ts';
 import {convertObservations} from './convert.ts';
 import {readOtel} from './otel.ts';
@@ -14,6 +16,25 @@ import {addHooks} from './plugin-observations.ts';
 import {fixture, rootSession, childSession, epoch, at, log} from './fixture.ts';
 import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
+
+async function runRuntimeClient(state: string, cwd: string, args: string[], input = ''): Promise<{code: number | null; output: string; error: string}> {
+  const child = spawn('node', [resolve(import.meta.dir, 'runtime/codex-tracing.mjs'), ...args, '--state', state],
+    {cwd, stdio: ['pipe', 'pipe', 'pipe']});
+  let output = '', error = '';
+  child.stdout.on('data', chunk => {output += chunk;});
+  child.stderr.on('data', chunk => {error += chunk;});
+  child.stdin.end(input);
+  const code = await new Promise<number | null>((done, reject) => {
+    const timer = setTimeout(() => {child.kill(); reject(new Error('Codex hook timed out'));}, 10000);
+    child.once('error', reject); child.once('exit', code => {clearTimeout(timer); done(code);});
+  });
+  return {code, output, error};
+}
+
+async function runHookClient(state: string, cwd: string, sessionId = rootSession, event = 'SessionStart') {
+  return runRuntimeClient(state, cwd, ['hook'],
+    JSON.stringify({hook_event_name: event, session_id: sessionId, cwd, source: 'startup'}));
+}
 
 async function terminalStatus(collector: Collector, id: string, timeoutMs = 3000) {
   const deadline = performance.now() + timeoutMs;
@@ -53,6 +74,143 @@ test('profile setup is private, repeatable and does not replace existing user co
     await expect(configure(join(home, 'agentprof'), home)).rejects.toThrow('different settings');
     expect(stateDirectory(join(home, 'plugins/data/agent-plugins/hash'))).toBe(join(home, 'agentprof'));
   } finally {rmSync(home, {recursive: true, force: true});}
+});
+
+test('install can rebind a collided port without replacing an edited profile', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-port-rebind-'));
+  let blocker: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof');
+    const profile = await configure(state, home);
+    const original = readConnection(state);
+    blocker = httpServer((_request, response) => {response.writeHead(200, {'content-type': 'application/json'}); response.end('{"ready":true}');});
+    await new Promise<void>((resolve, reject) => {blocker!.once('error', reject); blocker!.listen(original.port, '127.0.0.1', resolve);});
+    const blocked = await runHookClient(state, home);
+    expect(blocked.code).toBe(0); // Recording failure never blocks the agent.
+    expect(JSON.parse(blocked.output).systemMessage).toContain('Unexpected receiver');
+    expect(existsSync(join(state, 'receiver-owner.json'))).toBe(false);
+    await configure(state, home, 'codex-tracing.mjs', false, true);
+    const next = readConnection(state);
+    expect(next.port).not.toBe(original.port);
+    expect(next.generation).not.toBe(original.generation);
+    const text = readFileSync(profile, 'utf8');
+    expect(text).toContain(`127.0.0.1:${next.port}/v1/logs`);
+    expect(text).toContain(`127.0.0.1:${next.port}/v1/traces`);
+    await Promise.all(Array.from({length: 4}, () => configure(state, home, 'codex-tracing.mjs', false, true)));
+    const final = readConnection(state), finalProfile = readFileSync(profile, 'utf8');
+    expect(finalProfile).toContain(`127.0.0.1:${final.port}/v1/logs`);
+    expect(finalProfile).toContain(`Bearer ${final.token}`);
+    writeFileSync(join(state, 'receiver-owner.json'), '{');
+    await configure(state, home, 'codex-tracing.mjs', false, true);
+    const afterMalformed = readConnection(state);
+    expect(readFileSync(profile, 'utf8')).toContain(`127.0.0.1:${afterMalformed.port}/v1/logs`);
+    writeFileSync(profile, '# user edit');
+    await expect(configure(state, home, 'codex-tracing.mjs', false, true)).rejects.toThrow('different settings');
+    expect(readConnection(state)).toEqual(afterMalformed);
+  } finally {
+    if (blocker) await new Promise<void>(resolve => blocker!.close(() => resolve()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('a warm Codex hook issues one request without a health round trip', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-warm-hook-'));
+  const state = join(home, 'agentprof');
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    await configure(state, home);
+    const connection = readConnection(state), paths: string[] = [];
+    server = httpServer((request, response) => {
+      paths.push(request.url ?? '');
+      response.writeHead(200, {'content-type': 'application/json', 'x-agentprof-generation': connection.generation!,
+        'x-agentprof-build': createHash('sha256').update(readFileSync(resolve(import.meta.dir, 'runtime/codex-tracing.mjs'))).digest('hex')});
+      response.end('{}');
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code, result.error).toBe(0);
+    expect(paths).toEqual(['/hook']);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('old receiver build never handles new hooks while its capture is active', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-build-active-'));
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof'); await configure(state, home);
+    const connection = readConnection(state);
+    server = httpServer((request, response) => {
+      response.writeHead(200, {'content-type': 'application/json',
+        'x-agentprof-generation': connection.generation!, 'x-agentprof-build': 'old-build'});
+      response.end(request.url === '/health' ? JSON.stringify({ready: true, generation: connection.generation,
+        build: 'old-build', active_captures: 1}) :
+        request.url === '/status' ? JSON.stringify({state: 'recording'}) :
+        request.url === '/stop' ? JSON.stringify({state: 'saving'}) : '{}');
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.output).systemMessage).toContain('upgrade is waiting for active recordings');
+    expect(JSON.parse((await runRuntimeClient(state, home, ['status', '--session', rootSession])).output).state).toBe('recording');
+    expect(JSON.parse((await runRuntimeClient(state, home, ['stop', '--session', rootSession])).output).state).toBe('saving');
+    expect((await runHookClient(state, home, rootSession, 'SessionEnd')).code).toBe(0);
+    expect(existsSync(join(state, 'receiver-owner.json'))).toBe(false);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('idle old receiver is replaced before a new hook is recorded', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-build-idle-'));
+  let server: ReturnType<typeof httpServer> | undefined, receiverPid: number | undefined;
+  try {
+    const state = join(home, 'agentprof'); await configure(state, home);
+    const connection = readConnection(state);
+    server = httpServer((request, response) => {
+      response.writeHead(200, {'content-type': 'application/json',
+        'x-agentprof-generation': connection.generation!, 'x-agentprof-build': 'old-build'});
+      response.end(request.url === '/health' ? JSON.stringify({ready: true, generation: connection.generation,
+        build: 'old-build', active_captures: 0}) : '{}');
+      if (request.url === '/shutdown') setImmediate(() => server!.close());
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code, result.error).toBe(0);
+    expect(JSON.parse(result.output).systemMessage).toBeUndefined();
+    receiverPid = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8')).pid;
+  } finally {
+    if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+    if (server?.listening) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('concurrent cold hooks share one receiver', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-receiver-start-'));
+  let receiverPid: number | undefined;
+  try {
+    const state = join(home, 'agentprof');
+    await configure(state, home, resolve(import.meta.dir, 'runtime/codex-tracing.mjs'));
+    const clients = await Promise.all(Array.from({length: 5}, () => runHookClient(state, home)));
+    expect(clients.every(client => client.code === 0 && JSON.parse(client.output).systemMessage === undefined),
+      clients.map(client => client.error).join('\n')).toBe(true);
+    const owner = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8'));
+    receiverPid = owner.pid;
+    expect(owner.generation).toBe(readConnection(state).generation);
+    expect(readFileSync(join(state, 'receiver.log'), 'utf8')).not.toContain('EADDRINUSE');
+    const stopped = await runRuntimeClient(state, home, ['receiver-stop']);
+    expect(stopped.code, stopped.error).toBe(0);
+    expect(JSON.parse(stopped.output).stopping).toBe(true);
+  } finally {
+    if (!receiverPid && existsSync(join(home, 'agentprof/receiver-owner.json')))
+      receiverPid = JSON.parse(readFileSync(join(home, 'agentprof/receiver-owner.json'), 'utf8')).pid;
+    if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+    rmSync(home, {recursive: true, force: true});
+  }
 });
 
 test('plugin routes late native exports to the primary session and children without copying unrelated sessions', async () => {
@@ -331,6 +489,56 @@ test('resuming a session updates its process and does not restart completed suba
     const rows = readFileSync(join(directory, 'resumed.pftrace.capture/observations.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     expect(rows[0].data.pid).toBe(process.pid);
     expect(rows.some(row => row.data.session_id === childSession)).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('recycled Codex PID stops its original capture without accepting a new generation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-pid-reuse-'));
+  try {
+    let marker = 'start-a';
+    const collector = new Collector(join(directory, 'state'), 0, true,
+      {start: () => marker, same: (_pid, expected) => expected === marker});
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'reused.pftrace');
+    marker = 'start-b';
+    collector.tick();
+    expect(collector.status(rootSession).state).toBe('saving');
+    await expect(collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse'}, process.pid, at(1)))
+      .rejects.toThrow('process generation changed');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(incompleteCapture(join(directory, 'reused.pftrace'))).toBe(true);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(2));
+    expect(collector.sessions.get(rootSession)?.processStartMarker).toBe('start-b');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('Codex promotes a replacement generation whose only SessionStart occurs during drain', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-generation-drain-'));
+  try {
+    let marker = 'first';
+    const collector = new Collector(join(directory, 'state'), 40, true,
+      {start: () => marker, same: (_pid, expected) => expected === marker});
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'first.pftrace');
+    marker = 'second';
+    const response = await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(1));
+    expect(response.systemMessage).toContain('saving');
+    expect(collector.status(rootSession).state).toBe('saving');
+    const control = await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit',
+      prompt: 'tracing start'}, process.pid, at(2));
+    expect(control).toMatchObject({decision: 'block'});
+    expect(control.reason).toContain('Retry');
+    expect(await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit',
+      prompt: 'New task'}, process.pid, at(3))).toEqual({});
+    expect(await collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse'}, process.pid, at(4))).toEqual({});
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(collector.sessions.get(rootSession)?.processStartMarker).toBe('second');
+    expect(collector.start(rootSession, 'second.pftrace').state).toBe('recording');
+    const newJournal = readFileSync(join(directory, 'second.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(newJournal).toContain('New task');
+    expect(newJournal).toContain('started_before_capture');
+    collector.stop(rootSession); await terminalStatus(collector, rootSession);
+    expect(incompleteCapture(join(directory, 'second.pftrace'))).toBe(true);
   } finally {rmSync(directory, {recursive: true, force: true});}
 });
 

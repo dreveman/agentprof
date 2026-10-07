@@ -42,7 +42,8 @@ try {
   await call('initialize', {clientInfo: {name: 'agentprof-plugin-check', version: '1'}, capabilities: {experimentalApi: true}});
   host.stdin.write(JSON.stringify({method: 'initialized'}) + '\n');
   const hooks = await call('hooks/list', {cwds: [home]});
-  assert.equal(hooks.data[0].hooks.length, 11, 'Generated profile exposes every recording hook');
+  const ownHooks = hooks.data[0].hooks.filter(hook => JSON.stringify(hook).includes('codex-tracing.mjs'));
+  assert.equal(ownHooks.length, 11, 'Generated profile exposes every recording hook');
   assert.deepEqual(hooks.data[0].errors, []);
   const thread = await call('thread/start', {cwd: home, model: 'gpt-6-luna', approvalPolicy: 'never', sandbox: 'read-only'});
   assert.ok(thread.thread.id);
@@ -63,5 +64,11 @@ try {
     await new Promise(resolve => host.once('exit', resolve));
     clearTimeout(timeout);
   }
+  // The receiver now reserves the profile port between sessions; dispose the
+  // disposable test home's detached receiver before removing its state.
+  try {
+    const owner = JSON.parse(await readFile(join(home, 'agentprof/receiver-owner.json'), 'utf8'));
+    if (Number.isInteger(owner.pid) && owner.pid > 0) process.kill(owner.pid, 'SIGTERM');
+  } catch {}
   await rm(home, {recursive: true, force: true});
 }

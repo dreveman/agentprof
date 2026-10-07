@@ -72,14 +72,31 @@ hooks in our native installation test. The generated profile therefore declares
 the hooks explicitly, pointing to the installed plugin. Hooks remain subject to
 Codex's normal trust review.
 
-The receiver starts on demand and exits after its Codex sessions end and exports
-drain. It flushes private journals every second. It writes only sessions being
-recorded; unrecorded native telemetry is discarded. Saving continues in the
-receiver for approximately seven seconds to collect batched exports, while the
-recording's end timestamp remains fixed. The receiver remains alive until it
-publishes or persists an error; `tracing status` reports the terminal result.
-Exit also initiates asynchronous saving. Recording controls are excluded from
-tool activity. No upstream Codex changes are required.
+Installation starts an authenticated local receiver and keeps it listening
+between sessions so the profile's fixed OTLP port cannot be reused while the
+receiver is healthy. The first cold hook also starts it if needed; concurrent
+launches share a fenced startup lock. A warm hook sends one request rather than
+a separate health probe. Private journals flush every second. Only recorded
+sessions are written; unrecorded native telemetry is discarded. Saving
+continues for approximately seven seconds to collect batched exports while
+the end timestamp stays fixed; `tracing status` reports the terminal result.
+
+If a crashed receiver's configured port is subsequently occupied, hooks fail
+open with an explicit diagnostic rather than connecting to an unrelated server.
+Re-running `agentprof-codex install` rebinds an **owned** profile to a new port
+and starts its receiver. Restart Codex afterward: already-running Codex
+processes still export native telemetry to the old port and cannot be silently
+repaired. Plugin updates restart an idle receiver when its build differs; an
+active recording must finish before the receiver can be replaced; stop/status
+and SessionEnd remain usable against the older receiver during that interval.
+A crashed startup lease is reclaimed after its grace period under a kernel
+lock (`flock` on Linux, `lockf` on macOS, a named mutex on Windows). If the
+platform helper is unavailable, stale recovery fails safely instead of
+risking concurrent receiver starts.
+Session PID/start-time checks detect process reuse on Linux; platforms
+without that marker retain the PID fallback. See the [hook latency benchmark](../../docs/hook-latency.md)
+for the remaining per-event Node process cost. Exit also initiates asynchronous
+saving. Recording controls are excluded from tool activity.
 
 ## Optional exec launcher
 
@@ -190,9 +207,11 @@ incomplete. Force-killing Codex can lose its unflushed native telemetry. Replay
 preserves measurements received before shutdown; it cannot reconstruct missing
 native spans.
 
-To remove the integration, run `codex plugin remove agentprof@agentprof` and
-remove the generated `agentprof.config.toml` profile. Other Codex profiles and
-settings are unaffected.
+To remove the integration, finish active recordings and run
+`agentprof-codex receiver-stop` to release the reserved port. Then run
+`codex plugin remove agentprof@agentprof` and remove the generated
+`agentprof.config.toml` profile. Other Codex profiles and settings are
+unaffected.
 
 ## Development
 

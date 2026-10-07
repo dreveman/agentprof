@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {createServer} from 'node:http';
+import {createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
 import {writeFileSync, readFileSync, existsSync, mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {gunzipSync} from 'node:zlib';
@@ -11,25 +13,31 @@ import {tagControlScripts} from './plugin-observations.ts';
 import {readOtel, object, string, array, attributes, isoTime, ns, type Span} from './otel.ts';
 import {omitContent} from '../agent-tracing/content.ts';
 import type {Observation} from './convert.ts';
+import {processStartMarker, sameProcess} from '../agent-tracing/process-identity.ts';
 
 const validId = (id: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(id);
-const alive = (pid: number) => {try {process.kill(pid, 0); return true;} catch {return false;}};
-interface LiveSession {id: string; pid: number; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean; captureContents?: boolean}
+interface LiveSession {id: string; pid: number; processStartMarker?: string; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean; captureContents?: boolean; skippedEvents?: number}
 interface Capture {journal: Journal; sessions: Set<string>; end?: string; saving?: Promise<Record<string, unknown>>; telemetry: boolean}
 
 export class Collector {
   readonly sessions = new Map<string, LiveSession>();
+  private pendingGenerations = new Map<string, LiveSession & {autoStart?: boolean}>();
   readonly captures = new Map<string, Capture>();
   private terminalResults = new Map<string, Record<string, unknown>>();
   private routes = new Map<string, Set<string>>();
   private pending = new Map<string, {span: Span; wire: unknown; bytes: number}>();
   private pendingBytes = 0;
   private spans = new Map<string, Span>();
-  private lastActivity = Date.now();
   private lastClock = Date.now();
-  constructor(readonly state: string, readonly drainMs = 7000, readonly captureContents = true) {mkdirSync(state, {recursive: true, mode: 0o700});}
+  constructor(readonly state: string, readonly drainMs = 7000, readonly captureContents = true,
+              private readonly identity: {start: (pid: number) => string | undefined; same: (pid: number, marker?: string) => boolean} =
+                {start: processStartMarker, same: sameProcess}) {mkdirSync(state, {recursive: true, mode: 0o700});}
   private recordState(id: string, value: Record<string, unknown>) {
     writeFileSync(join(this.state, `${id}.json`), JSON.stringify(value), {mode: 0o600});
+  }
+  private rememberTerminal(id: string, result: Record<string, unknown>) {
+    this.terminalResults.set(id, result);
+    if (this.terminalResults.size > 256) this.terminalResults.delete(this.terminalResults.keys().next().value!);
   }
   status(id: string): Record<string, unknown> {
     if (!validId(id)) throw new Error('Missing current Codex session identity.');
@@ -84,6 +92,8 @@ export class Collector {
     }
     const policy = this.captureContents && session.captureContents !== false && requestedContents;
     const journal = new Journal(id, session.pid, session.cwd, output, policy);
+    journal.dropped += session.skippedEvents ?? 0;
+    session.skippedEvents = 0;
     const capture: Capture = {journal, sessions: new Set([id]), telemetry: false};
     this.terminalResults.delete(id);
     this.captures.set(id, capture);
@@ -125,35 +135,78 @@ export class Collector {
         capture.journal.close(capture.end!, incomplete);
         const summary = publish(capture.journal.directory);
         const result = {state: 'saved', ...summary};
-        this.terminalResults.set(id, result);
         // The output and summary are already published; failing to update the
         // receiver's status file must not turn successful work into an error.
-        try {this.recordState(id, result);} catch {}
+        try {this.recordState(id, result); this.terminalResults.delete(id);}
+        catch {this.rememberTerminal(id, result);}
         return result;
       } catch (error) {
         const result = {state: 'error', output: capture.journal.output,
           journal: capture.journal.directory, error: String(error)};
-        this.terminalResults.set(id, result);
         // A detached save must never reject unobserved, even if the disk also
         // fails while persisting its error. The journal remains recoverable.
-        try {this.recordState(id, result);} catch {}
+        try {this.recordState(id, result); this.terminalResults.delete(id);}
+        catch {this.rememberTerminal(id, result);}
         try {writeFileSync(join(capture.journal.directory, 'error.txt'), String(error), {mode: 0o600});} catch {}
         return result;
-      } finally {this.captures.delete(id); this.lastActivity = Date.now();}
+      } finally {
+        const waiting = [...this.pendingGenerations].filter(([pendingId]) => this.captureFor(pendingId) === capture);
+        this.captures.delete(id);
+        for (const [pendingId, pending] of waiting) {
+          this.pendingGenerations.delete(pendingId);
+          this.sessions.set(pendingId, pending);
+          if (pending.autoStart && !pending.parent && !pending.ended) try {this.start(pendingId);} catch {}
+        }
+      }
     })();
     return saving;
   }
-  async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false, requestedContents = this.captureContents) {
+  async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false,
+             requestedContents = this.captureContents, reportedMarker?: string) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !['SubagentStart', 'SubagentStop'].includes(event))
       data = {...data, parent_session: data.session_id, session_id: data.agent_id};
     const id = string(data.session_id);
     if (!validId(id) || !Number.isInteger(pid) || pid <= 0) throw new Error('Invalid hook identity.');
-    this.lastActivity = Date.now();
     let session = this.sessions.get(id);
+    const marker = reportedMarker && /^\d+$/.test(reportedMarker) ? reportedMarker : this.identity.start(pid);
+    const pending = this.pendingGenerations.get(id);
+    if (pending) {
+      if (pending.pid !== pid || pending.processStartMarker && marker && pending.processStartMarker !== marker)
+        throw new Error('Another Codex process generation is waiting for its prior recording to save.');
+      if (data.transcript_path) pending.transcript = string(data.transcript_path);
+      if (data.model) pending.model = string(data.model);
+      if (event === 'SessionEnd') pending.ended = true;
+      if (event === 'UserPromptSubmit') {
+        const command = string(data.prompt).trim();
+        if (/^tracing status$/.test(command))
+          return {decision: 'block', reason: 'Agent Profiler: previous recording is saving; use tracing_status to check publication.'};
+        if (/^tracing (?:start|stop)(?:\s|$)/.test(command))
+          return {decision: 'block', reason: 'Agent Profiler: previous recording is saving. Retry this control after publication.'};
+        if (pending.prompt) pending.skippedEvents = (pending.skippedEvents ?? 0) + 1;
+        pending.prompt = {source: 'codex.hook', timestamp, data: pending.captureContents ? data :
+          {...data, prompt: undefined, prompt_length: string(data.prompt).length}};
+      } else if (event !== 'SessionStart') pending.skippedEvents = (pending.skippedEvents ?? 0) + 1;
+      return {};
+    }
+    const changed = !!session && (session.pid !== pid ||
+      !!session.processStartMarker && !!marker && session.processStartMarker !== marker);
+    if (changed) {
+      if (event !== 'SessionStart') throw new Error('Codex process generation changed; start a new session before recording more work.');
+      const previous = this.captureFor(id);
+      if (previous && !previous.end) this.stop(previous.journal.sessionId, true);
+      if (previous) {
+        this.pendingGenerations.set(id, {id, pid, processStartMarker: marker,
+          cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model), parent: session?.parent,
+          captureContents: requestedContents && this.captureContents,
+          autoStart: autoStart && ['startup', 'resume'].includes(string(data.source))});
+        return {systemMessage: 'Previous Agent Profiler recording is saving; this Codex process can record after publication.'};
+      }
+      session = undefined;
+    }
     const firstStart = !session || session.ended;
     if (!session) {
-      session = {id, pid, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model)};
+      session = {id, pid, processStartMarker: marker, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model)};
       this.sessions.set(id, session);
     }
     // The hook process, not the shared receiver, owns this session's policy.
@@ -162,6 +215,7 @@ export class Collector {
     const liveCapture = this.captureFor(id);
     if (session.captureContents === false && liveCapture) liveCapture.journal.captureContents = false;
     session.pid = pid;
+    session.processStartMarker = marker ?? session.processStartMarker;
     if (data.cwd) session.cwd = string(data.cwd);
     if (data.transcript_path && event !== 'SubagentStart') session.transcript = string(data.transcript_path);
     if (data.model && event !== 'SubagentStart') session.model = string(data.model);
@@ -292,23 +346,29 @@ export class Collector {
       this.pending.delete(key); this.pendingBytes -= bytes;
     }
   }
-  tick(): boolean {
+  tick(): void {
     for (const capture of this.captures.values()) if (!capture.end) {
       capture.journal.flush();
       if (Date.now() - this.lastClock >= 60000) capture.journal.clock();
       const root = this.sessions.get(capture.journal.sessionId);
-      if (root && !alive(root.pid)) {root.ended = true; this.stop(root.id, true);}
+      if (root && !this.identity.same(root.pid, root.processStartMarker)) {root.ended = true; this.stop(root.id, true);}
     }
     if (Date.now() - this.lastClock >= 60000) this.lastClock = Date.now();
-    return !this.captures.size && Date.now() - this.lastActivity > 15000 &&
-      [...this.sessions.values()].every(session => session.ended || !alive(session.pid));
+    // The receiver now reserves its port between sessions. Reclaim old session
+    // identities instead of scanning an ever-growing map once a second.
+    for (const [id, session] of this.sessions) if (!this.captureFor(id) &&
+      (session.ended || !this.identity.same(session.pid, session.processStartMarker))) this.sessions.delete(id);
   }
 }
 
 export async function serve(state: string) {
   const connection = readConnection(state), collector = new Collector(state);
+  const build = createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex');
+  let timer: ReturnType<typeof setInterval> | undefined;
   const server = createServer(async (request, response) => {
-    const reply = (status: number, data: unknown) => {response.writeHead(status, {'content-type': 'application/json'}); response.end(JSON.stringify(data));};
+    const reply = (status: number, data: unknown) => {response.writeHead(status, {'content-type': 'application/json',
+      ...(connection.generation ? {'x-agentprof-generation': connection.generation} : {}),
+      'x-agentprof-build': build}); response.end(JSON.stringify(data));};
     if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${connection.token}`) return reply(403, {error: 'Forbidden'});
     try {
       let bytes = 0; const chunks: Buffer[] = [];
@@ -320,9 +380,17 @@ export async function serve(state: string) {
       let body = Buffer.concat(chunks);
       if (request.headers['content-encoding'] === 'gzip') body = gunzipSync(body, {maxOutputLength: 8 * 1024 * 1024});
       const data = object(JSON.parse(body.toString('utf8')));
-      if (request.url === '/health') return reply(200, {ready: true});
+      if (request.url === '/health') return reply(200, {ready: true, generation: connection.generation,
+        build, active_captures: collector.captures.size});
+      if (request.url === '/shutdown') {
+        if (collector.captures.size) return reply(409, {error: 'Recording is still active.'});
+        reply(200, {stopping: true});
+        setTimeout(() => {if (timer) clearInterval(timer); server.close();}, 0);
+        return;
+      }
       if (request.url === '/v1/logs' || request.url === '/v1/traces') {collector.ingest(data); return reply(200, {});}
-      if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false));
+      if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true,
+        data.capture_contents !== false, string(data.process_start_marker) || undefined));
       const id = string(data.session_id);
       if (request.url === '/start') return reply(200, collector.start(id, typeof data.output_path === 'string' ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === '/stop') return reply(200, collector.stop(id));
@@ -332,5 +400,9 @@ export async function serve(state: string) {
   });
   server.requestTimeout = 12000;
   await new Promise<void>((done, reject) => {server.once('error', reject); server.listen(connection.port, '127.0.0.1', done);});
-  const timer = setInterval(() => {if (collector.tick()) {clearInterval(timer); server.close();}}, 1000);
+  writeFileSync(join(state, 'receiver-owner.json'), JSON.stringify({pid: process.pid,
+    marker: processStartMarker(process.pid), generation: connection.generation}), {mode: 0o600});
+  // Keep the profile's fixed OTLP port reserved between sessions. Releasing it
+  // after idle would let an unrelated process occupy it before the next hook.
+  timer = setInterval(() => {collector.tick();}, 1000);
 }

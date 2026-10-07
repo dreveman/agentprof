@@ -107,7 +107,12 @@ explicitly linked to the recording are exported, with bounded size and time.
 ## Recovery and development
 
 The plugin stores private capture metadata under Muse's
-`plugins/data/agentprof/sessions` directory. Muse's own journal holds the events;
+`plugins/data/agentprof/sessions` directory. Linux host and watcher process
+start markers protect against PID reuse; old state and other platforms fall
+back to PID liveness. Ordinary hooks avoid an extra watcher lock/read; start
+paths ensure the watcher exists. Each host command hook still launches Node;
+see the [synthetic hook latency benchmark](../../docs/hook-latency.md).
+Muse's own journal holds the events;
 the process watcher exits when recording ends. If shutdown or export fails, keep that
 journal and retry:
 

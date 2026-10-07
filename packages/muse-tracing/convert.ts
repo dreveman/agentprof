@@ -13,6 +13,7 @@ export interface Capture {
   hooks: {at: string; session: string; event: string; model?: string; provider?: string; effort?: string; trigger?: string}[];
   incomplete?: boolean;
   capture_contents?: boolean;
+  processStartMarker?: string; // local owner generation; never copied to the trace
 }
 const min = (a: bigint, b: bigint) => a < b ? a : b;
 const max = (a: bigint, b: bigint) => a > b ? a : b;
