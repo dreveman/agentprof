@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """Keep the previous UI version available during a Pages deployment."""
 
 import argparse

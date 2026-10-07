@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 // packages/codex-tracing/plugin.ts
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync as readFileSync6, openSync as openSync2, closeSync as closeSync2 } from "node:fs";

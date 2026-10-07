@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // pi-tracing: local Perfetto capture for Pi.
 // Uses Pi's own packages; prompt text is captured by default.
 

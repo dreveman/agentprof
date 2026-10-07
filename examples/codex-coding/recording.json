@@ -35,10 +35,16 @@
     "flows": 28
   },
   "resultSha256": {
+    "additional.test.mjs": "2a172c028996334ce8ffd506bcb2936fd203045ba4d4f8dfa3e44885e994ac94",
+    "intervals.mjs": "a831e14d34c2e07907f0f5bd5c960afebb825486facb84a3afb1d50869f23c37",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f"
+  },
+  "source": "One live Codex run using the interactive recording plugin with automatic start and save on exit.",
+  "contextData": "Re-exported from the original native telemetry and durable session transcript. Category counts use characters/4 and partial transcript attribution; measured timings and usage are unchanged.",
+  "originalResultSha256": {
     "additional.test.mjs": "8d80f5b003c4838cb450157ecd63894033c6d1a5a23ea65233500aee03f17b86",
     "intervals.mjs": "2a1755c9e769a6f3017d5eefddd93dba602309c8c102ed143032feb35670b723",
     "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b"
   },
-  "source": "One live Codex run using the interactive recording plugin with automatic start and save on exit.",
-  "contextData": "Re-exported from the original native telemetry and durable session transcript. Category counts use characters/4 and partial transcript attribution; measured timings and usage are unchanged."
+  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { DebugAnnotationValue } from "./encoder.ts";
 
 export const SCHEMA_VERSION = 1;

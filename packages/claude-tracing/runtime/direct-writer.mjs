@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // packages/claude-tracing/direct-journal.ts
 import { mkdirSync, writeFileSync, readFileSync as readFileSync3, readdirSync, renameSync, existsSync, linkSync, unlinkSync, statSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";

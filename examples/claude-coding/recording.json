@@ -35,10 +35,16 @@
     "flows": 28
   },
   "resultSha256": {
+    "intervals.mjs": "ff55ffcbf99fdfe94869bdb0f42b34ac5264585a0f3555941377d1101f5df3a8",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "8561d1d8bca948df6b70a9808571516ce96e5e30a07f63d22ad5eb188fbaa2ee"
+  },
+  "source": "Live Claude Code task recorded with the native plugin; paired with Pi codemode in comparison trial 5.",
+  "contextData": "Native context breakdowns sampled by the recording plugin, with partial item attribution from session messages. Category estimates remain independent of reported usage.",
+  "originalResultSha256": {
     "intervals.mjs": "d8782ab1e66c44c737e02deb00d6de11fd3fc225c83aeeadb0ffc1064092d6da",
     "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b",
     "additional.test.mjs": "a25ca570a0d40715439a5c6962993616d7663a160bd8bb72241a9db736308771"
   },
-  "source": "Live Claude Code task recorded with the native plugin; paired with Pi codemode in comparison trial 5.",
-  "contextData": "Native context breakdowns sampled by the recording plugin, with partial item attribution from session messages. Category estimates remain independent of reported usage."
+  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
 }

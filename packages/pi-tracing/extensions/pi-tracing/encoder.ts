@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Zero-dependency protobuf writer for the minimal Perfetto surface pi-tracing
 // emits. Field numbers pinned against v58.2 protos:
 //

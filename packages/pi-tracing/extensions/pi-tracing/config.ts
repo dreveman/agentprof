@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Layered, validated, package-owned configuration. There is deliberately no
 // top-level `settings.json` key: ExtensionAPI exposes no SettingsManager and
 // Pi's settings schema is closed. Precedence (high -> low):

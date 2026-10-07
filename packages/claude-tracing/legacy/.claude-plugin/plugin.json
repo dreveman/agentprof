@@ -1,5 +1,6 @@
 {
   "name": "agentprof-otel",
   "version": "0.1.0",
-  "description": "Lifecycle observations for the Agent Profiler OpenTelemetry launcher"
+  "description": "Lifecycle observations for the Agent Profiler OpenTelemetry launcher",
+  "license": "Apache-2.0"
 }

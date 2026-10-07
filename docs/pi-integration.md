@@ -1,7 +1,7 @@
 # Pi tracing integration
 
 The recorder lives in [packages/pi-tracing](../packages/pi-tracing/). It has a Pi
-extension entry point, zero runtime npm dependencies, and an MIT license declaration.
+extension entry point, zero runtime npm dependencies, and an Apache-2.0 license declaration.
 
 ## Recording
 

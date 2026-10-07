@@ -6,7 +6,7 @@ canonical `.pftrace` protobuf files you open in the Perfetto UI or query with
 
 This package contains the recording side of Agent Profiler: POSIX only,
 `PATH`-resolved tooling, and no runtime packages beyond Pi's own. The package is
-MIT licensed.
+licensed under [Apache-2.0](LICENSE).
 
 From the repository root, load it with `pi -e ./packages/pi-tracing --tracing`.
 The workspace lockfile records the tested Pi and TypeScript versions.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // One recording owns private per-process spools. Descendants inherit its
 // directory; only the owner publishes a user-facing trace file.
 import {existsSync} from 'node:fs';
