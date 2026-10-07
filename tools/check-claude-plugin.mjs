@@ -18,7 +18,7 @@ const run = (...args) => {
 };
 try {
   mkdirSync(join(plugin, '.claude-plugin'), {recursive: true});
-  for (const file of ['.claude-plugin/plugin.json', 'hooks', 'types', 'runtime', 'README.md'])
+  for (const file of ['.claude-plugin/plugin.json', 'hooks', 'types', 'runtime', 'README.md', 'LICENSE'])
     cpSync(resolve(root, 'packages/claude-tracing', file), join(plugin, file), {recursive: true});
   cpSync(join(root, '.claude-plugin'), join(repository, '.claude-plugin'), {recursive: true});
   run('plugin', 'validate', '--strict', repository);

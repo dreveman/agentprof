@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Merge this recorder's local-process streams into one Perfetto trace. This is
 // deliberately not an importer for arbitrary Perfetto traces or remote clocks.
 import {buildTracePacket, buildTrackEvent, encodeVarint, framePacket} from './encoder.ts';

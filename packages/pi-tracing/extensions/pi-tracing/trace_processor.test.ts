@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { afterEach, expect, test } from "bun:test";
 import { accessSync, constants, existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";

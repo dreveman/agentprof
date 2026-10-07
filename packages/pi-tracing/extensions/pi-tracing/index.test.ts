@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import {decodeFields, tracePackets} from "./test-proto.ts";
 import {childPromptFlowId} from "./workflow.ts";
 import { expect, test } from "bun:test";

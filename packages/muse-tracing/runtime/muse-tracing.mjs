@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 // packages/muse-tracing/main.ts
 import { spawnSync } from "node:child_process";
 import { readFileSync as readFileSync3 } from "node:fs";

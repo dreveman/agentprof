@@ -70,10 +70,16 @@
   "flows": 34,
   "unavailableChildren": 7,
   "resultSha256": {
+    "intervals.mjs": "bb3aa92f147068f6170d65e25c5fbaf73b185eadd2e4f3d998466c953fd0fd08",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "104f980b638eaf99887ce2690ed8ff924840cf08b9ba6ad139986b6e514cebf2"
+  },
+  "source": "One live Muse Code task with the native plugin and automatic start. Re-exported after verifying shutdown handling and relative child-log links; original recording clocks and boundaries are preserved.",
+  "contextData": "Re-exported from the original native session exports. Category counts use request-lane bytes/4 with partial transcript attribution; measured timings and usage are unchanged.",
+  "originalResultSha256": {
     "intervals.mjs": "1374cfec5f16727792e3e93cc9e3ff6c7aa9db6c1bf8dbe8bd490dbfdab05e70",
     "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b",
     "additional.test.mjs": "2a886a72f690c76388a821368fda4864749b923f1ecb4e3ddf300e79916e1104"
   },
-  "source": "One live Muse Code task with the native plugin and automatic start. Re-exported after verifying shutdown handling and relative child-log links; original recording clocks and boundaries are preserved.",
-  "contextData": "Re-exported from the original native session exports. Category counts use request-lane bytes/4 with partial transcript attribution; measured timings and usage are unchanged."
+  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
 }

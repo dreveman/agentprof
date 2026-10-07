@@ -4,6 +4,11 @@ Agent Profiler includes recording integrations for Claude Code, Codex, Muse Code
 and Pi, plus a Perfetto UI plugin. Use the bundled recordings to iterate without
 calling a model; the checks also generate synthetic fixtures for edge cases.
 
+First-party source files use `SPDX-License-Identifier: Apache-2.0` in a comment
+at the top, after any shebang. Bundle generators retain that header, and
+distributable plugins include the Apache license text. `npm run check` verifies
+the headers and package metadata. Preserve third-party copyright and license notices.
+
 ## Repository layout
 
 | Path | Purpose |

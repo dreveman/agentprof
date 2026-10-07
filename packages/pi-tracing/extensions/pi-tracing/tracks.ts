@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import {CONTEXT_CATEGORIES} from './context.ts';
 // Track model: root process descriptor + named generic child tracks +
 // free-lane tool allocator + one counter track per metric. Categories are

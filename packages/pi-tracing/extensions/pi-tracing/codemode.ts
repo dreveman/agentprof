@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import {Recorder} from './tracer.ts';
 import {randomFlowId} from './tracks.ts';
 

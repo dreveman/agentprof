@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Minimal protobuf reader for wire-level recording assertions.
 interface ProtoField {
   number: number;

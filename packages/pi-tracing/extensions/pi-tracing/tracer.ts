@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // OFF + RECORDING state machine. Recording appends
 // complete Trace.packet field-1 records through one bounded asynchronous writer
 // queue. Finalization is deadline-bounded, publishes only after successful

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import {spawnSync} from "node:child_process";
 import {decodeFields, tracePackets} from "./test-proto.ts";
 import {childPromptFlowId} from "./workflow.ts";
