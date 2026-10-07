@@ -107,6 +107,22 @@ test('context limits are sampled for the response, never borrowed from a later m
     WHERE kind = 'assistant-message' AND ts = (SELECT MAX(ts) FROM agentprof_slices WHERE kind = 'assistant-message');`)).toBe('1');
 }, 30000);
 
+test('post-turn event deltas attach to the real prompt rather than claiming request-input coverage', () => {
+  const rows = fixture();
+  rows.push(row(899, 'context', 'sample', 'prompt', {context: {
+    item_changes: [{id: 'result:bash', category: 'results', chars: 50,
+      tokens: 13, source_id: 'bash', source_kind: 'tool', label: 'Tool result'}], removed_items: []}}));
+  rows.push(row(901, 'context', 'summary', 'prompt', {context: {window: 200000,
+    breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: 100}]}}}));
+  const trace = Buffer.from(convertObservations(rows).trace);
+  expect(trace.includes('transcript-observed')).toBe(true);
+  expect(trace.includes('result:bash')).toBe(true);
+  expect(trace.includes('Context:')).toBe(true);
+  expect(trace.includes('request-input')).toBe(false);
+  const withoutSummary = Buffer.from(convertObservations(rows.filter(r => r.data.phase !== 'summary')).trace);
+  expect(withoutSummary.includes('result:bash')).toBe(true);
+});
+
 test('native composition retains sparse changes without adding free space, item details or child windows', () => {
   const rows = fixture();
   const reading = (messages: number, delta: unknown[], extra = {}) => ({window: 200000,
@@ -192,6 +208,26 @@ test('same-id resume isolates unfinished operations and keeps native identity', 
     (SELECT MAX(dur) FROM agentprof_slices WHERE kind='assistant-message')=80000000,
     (SELECT COUNT(*) FROM agentprof_slices WHERE kind='capture' AND EXTRACT_ARG(arg_set_id,'debug.native_session_id')='session')=1,
     (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`)).toBe('1,1,1,1');
+});
+
+test('packaged writer merges split post-turn context rows on publication', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-context-writer-'));
+  try {
+    const output = join(directory, 'context.pftrace');
+    const capture = initializeDirectCapture(output, 12345);
+    const rows = fixture().filter(r => r.source === 'claude.mod');
+    rows.push(row(899, 'context', 'sample', 'prompt', {context: {item_changes: [
+      {id: 'result:bash', category: 'results', chars: 50, tokens: 13, source_id: 'bash', source_kind: 'tool'}],
+      removed_items: []}}));
+    rows.push(row(901, 'context', 'summary', 'prompt', {context: {window: 200000,
+      breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: 100}]}}}));
+    writeFileSync(join(capture.directory, 'events-000000.jsonl'), rows.map(r => JSON.stringify(r) + '\n').join(''));
+    const result = spawnSync('node', [resolve(import.meta.dir, 'runtime/direct-writer.mjs'), 'finish', capture.directory], {encoding: 'utf8'});
+    expect(result.status, result.stderr).toBe(0);
+    const trace = readFileSync(output);
+    expect(trace.includes('result:bash')).toBe(true);
+    expect(trace.includes('transcript-observed')).toBe(true);
+  } finally {rmSync(directory, {recursive: true, force: true});}
 });
 
 test('packaged Node writer finalizes after its launcher exits, and records publication failures', async () => {

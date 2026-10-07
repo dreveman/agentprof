@@ -2,12 +2,18 @@
 
 Agent Profiler records context composition separately from cumulative input and
 output usage. A context snapshot describes one session at an observed request,
-capture start, or completed compaction. Subagent windows are independent; they
+capture start, completed turn, or compaction. Subagent windows are independent; they
 are never added to a primary session's context size.
 
 ## Measurements
 
-Claude Code uses its native local `summary` breakdown. Pi estimates the observed
+Claude Code uses its native local `summary` breakdown at capture start,
+completed turns, and compaction. The full message list is read once at capture
+start (and after compaction), not before every model request. Subsequent item
+changes are best-effort counts observed from prompt, response and tool hooks;
+post-turn samples are labeled `transcript-observed` and do not claim exact
+request-input composition. Final response usage supplies exact reported input
+counts separately. Pi estimates the observed
 outgoing transcript, including system sections and active tool definitions.
 Muse uses native outgoing-request lane byte counts when available, with
 transcript items for partial source attribution. Codex estimates available

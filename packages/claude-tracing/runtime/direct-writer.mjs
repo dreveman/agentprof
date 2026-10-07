@@ -890,6 +890,27 @@ function convertDirectObservations(rows) {
         model: text(result.model)
       });
   }
+  const turnContexts = new Map;
+  for (const r of events.filter((r) => r.data.event === "context")) {
+    const id = `${scope(r.data)}:${text(r.data.id)}`, pair = turnContexts.get(id) ?? {};
+    if (r.data.phase === "summary")
+      pair.summary = r;
+    else
+      pair.delta = r;
+    turnContexts.set(id, pair);
+  }
+  for (const [id, { delta, summary }] of turnContexts) {
+    const prompt = prompts.get(id), input = { ...object(summary?.data.context), ...object(delta?.data.context) };
+    if (!prompt || !input.breakdown && !(Array.isArray(input.item_changes) && input.item_changes.length))
+      continue;
+    contextSamples.push({
+      slice: prompt,
+      input,
+      stage: "transcript-observed",
+      at: BigInt(delta?.timestamp ?? summary.timestamp),
+      model: text(summary?.data.model) || text(sessions.get(prompt.session)?.attrs.model)
+    });
+  }
   for (const r of events.filter((r) => r.data.event === "session" && r.data.phase === "begin" && object(r.data.context).breakdown)) {
     const session = sessions.get(scope(r.data));
     const profile = {

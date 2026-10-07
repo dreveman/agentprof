@@ -2,7 +2,7 @@
 import {test, expect} from 'bun:test';
 import {resolve} from 'node:path';
 
-async function recorder(env = {AGENTPROF_TRACE_FILE: '/recording.pftrace'}, shared = {}, options = {}) {
+async function recorder(env = {AGENTPROF_TRACE_FILE: '/recording.pftrace'}, shared = {}, options = {}, messages) {
   const hooks = new Map(), files = [], processes = [], logs = [], commands = [], tools = [];
   let captures = 0;
   // Each module instance models one Claude mod worker.
@@ -25,7 +25,9 @@ async function recorder(env = {AGENTPROF_TRACE_FILE: '/recording.pftrace'}, shar
     ui: {log: async message => {logs.push(message);}, invalidate() {},
       resolve: () => Object.fromEntries(['Box', 'Text', 'Button'].map(type => [type, props => ({type, props})]))},
     session: {id: async () => 'session', cwd: async () => '/project', model: async () => 'model', version: async () => ({version: '2.1.289'}),
-      usage: async () => ({context: {window: 200000, tokens: 100}})},
+      usage: async () => ({context: {window: 200000, tokens: 100,
+        ...(messages ? {breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: 100}]}} : {})}}),
+      ...(messages ? {messages: async () => messages} : {})},
     clock: {every: () => ({cancel() {}})},
   };
   const call = (name, event, next = async e => e) => hooks.get(name)($, event, next);
@@ -86,6 +88,90 @@ test('content opt-out excludes prompt and tool values from rows and persisted ho
   expect(rows.find(row => row.data.event === 'prompt' && row.data.phase === 'begin').data.prompt_length).toBe(14);
   expect(rows.find(row => row.data.event === 'session' && row.data.phase === 'begin').data.capture_contents).toBe(false);
   expect(rows.find(row => row.data.event === 'tool' && row.data.phase === 'begin').data.content_omitted).toBe(true);
+});
+
+test('model dispatch skips transcript scans and begins before checkpoint latency, without early yields', async () => {
+  const r = await recorder();
+  let messages = 0, usage = 0, model = 0, state = 0, started = false, yielded = false;
+  r.$.session.messages = async () => {messages++; return Array.from({length: 1000}, () => ({role: 'user', text: 'history'}));};
+  r.$.session.usage = async () => {usage++; return {context: {tokens: 30, window: 1000}};};
+  r.$.session.model = async () => {model++; return 'model';};
+  const write = r.$.state.set;
+  let release;
+  const gate = new Promise(resolve => {release = resolve;});
+  r.$.state.set = async (...args) => {state++; await gate; return write(...args);};
+  const stream = r.call('turn.step', {turnId: 'turn', index: 0, model: 'model'}, async function* () {
+    started = true; yield {kind: 'text', text: 'answer'};
+    return {usage: {model: 'model', input_tokens: 5, output_tokens: 1}};
+  });
+  const first = stream.next().then(item => {yielded = true; return item;});
+  await Bun.sleep(1);
+  expect(started).toBe(true);
+  expect(yielded).toBe(false);
+  expect(messages).toBe(0);
+  expect(usage).toBe(0);
+  release();
+  expect((await first).value.text).toBe('answer');
+  await stream.next();
+  expect(model).toBe(0);
+  await r.call('turn.complete', {turnId: 'turn', isAborted: false});
+  expect(usage).toBe(1);
+  expect(messages).toBe(0);
+  expect(state).toBeGreaterThan(0);
+  await r.finish();
+});
+
+test('capture and compaction baselines reset at their own samples, not the next turn', async () => {
+  const history = [{role: 'user', text: 'old history', toolUses: [], toolResults: []}];
+  const r = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, {}, {}, history);
+  await r.call('turn.start', {turnId: 'first', text: 'New task'});
+  const firstStep = r.call('turn.step', {turnId: 'first', index: 0, model: 'model'}, async function* () {
+    yield {kind: 'text', text: 'answer'}; return {usage: {model: 'model'}};
+  });
+  await firstStep.next(); await firstStep.next();
+  await r.call('turn.complete', {turnId: 'first'});
+  r.$.session.messages = async () => [{role: 'user', text: 'compacted summary', toolUses: [], toolResults: []}];
+  await r.call('session.compact', {trigger: 'manual'}, async () => ({skip: false, tokensBefore: 100, tokensAfter: 30}));
+  await r.call('turn.start', {turnId: 'second', text: 'Continue'});
+  await r.call('turn.complete', {turnId: 'second'});
+  const rows = await r.finish();
+  const baseline = rows.find(row => row.data.event === 'session' && row.data.phase === 'begin').data.context;
+  expect(baseline.items_reset).toBe(true);
+  expect(baseline.item_changes.map(item => item.id)).toContain('message:0');
+  const first = rows.find(row => row.data.event === 'context' && row.data.id === 'first').data.context;
+  expect(first.items_reset).toBeUndefined();
+  expect(first.item_changes.map(item => item.id)).toContain('response:first:0');
+  const compact = rows.find(row => row.data.event === 'compaction' && row.data.phase === 'end').data.context;
+  expect(compact.items_reset).toBe(true);
+  expect(compact.item_changes.map(item => item.id)).toContain('message:0');
+  const second = rows.find(row => row.data.event === 'context' && row.data.id === 'second').data.context;
+  expect(second.items_reset).toBeUndefined();
+  expect(second.item_changes.map(item => item.id)).toContain('turn:second');
+});
+
+test('compaction keeps a captured baseline if model lookup fails afterward', async () => {
+  const r = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, {}, {},
+    [{role: 'user', text: 'prior history', toolUses: [], toolResults: []}]);
+  r.$.session.messages = async () => [{role: 'user', text: 'new summary', toolUses: [], toolResults: []}];
+  r.$.session.model = async () => {throw new Error('model lookup failed');};
+  await r.call('session.compact', {trigger: 'manual'}, async () => ({skip: false, tokensBefore: 100, tokensAfter: 20}));
+  const rows = await r.finish();
+  const context = rows.find(row => row.data.event === 'compaction' && row.data.phase === 'end').data.context;
+  expect(context.items_reset).toBe(true);
+  expect(context.item_changes.find(item => item.id === 'message:0').chars).toBe('new summary'.length);
+  expect(context.items_unavailable).toBeUndefined();
+});
+
+test('idle tools and measurements do not checkpoint or read state on render', async () => {
+  const r = await recorder({});
+  let sets = 0, gets = 0;
+  r.$.state.set = async () => {sets++;};
+  r.$.state.get = async () => {gets++; return {value: {}};};
+  await r.call('tool.call', {tool: 'Bash', tool_use_id: 'idle', command: 'pwd'}, async () => ({result: 'ok'}));
+  await r.call('session.measure', {context: {tokens: 10}});
+  await r.call('ui.render', {props: {}}, async () => null);
+  expect(sets).toBe(0);
+  expect(gets).toBe(0);
 });
 
 test('cancellation closes the underlying model stream and records an incomplete response', async () => {
@@ -256,6 +342,60 @@ test('reload restores buffered events, paths and controls without restarting aut
   const stopped = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, second.shared);
   expect(stopped.processes).toHaveLength(0);
   expect((await stopped.tool('status')).result).toMatchObject({recording: false, published: true});
+});
+
+test('a reload during an in-flight request closes the checkpointed response as incomplete', async () => {
+  const first = await recorder();
+  let release;
+  const gate = new Promise(resolve => {release = resolve;});
+  const stream = first.call('turn.step', {turnId: 'slow', index: 0, model: 'model'}, async function* () {
+    await gate; yield {kind: 'text', text: 'later'};
+  });
+  const pending = stream.next();
+  await Bun.sleep(1);
+  const recovered = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, first.shared);
+  await recovered.tool('stop');
+  const rows = recovered.files.flatMap(f => f.data.trim().split('\n').map(JSON.parse));
+  expect(rows.some(row => row.data.event === 'response' && row.data.id === 'slow:0' &&
+    row.data.phase === 'end' && row.data.incomplete)).toBe(true);
+  release(); await pending; await stream.return(); await first.finish();
+});
+
+test('reload retains pending context deltas through the next completed turn', async () => {
+  const first = await recorder();
+  await first.call('turn.start', {turnId: 'task', text: 'Do work'});
+  const stream = first.call('turn.step', {turnId: 'task', index: 0, model: 'model'}, async function* () {
+    yield {kind: 'text', text: 'done'}; return {usage: {model: 'model'}};
+  });
+  await stream.next(); await stream.next();
+  expect(first.shared.value.contextChanges.map(item => item.id)).toContain('response:task:0');
+  const resumed = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, first.shared);
+  await resumed.call('turn.complete', {turnId: 'task'});
+  const rows = await resumed.finish();
+  const sample = rows.find(row => row.data.event === 'context' && row.data.id === 'task').data.context;
+  expect(sample.item_changes.map(item => item.id)).toEqual(['turn:task', 'response:task:0']);
+});
+
+test('reload during post-turn usage read keeps the closed prompt and its own deltas', async () => {
+  const first = await recorder();
+  await first.call('turn.start', {turnId: 'task', text: 'Do work'});
+  const stream = first.call('turn.step', {turnId: 'task', index: 0, model: 'model'}, async function* () {
+    yield {kind: 'text', text: 'done'}; return {usage: {model: 'model'}};
+  });
+  await stream.next(); await stream.next();
+  let release;
+  const gate = new Promise(resolve => {release = resolve;});
+  first.$.session.usage = async () => {await gate; return {context: {tokens: 20, window: 1000}};};
+  const completing = first.call('turn.complete', {turnId: 'task'});
+  await Bun.sleep(1);
+  expect(first.shared.value.prompts).toHaveLength(0);
+  expect(first.shared.value.contextChanges).toHaveLength(0);
+  const recovered = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace'}, first.shared);
+  const rows = await recovered.finish();
+  expect(rows.some(row => row.data.event === 'prompt' && row.data.id === 'task' && row.data.phase === 'end')).toBe(true);
+  expect(rows.find(row => row.data.event === 'context' && row.data.id === 'task').data.context.item_changes
+    .map(item => item.id)).toEqual(['turn:task', 'response:task:0']);
+  release(); await completing; await first.finish();
 });
 
 test('reload replays an interrupted journal write without allocating a different chunk', async () => {

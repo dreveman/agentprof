@@ -50,7 +50,9 @@ test('installed recording controls render, start, stop and preserve native tool 
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   expect(chunks).toEqual([{kind: 'text', index: 0, text: 'unchanged response'}]);
+  await $.turn.complete({turnId: 'turn-1', isAborted: false});
   for await (const _ of $.turn.step({turnId: 'turn-2', index: 0, model: 'claude-haiku-4-5', messageCount: 1})) {}
+  await $.turn.complete({turnId: 'turn-2', isAborted: false});
   const stopped = await $.tool.call({tool: 'mcp__agentprof__tracing_stop'});
   const status = JSON.parse(stopped.result as string);
   expect(status.published).toBe(true);
@@ -65,6 +67,6 @@ test('installed recording controls render, start, stop and preserve native tool 
   const observations = writes.join('').trim().split('\n').map(line => JSON.parse(line));
   const contexts = observations.map(row => row.data?.context).filter(value => value?.item_changes);
   expect(contexts.length).toBe(3);
-  expect(contexts.slice(1).every(value => value.item_changes.length === 0 && value.removed_items.length === 0)).toBe(true);
+  expect(contexts.slice(1).every(value => value.item_changes.length > 0 && value.removed_items.length === 0)).toBe(true);
   expect(usageRequests.every((request: any) => request.breakdown === 'summary')).toBe(true);
 });
