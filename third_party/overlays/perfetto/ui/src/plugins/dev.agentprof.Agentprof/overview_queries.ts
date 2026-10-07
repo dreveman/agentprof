@@ -290,15 +290,16 @@ export const OVERVIEW_QUERIES = {
     SUM(incomplete) AS incomplete
     FROM agentprof_slices WHERE kind = 'tool-execution'
     GROUP BY name ORDER BY work_ms DESC`,
-  slow: `SELECT id, name AS tool, dur / 1e6 AS duration_ms, incomplete,
+  slow: `SELECT id, name AS tool, CASE WHEN dur >= 0 THEN dur / 1e6 END AS duration_ms, incomplete,
     is_error, intent, arguments, args_truncated, kind, language, line_count
-    FROM agentprof_tool_calls WHERE kind = 'tool-execution' ORDER BY incomplete, dur DESC LIMIT 100`,
-  scripts: `SELECT p.id, p.name AS script, p.dur / 1e6 AS duration_ms,
+    FROM agentprof_tool_calls WHERE kind = 'tool-execution' ORDER BY incomplete DESC, dur DESC LIMIT 100`,
+  scripts: `SELECT p.id, p.name AS script, CASE WHEN p.dur >= 0 THEN p.dur / 1e6 END AS duration_ms,
     p.is_error, p.incomplete, p.intent, p.arguments, p.args_truncated, p.kind, p.language, p.line_count, COUNT(c.id) AS calls
     FROM agentprof_tool_calls p LEFT JOIN agentprof_script_children c ON c.script_id = p.id
     WHERE p.kind = 'script' GROUP BY p.id ORDER BY p.ts LIMIT 100`,
   script_calls: `SELECT c.script_id, t.id, t.name AS tool, c.depth,
-    t.kind, t.dur / 1e6 AS duration_ms, t.is_error, t.incomplete, t.intent, t.arguments, t.args_truncated,
+    t.kind, CASE WHEN t.dur >= 0 THEN t.dur / 1e6 END AS duration_ms,
+    t.is_error, t.incomplete, t.intent, t.arguments, t.args_truncated,
     t.language, t.line_count
     FROM agentprof_script_children c JOIN agentprof_tool_calls t ON t.id = c.id
     WHERE c.script_id IN (SELECT id FROM agentprof_tool_calls WHERE kind = 'script' ORDER BY ts LIMIT 100)

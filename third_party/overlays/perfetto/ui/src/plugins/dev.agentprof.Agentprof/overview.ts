@@ -528,7 +528,7 @@ export class Overview implements m.ClassComponent<Attrs> {
               children.some(child => child.kind === 'model-call') && m('p.ap-muted',
                 'Model-call intervals may include queue time; they are excluded from model-response speed and busy metrics.'),
             ], true))),
-          this.card('Slow and incomplete calls', 'Up to 100 calls. Incomplete durations show only the observed interval.',
+          this.card('Slow and incomplete calls', 'Up to 100 calls. Unfinished durations are not recorded; partial calls show only the observed interval.',
             this.section('slow', rows => this.table(rows, [['tool', 'Tool'], ['description', 'Description'],
               ['duration_ms', 'Observed duration'], ['is_error', 'Error'], ['incomplete', 'Incomplete']], trace))),
         ] : this.tab === 'Context' ? this.card('Context over time',

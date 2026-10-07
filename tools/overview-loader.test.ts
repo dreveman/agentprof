@@ -72,6 +72,42 @@ test('Overview isolates failures and ignores late results after disposal', async
   expect(neverStarted).toEqual([]);
 });
 
+test('Overview shows unfinished tools and scripts without inventing durations', () => {
+  const db = new Database(':memory:');
+  try {
+    db.exec(`CREATE TABLE agentprof_tool_calls (
+      id INTEGER PRIMARY KEY, name TEXT, ts INTEGER, dur INTEGER, incomplete INTEGER,
+      is_error INTEGER, intent TEXT, arguments TEXT, args_truncated INTEGER,
+      kind TEXT, language TEXT, line_count INTEGER);
+      CREATE TABLE agentprof_script_children (script_id INTEGER, id INTEGER, depth INTEGER);`);
+    const insert = db.prepare(`INSERT INTO agentprof_tool_calls
+      (id, name, ts, dur, incomplete, kind) VALUES (?, ?, ?, ?, ?, ?)`);
+    db.transaction(() => {
+      for (let id = 1; id <= 100; id++)
+        insert.run(id, `completed-${id}`, id, id * 1_000_000, 0, 'tool-execution');
+      insert.run(101, 'unfinished-tool', 101, -1, 1, 'tool-execution');
+      insert.run(102, 'unfinished-script', 102, -1, 1, 'script');
+      insert.run(103, 'unfinished-child', 103, -1, 1, 'tool-execution');
+      insert.run(104, 'completed-script', 104, 5_000_000, 0, 'script');
+      db.exec('INSERT INTO agentprof_script_children VALUES (102,103,1),(102,100,1)');
+    })();
+    const slow = db.query(OVERVIEW_QUERIES.slow).all() as {id: number; duration_ms: number | null; incomplete: number}[];
+    expect(slow).toHaveLength(100);
+    expect(slow.slice(0, 2).map(row => row.id).sort()).toEqual([101, 103]);
+    expect(slow.filter(row => row.incomplete)).toHaveLength(2);
+    expect(slow.find(row => row.id === 101)?.duration_ms).toBeNull();
+    expect(slow.find(row => row.id === 103)?.duration_ms).toBeNull();
+    expect(slow.find(row => row.id === 100)?.duration_ms).toBe(100);
+    expect(slow.find(row => row.id === 1)).toBeUndefined();
+    const scripts = db.query(OVERVIEW_QUERIES.scripts).all() as {id: number; duration_ms: number | null; calls: number}[];
+    expect(scripts.find(row => row.id === 102)).toMatchObject({duration_ms: null, calls: 2});
+    expect(scripts.find(row => row.id === 104)?.duration_ms).toBe(5);
+    const calls = db.query(OVERVIEW_QUERIES.script_calls).all() as {id: number; duration_ms: number | null}[];
+    expect(calls.find(row => row.id === 103)?.duration_ms).toBeNull();
+    expect(calls.find(row => row.id === 100)?.duration_ms).toBe(100);
+  } finally {db.close();}
+});
+
 test('context detail SQL caps recent rows without losing the latest sample of an older capture', () => {
   const db = new Database(':memory:');
   try {
