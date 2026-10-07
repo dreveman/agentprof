@@ -6,6 +6,7 @@ import {randomUUID} from 'node:crypto';
 import {currentMachineIdentity} from '../packages/pi-tracing/extensions/pi-tracing/machine.ts';
 import {captureClockReadings} from '../packages/pi-tracing/extensions/pi-tracing/tracer.ts';
 import {convertObservations, type Observation} from '../packages/claude-tracing/convert.ts';
+import {captureContentsEnabled, omitContent} from '../packages/agent-tracing/content.ts';
 
 const args = process.argv.slice(2);
 const separator = args.indexOf('--');
@@ -14,6 +15,7 @@ if (separator !== 1 || !args[0] || args.includes('--help')) {
   process.exit(args.includes('--help') ? 0 : 2);
 }
 const output = resolve(args[0]);
+const captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 const childArgs = args.slice(separator + 1);
 if (!childArgs.includes('-p') && !childArgs.includes('--print')) throw new Error('This launcher requires Claude print mode (-p).');
 if (childArgs.includes('--output-format')) throw new Error('The launcher selects stream-json output for metadata capture.');
@@ -39,7 +41,7 @@ const server = Bun.serve({hostname: '127.0.0.1', port: 0, maxRequestBodySize: 8 
     if (request.method !== 'POST' || request.headers.get('authorization') !== `Bearer ${token}`) return new Response(null, {status: 403});
     const path = new URL(request.url).pathname;
     if (!['/hook', '/v1/traces', '/v1/logs'].includes(path)) return new Response(null, {status: 404});
-    try {record(path, await request.json()); return Response.json({});}
+    try {const payload = await request.json(); record(path, captureContents ? payload : omitContent(payload)); return Response.json({});}
     catch {dropped++; return new Response(null, {status: 400});}
   },
 });
@@ -56,11 +58,11 @@ const child = Bun.spawn(['claude', '--plugin-dir', plugin, '--output-format', 's
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: `${endpoint}/v1/traces`, OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: `${endpoint}/v1/logs`,
     OTEL_EXPORTER_OTLP_TRACES_HEADERS: `Authorization=Bearer ${token}`, OTEL_EXPORTER_OTLP_LOGS_HEADERS: `Authorization=Bearer ${token}`,
     OTEL_TRACES_EXPORT_INTERVAL: '1000', OTEL_LOGS_EXPORT_INTERVAL: '1000',
-    OTEL_LOG_USER_PROMPTS: '1', OTEL_LOG_TOOL_DETAILS: '1', OTEL_LOG_TOOL_CONTENT: '0',
+    OTEL_LOG_USER_PROMPTS: captureContents ? '1' : '0', OTEL_LOG_TOOL_DETAILS: captureContents ? '1' : '0', OTEL_LOG_TOOL_CONTENT: '0',
     OTEL_LOG_ASSISTANT_RESPONSES: '0', OTEL_LOG_RAW_API_BODIES: '0',
   },
 });
-record('process_start', {pid: child.pid, start, machineId: currentMachineIdentity().id, command: 'claude', captureId: randomUUID()});
+record('process_start', {pid: child.pid, start, machineId: currentMachineIdentity().id, command: 'claude', captureId: randomUUID(), capture_contents: captureContents});
 const outputTask = (async () => {
   let pending = '';
   const decoder = new TextDecoder();

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Observe the normal session without changing prompts, streams or tool results.
 let capture, session, segment = 0, awaitingSession = false, legacy = false, transition = 'idle', ending = false, initialized = false;
+let captureContents = true; // AGENTPROF_CAPTURE_CONTENTS=0 opts out across harnesses.
 let controls = Promise.resolve(), checkpoints = Promise.resolve();
 let countScope, countedItems = new Map();
 const controlTools = new Map(), prompts = new Map(), toolScopes = new Map(), agents = new Map();
@@ -60,6 +61,10 @@ const record = (scope, event, phase, id, data = {}, timestamp = now()) => {
   try {
     const row = {source: 'claude.mod', timestamp,
       data: {event, phase, id, session_id: scope.session, segment: scope.segment, agent_id: scope.agent_id, ...data}};
+    if (!c.capture_contents) {
+      if (row.data.prompt !== undefined || row.data.arguments !== undefined) row.data.content_omitted = true;
+      delete row.data.prompt; delete row.data.arguments;
+    }
     const reading = row.data.context;
     if (reading?.items) {
       const identity = `${c.captureId}:${scope.session}:${scope.segment}`;
@@ -161,10 +166,10 @@ const startRecording = async ($, path) => {
     const result = await $.process.run(['node', `${$.plugin.root}/runtime/direct-writer.mjs`, 'init', ...(path === undefined ? [] : [path])],
       {cwd: await $.session.cwd()});
     if (result.exitCode !== 0) throw new Error(result.stderr.trim());
-    const c = {...JSON.parse(result.stdout), active: true, published: false, provider, version, started: now(),
+    const c = {...JSON.parse(result.stdout), active: true, published: false, provider, version, started: now(), capture_contents: captureContents,
       rows: [], batches: [], open: {}, queuedBytes: 0, totalBytes: 0, dropped: 0, chunk: 0, pending: Promise.resolve()};
     capture = c; session = root; awaitingSession = false;
-    record(scope(), 'session', 'begin', session, {model, provider, version, context: reading});
+    record(scope(), 'session', 'begin', session, {model, provider, version, capture_contents: captureContents, context: reading});
     // Agent-triggered starts happen within a prompt. Preserve its description,
     // but never pretend its full duration was recorded.
     for (const [id, prompt] of prompts) if (prompt.session === session)
@@ -232,16 +237,20 @@ export function register(on, options) {
   on('session.start', async ($, e, next) => {
     legacy = Boolean(await $.env.get('AGENTPROF_CAPTURE_ENDPOINT'));
     if (legacy) return next(e);
+    captureContents = options.capture_contents !== false && !['0', 'false'].includes(String(await $.env.get('AGENTPROF_CAPTURE_CONTENTS')).toLowerCase());
     session = await $.session.id();
     const {value} = await $.state.get({plugin: 'agentprof', key: 'recorder'});
     const held = value ? JSON.parse(JSON.stringify(value)) : undefined;
     const restored = held?.session === session;
+    if (restored && held.capture?.capture_contents === false) captureContents = false;
     if (restored) {
       segment = held.segment; awaitingSession = held.awaitingSession;
-      for (const [id, prompt] of held.prompts ?? []) prompts.set(id, prompt);
-      for (const [id, agent] of held.agents ?? []) agents.set(id, agent);
+      for (const [id, prompt] of held.prompts ?? []) prompts.set(id, captureContents ? prompt :
+        {...prompt, data: {...prompt.data, prompt: undefined, content_omitted: true}});
+      for (const [id, agent] of held.agents ?? []) agents.set(id, captureContents ? agent :
+        {...agent, data: {...agent.data, prompt: undefined, content_omitted: true}});
       if (held.capture) {
-        capture = {...held.capture, pending: Promise.resolve()};
+        capture = {...held.capture, capture_contents: captureContents, pending: Promise.resolve()};
         // A worker reload cannot resume its old middleware callbacks. Keep the
         // observations, but bound those operations and mark their ends unknown.
         for (const op of Object.values(capture.open))
@@ -310,7 +319,8 @@ export function register(on, options) {
     return next(e);
   });
   on('turn.start', async ($, e, next) => {
-    const data = {prompt: text(e.text), prompt_length: e.text.length};
+    const data = {prompt: captureContents ? text(e.text) : undefined, prompt_length: e.text.length,
+      ...(!captureContents ? {content_omitted: true} : {})};
     prompts.set(e.turnId, {session, data, agent_id: e.agentId});
     record(scope(e.agentId), 'prompt', 'begin', e.turnId, data);
     await retain($);
@@ -371,7 +381,7 @@ export function register(on, options) {
     const {tool, tool_use_id: id, agentId, ...args} = e, s = scope(agentId);
     const key = `${agentId ?? ''}:${id}`;
     toolScopes.set(key, s);
-    record(s, 'tool', 'begin', id, {tool, arguments: args});
+    record(s, 'tool', 'begin', id, {tool, ...(captureContents ? {arguments: args} : {content_omitted: true})});
     await retain($, s.capture);
     let completed = false;
     try {
@@ -396,7 +406,8 @@ export function register(on, options) {
     if (result.agentId && s.session === session && s.segment === segment) {
       const data = {agent_id: result.agentId,
       parent_agent_id: e.parentAgentId, call_id: e.tool_use_id, model: result.model,
-      role: e.subagentType, prompt: text(e.prompt), prompt_length: e.prompt.length};
+      role: e.subagentType, prompt: captureContents ? text(e.prompt) : undefined, prompt_length: e.prompt.length,
+      ...(!captureContents ? {content_omitted: true} : {})};
       agents.set(result.agentId, {session, data});
       if (capture !== s.capture && capture?.active)
         record(scope(), 'agent', 'begin', result.agentId, {...data, started_before_capture: true}, capture.started);

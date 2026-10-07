@@ -65,6 +65,50 @@ test('plugin routes late native exports to the primary session and children with
   } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
 });
 
+test('content opt-out strips Codex hooks and OTLP before the persistent journal and trace', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-no-content-'));
+  const mocked = spyOn(Date, 'now').mockReturnValue(Number(epoch / 1_000_000n));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0, false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit', prompt: 'PRIVATE_PROMPT', turn_id: 'turn-main'}, process.pid, at(10));
+    collector.start(rootSession, 'private.pftrace');
+    await collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+      tool_use_id: 'call', tool_input: {command: 'PRIVATE_COMMAND'}}, process.pid, at(11));
+    for (const row of fixture().filter(row => row.source.startsWith('/v1/'))) collector.ingest(row.data);
+    await collector.stop(rootSession);
+    const journal = readFileSync(join(directory, 'private.pftrace.capture/observations.jsonl'), 'utf8');
+    const trace = readFileSync(join(directory, 'private.pftrace'));
+    for (const secret of ['PRIVATE_PROMPT', 'PRIVATE_COMMAND', 'Check the recorded fixture.', 'Process exited with code 7', 'Check the sum']) {
+      expect(journal).not.toContain(secret);
+      expect(trace.includes(secret)).toBe(false);
+    }
+    expect(journal).toContain('"capture_contents":false');
+    expect(journal).toContain('"prompt_length":14');
+  } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
+});
+
+test('a shared Codex receiver honors a later session opt-out independently', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-shared-policy-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0);
+    const other = childSession;
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0), false, true);
+    collector.start(rootSession, 'enabled.pftrace', true);
+    await collector.hook({session_id: other, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0), false, false);
+    collector.start(other, 'disabled.pftrace', false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit', prompt: 'VISIBLE_A'}, process.pid, at(10), false, true);
+    await collector.hook({session_id: other, hook_event_name: 'UserPromptSubmit', prompt: 'PRIVATE_B'}, process.pid, at(10), false, false);
+    await collector.stop(rootSession);
+    await collector.stop(other);
+    expect(readFileSync(join(directory, 'enabled.pftrace.capture/observations.jsonl'), 'utf8')).toContain('VISIBLE_A');
+    const disabled = readFileSync(join(directory, 'disabled.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(disabled).not.toContain('PRIVATE_B');
+    expect(disabled).toContain('"capture_contents":false');
+    expect(readFileSync(join(directory, 'disabled.pftrace')).includes('PRIVATE_B')).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
 test('session end saves automatically and compaction remains a measured span in Perfetto', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'codex-plugin-end-'));
   const mocked = spyOn(Date, 'now').mockReturnValue(Number(epoch / 1_000_000n));

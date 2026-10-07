@@ -48,7 +48,8 @@ Flags / env:
   Normal Pi exit finalizes it and prints the trace path to stderr; no manual
   stop is required.
 - `PI_TRACING_STARTUP=off|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,
-  `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=0` (omit tool arguments).
+  `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=0` (omit tool arguments),
+  `AGENTPROF_CAPTURE_CONTENTS=0` (omit prompt text and tool values across harnesses).
 - `PI_TRACING_CHILD_TOOLS=rig_launch,subagent,my_tool` — override the
   child-agent spawner allowlist (default `rig_launch,subagent`).
 - `PI_SUBAGENT_EXTENSIONS=<paths>` — extra `--extension` flags for
@@ -59,8 +60,9 @@ Config files (schema-validated, never crash startup on malformed input):
 
 1. `<agentDir>/pi-tracing.json` (global, via `getAgentDir()`)
 2. `<cwd>/<CONFIG_DIR_NAME>/pi-tracing.json` (project override, only when trusted)
-3. env beats files; CLI flags beat env; live `/tracing categories` beats all for
-   the current process. `system: true` is rejected as unsupported.
+3. env beats files; CLI flags beat env; live `/tracing categories` changes the
+   current process, except the shared content opt-out always blocks values.
+   `system: true` is rejected as unsupported.
 
 ## Codemode
 
@@ -218,7 +220,9 @@ launch returns the child session UUID for the parent recorder to capture.
 ## Privacy
 
 Prompt text is recorded by default on `prompt` under `pi.prompt-data`.
-Use `/tracing categories prompt-data off` or `PI_TRACING_CATEGORIES=-prompt-data`
+Set `AGENTPROF_CAPTURE_CONTENTS=0` before launch to omit both prompt text and
+argument values across harnesses. To omit only Pi prompt text, use
+`/tracing categories prompt-data off` or `PI_TRACING_CATEGORIES=-prompt-data`
 to keep only prompt length. This captures the user/task prompt observed by
 `before_agent_start`, not the system prompt or accumulated conversation.
 Text is capped at 65,536 UTF-16 code units without splitting a surrogate pair;
@@ -230,7 +234,11 @@ file paths, edit old/new text, and script source. They are stored on the tool's
 execution span, capped at 65,536 UTF-16 code units across keys and text, 128 values,
 and eight nesting levels. `args_truncated` marks omitted arguments. Set
 `PI_TRACING_CAPTURE_CONTENTS=0`, `captureContents: false` in configuration, or
-`/tracing categories contents off` to keep only argument sizes and key lists.
+`/tracing categories contents off` to omit values without disabling prompt text.
+Preflight retains argument sizes and key lists; execution spans without a
+preflight may have no argument metadata when contents are disabled. Tool names,
+IDs, timing and usage remain. The output path, process labels/session IDs, and
+workflow identifiers are metadata and remain in the trace.
 Tool results remain excluded. `/tracing status` reports prompt and tool-argument
 capture separately.
 

@@ -38,6 +38,17 @@ test('manual controls return paths, are idempotent and save on session exit with
     await expect(control(data, '../bad', 'start')).rejects.toThrow('valid session');
   } finally {await rm(temporary, {recursive: true, force: true});}
 });
+test('content policy is persisted at Muse capture start for export and recovery', async () => {
+  const {temporary, data} = await setup();
+  try {
+    await atomicJson(join(data, 'config.json'), {capture_contents: false});
+    await control(data, session, 'start', 'metadata.pftrace');
+    expect((await readJson(statePath(data, session))).capture.capture_contents).toBe(false);
+    await control(data, session, 'stop');
+    expect((await readFile(join(temporary, 'metadata.pftrace'))).length).toBeGreaterThan(0);
+  } finally {await rm(temporary, {recursive: true, force: true});}
+});
+
 test('failed publication keeps the capture and stop boundary for a retry', async () => {
   const {temporary, data} = await setup();
   try {

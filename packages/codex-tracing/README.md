@@ -151,8 +151,15 @@ The development converter also accepts the journal:
   agent.pftrace.capture/observations.jsonl recovered.pftrace
 ```
 
-Recordings contain prompts and tool arguments; the raw journal can also contain
-tool output. Both the trace and journal are private files when created.
+By default recordings contain bounded prompt text and tool arguments; the raw
+journal can also contain tool output. Set `AGENTPROF_CAPTURE_CONTENTS=0` before
+launching Codex (or the exec recorder) for a metadata-only new capture. This
+strips prompt and argument values and tool output **before** the persistent
+journal is written; recovery cannot restore them. Prompt lengths from hooks,
+tool names/IDs, timing, model, usage and outcome metadata remain. The recording
+path, session IDs and native process metadata remain. Codex's own session logs
+are managed by Codex and are not erased by this switch. Both the trace and
+journal are private files when created.
 
 Capture boundaries can cut through prompts, requests and tools; partial spans
 are marked incomplete. Hooks record compaction boundaries, and compaction

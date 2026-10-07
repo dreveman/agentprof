@@ -5,6 +5,8 @@
 //   live in-memory > CLI flags > PI_TRACING_* env > trusted project override
 //   > global file > built-ins.
 
+import {captureContentsEnabled} from '../../../agent-tracing/content.ts';
+
 export type StartupMode = "off" | "armed" | "recording";
 
 export type CategoryId =
@@ -285,5 +287,11 @@ export function applyEnvOverrides(base: TracingConfig, env: NodeJS.ProcessEnv): 
   if (parsed.config.maxFileMB !== undefined) config.maxFileMB = parsed.config.maxFileMB;
   if (parsed.config.childTools !== undefined) config.childTools = parsed.config.childTools;
   if (parsed.config.captureContents !== undefined) config.captureContents = parsed.config.captureContents;
+  // The cross-harness opt-out covers both prompt text and tool values. The
+  // legacy Pi switch remains tool-arguments-only for existing installations.
+  if (!captureContentsEnabled(env.AGENTPROF_CAPTURE_CONTENTS)) {
+    config.captureContents = false;
+    config.categories['prompt-data'] = false;
+  }
   return { config, warnings };
 }

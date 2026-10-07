@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {captureClockReadings} from '../pi-tracing/extensions/pi-tracing/tracer.ts';
 import {currentMachineIdentity} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {convertObservations, type Observation} from './convert.ts';
+import {omitContent} from '../agent-tracing/content.ts';
 
 export const now = () => String(BigInt(Date.now()) * 1_000_000n);
 export class Journal {
@@ -14,7 +15,7 @@ export class Journal {
   private fd: number;
   private bytes = 0;
   dropped = 0;
-  constructor(readonly sessionId: string, pid: number, cwd: string, path?: string) {
+  constructor(readonly sessionId: string, pid: number, cwd: string, path?: string, public captureContents = true) {
     if (path !== undefined && (!path.trim() || !path.endsWith('.pftrace') || path.includes('\0')))
       throw new Error('output_path must name a .pftrace file.');
     const captureId = randomUUID();
@@ -26,6 +27,7 @@ export class Journal {
     this.fd = openSync(join(this.directory, 'observations.jsonl'), 'wx', 0o600);
     this.add({source: 'process_start', timestamp: this.start, data: {
       pid, captureId, sessionId, output: this.output, machineId: currentMachineIdentity().id, recorder: 'codex-plugin-1',
+      capture_contents: this.captureContents,
     }});
     this.clock();
   }
@@ -34,7 +36,14 @@ export class Journal {
       Object.entries(captureClockReadings()).map(([key, value]) => [key, String(value)]))});
   }
   add(row: Observation) {
-    const line = JSON.stringify(row) + '\n';
+    const safe = this.captureContents || ['process_start', 'process_end', 'clock_snapshot', 'session_metadata'].includes(row.source)
+      ? row : {...row, data: row.source === 'codex.hook'
+        ? Object.fromEntries(Object.entries(row.data).filter(([key]) => [
+          'hook_event_name', 'session_id', 'parent_session', 'agent_id', 'agent_type', 'turn_id',
+          'tool_name', 'tool_use_id', 'model', 'source', 'trigger', 'prompt_length', 'started_before_capture',
+          'exit_code', 'is_error',
+        ].includes(key))) : omitContent(row.data) as Record<string, unknown>};
+    const line = JSON.stringify(safe) + '\n';
     const size = Buffer.byteLength(line);
     if (this.bytes + size > 128 * 1024 * 1024 && row.source !== 'process_end') {this.dropped++; return;}
     writeSync(this.fd, line); this.bytes += size;

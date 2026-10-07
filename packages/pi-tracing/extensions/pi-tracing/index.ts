@@ -19,6 +19,7 @@ import {
 } from "./config.ts";
 import { formatProbe, runProbe } from "./probe.ts";
 import { assistantAnnotations, promptAnnotations, reportedTokenUsage, scriptAnnotations, tokenCount, toolArgumentAnnotations, TRACE_VERSION } from "./annotations.ts";
+import {captureContentsEnabled} from '../../../agent-tracing/content.ts';
 import { defaultOutDir, describeBytes, Recorder, sanitizeArgv0, sanitizeSessionTag } from "./tracer.ts";
 import type { TraceManifest } from "./tracer.ts";
 import type { TrackSet } from "./tracks.ts";
@@ -716,7 +717,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", (event, ctx) => {
     withSession(ctx, (state) => {
       const prompt = (event as { prompt?: unknown }).prompt;
-      state.promptData = promptAnnotations(prompt, state.recorder.categoryOn("prompt-data"));
+      state.promptData = promptAnnotations(prompt, state.recorder.categoryOn("prompt-data") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS));
     });
   });
 
@@ -1036,7 +1038,8 @@ export default function (pi: ExtensionAPI) {
       // start was not recorded, so preflight-only captures still have details.
       const hasSpan = typeof toolCallId === "string" && state.toolSpans.has(toolCallId);
       const annotations = toolArgumentAnnotations(input, !hasSpan &&
-        state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents"));
+        state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS));
       annotations["name"] = toolName;
       if (typeof toolCallId === "string") annotations["call_id"] = toolCallId;
       const parent = (event as {parentToolCallId?: unknown}).parentToolCallId;
@@ -1075,7 +1078,8 @@ export default function (pi: ExtensionAPI) {
       }
       const rawArgs = event as {args?: unknown; input?: unknown};
       const input = rawArgs.args ?? rawArgs.input;
-      const argumentData = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents")
+      const argumentData = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS)
         ? toolArgumentAnnotations(input, true) : {};
       const launch = typeof toolName === "string" && state.recorder.categoryOn("workflow") &&
         state.recorder.getConfig().childTools.includes(toolName)
@@ -1260,12 +1264,13 @@ export default function (pi: ExtensionAPI) {
     const stats = session.recorder.getStats();
     const enabled = ALL_CATEGORIES.filter((id) => config.categories[id]).join(",");
     const machineId = session.recorder.getMachineId();
+    const sharedContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
     const lines = [
       `pi-tracing ${TRACE_VERSION} state=${session.recorder.getState()} startupMode=${config.startupMode}`,
       `categories on: ${enabled === "" ? "(none)" : enabled}`,
       `clock primary=REALTIME machineId=${machineId === 0 ? "host-default (boot identity unavailable)" : machineId}`,
       `pending=${stats.pending} (${stats.queuedBytes}B) packets=${stats.packets} dropped=${stats.dropped} openSpans=${stats.openSpans} laneOverflows=${stats.laneOverflows}`,
-      `prompt-data=${config.categories["prompt-data"] ? "ON (prompt text)" : "off (length only)"} captureContents=${config.captureContents && config.categories.contents ? "ON (tool arguments only)" : "off"} maxFileMB=${config.maxFileMB} laneCap=${config.laneCap}${stats.fileLimitReached ? " FILE-LIMIT-REACHED" : ""}`,
+      `prompt-data=${sharedContents && config.categories["prompt-data"] ? "ON (prompt text)" : "off (length only)"} captureContents=${sharedContents && config.captureContents && config.categories.contents ? "ON (tool arguments)" : "off"} maxFileMB=${config.maxFileMB} laneCap=${config.laneCap}${stats.fileLimitReached ? " FILE-LIMIT-REACHED" : ""}`,
       childEnvSummary(),
     ];
     const configError = session.recorder.getConfigError();

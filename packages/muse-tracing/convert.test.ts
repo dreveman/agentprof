@@ -76,6 +76,22 @@ test('Muse measurements import with scoped sessions, usage, context, flows and r
     (SELECT COUNT(*) FROM process WHERE pid=12345 AND name='muse')=1,
     (SELECT COUNT(*) FROM thread WHERE tid NOT IN (0,12345))=0;`)).toBe('1,1,1,1,1,1,1,1,1,1,1,1');
 });
+test('metadata-only export and conversion omit main and reminder prompts and tool values', () => {
+  const f = fixture();
+  f.capture.capture_contents = false;
+  const session = readExport(f.raw, root, false);
+  const serialized = JSON.stringify(session);
+  expect(serialized).not.toMatch(/Read the fixture and fix the bug|exit 2/);
+  expect(serialized).toContain('prompt_length');
+  expect(serialized).toContain('args_meta');
+  f.sessions[0] = session;
+  const bytes = Buffer.from(convert(f.capture, f.sessions).trace);
+  expect(bytes.includes('Read the fixture and fix the bug')).toBe(false);
+  expect(bytes.includes('Inspect the tests.')).toBe(false);
+  expect(bytes.includes('exit 2')).toBe(false);
+  expect(bytes.includes('fixture-model')).toBe(true);
+});
+
 test('export deduplicates records, excludes inherited history and never retains reasoning', () => {
   const f = fixture();
   f.raw.events.push(f.raw.events[2]!);

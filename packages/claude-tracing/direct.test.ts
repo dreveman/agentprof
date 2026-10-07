@@ -58,6 +58,16 @@ function query(rows: Observation[], sql: string): string {
   } finally {rmSync(directory, {recursive: true, force: true});}
 }
 
+test('direct conversion cannot re-enable content omitted by the capture policy', () => {
+  const rows = fixture();
+  rows.find(r => r.data.event === 'session' && r.data.phase === 'begin')!.data.capture_contents = false;
+  const trace = Buffer.from(convertObservations(rows).trace);
+  expect(trace.includes('Check these numbers')).toBe(false);
+  expect(trace.includes('exit 7')).toBe(false);
+  expect(trace.includes('Independent check')).toBe(false);
+  expect(trace.includes('fixture-model')).toBe(true);
+});
+
 test('direct capture imports with measured work, compaction usage, child flows and known context limits', () => {
   expect(convertObservations(fixture()).summary).toMatchObject({sessions: 2, responses: 3, tools: 3, measuredTools: 3,
     compactions: 1, inputTokens: 17, outputTokens: 24});

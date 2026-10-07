@@ -471,6 +471,7 @@ var DEFAULT_COUNTERS = [
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
+var MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 var OWNER_GRACE_MS = 5 * 60 * 1000;
 var utf82 = new TextEncoder;
 var runtimeIdentity = randomToken();
@@ -661,6 +662,7 @@ function convertDirectObservations(rows) {
     throw new Error("Missing Claude process identity");
   const capture = text(identity.data.captureId);
   const events = rows.filter((r) => r.source === "claude.mod").sort((a, b) => compareTime(BigInt(a.timestamp), BigInt(b.timestamp)));
+  const captureContents = !events.some((r) => r.data.event === "session" && r.data.capture_contents === false);
   if (!events.length)
     throw new Error("No direct Claude events captured");
   const last = BigInt(events.at(-1).timestamp);
@@ -770,7 +772,7 @@ function convertDirectObservations(rows) {
     const input = add(r, "Inputs", "prompt-input", BigInt(r.timestamp), undefined, { source: d.agent_id ? "agent" : "user" }, ":input");
     const prompt = add(r, "Session", "prompt", BigInt(r.timestamp), promptEnd, {
       kind: "prompt",
-      ...promptAnnotations(d.prompt, true),
+      ...promptAnnotations(d.prompt, captureContents),
       ...tokens(d.prompt_length) !== undefined ? { length: tokens(d.prompt_length) } : {},
       ...d.content_omitted ? { content_omitted: true } : {},
       ...d.started_before_capture ? { started_before_capture: true, incomplete: true } : {},
@@ -833,14 +835,14 @@ function convertDirectObservations(rows) {
     const attrs = {
       kind: "tool-execution",
       call_id: text(d.id),
-      ...toolArgumentAnnotations(d.arguments, true),
+      ...toolArgumentAnnotations(d.arguments, captureContents),
       timing: measured ? "reported-execution-duration" : "dispatch-only",
       ...d.content_omitted ? { content_omitted: true } : {},
       ...!measured || !close || close.data.incomplete ? { incomplete: true } : {},
       ...close ? { is_error: Boolean(close.data.is_error) } : execution ? { is_error: Boolean(execution.data.is_error) } : {}
     };
     const intent = object(d.arguments).description;
-    if (typeof intent === "string")
+    if (captureContents && typeof intent === "string")
       attrs.intent = intent;
     const tool = add(r, "Tools", text(d.tool) || "tool", start, end, attrs);
     tools.set(`${scope(d)}:${d.id}`, tool);

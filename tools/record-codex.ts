@@ -8,6 +8,7 @@ import {currentMachineIdentity} from '../packages/pi-tracing/extensions/pi-traci
 import {captureClockReadings} from '../packages/pi-tracing/extensions/pi-tracing/tracer.ts';
 import {convertObservations, type Observation} from '../packages/codex-tracing/convert.ts';
 import {capturedSessionIds, sessionMetadata} from '../packages/codex-tracing/metadata.ts';
+import {captureContentsEnabled, omitContent} from '../packages/agent-tracing/content.ts';
 
 const args = process.argv.slice(2), separator = args.indexOf('--');
 if (separator !== 1 || !args[0]) {
@@ -15,6 +16,7 @@ if (separator !== 1 || !args[0]) {
   process.exit(args.includes('--help') ? 0 : 2);
 }
 const output = resolve(args[0]), childArgs = args.slice(separator + 1);
+const captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 if (childArgs[0] === 'exec') childArgs.shift();
 if (childArgs.includes('--ephemeral')) throw new Error('--ephemeral is unsupported: context limits require the captured session metadata.');
 if (childArgs.some(a => /^otel[.=]|^--config=otel[.=]/.test(a))) throw new Error('The recorder configures the Codex OTel exporters.');
@@ -26,7 +28,8 @@ const journal = openSync(join(directory, 'observations.jsonl'), 'wx', 0o600);
 const timestamp = () => String(BigInt(Date.now()) * 1_000_000n);
 let bytes = 0, dropped = 0;
 function record(source: string, data: unknown, at = timestamp()) {
-  const line = JSON.stringify({source, timestamp: at, data}) + '\n';
+  const line = JSON.stringify({source, timestamp: at, data: captureContents || ['process_start', 'process_end', 'clock_snapshot', 'session_metadata'].includes(source)
+    ? data : source === 'cli' ? {type: (data as any)?.type, thread_id: (data as any)?.thread_id} : omitContent(data)}) + '\n';
   if (source !== 'process_end' && bytes + Buffer.byteLength(line) > 128 * 1024 * 1024) {dropped++; return;}
   writeSync(journal, line); bytes += Buffer.byteLength(line);
 }
@@ -57,9 +60,9 @@ try {
   const start = timestamp();
   const processChild = Bun.spawn(['codex', '--no-daemon', 'exec', '--json',
     '-c', `otel.exporter=${exporter('/v1/logs')}`, '-c', `otel.trace_exporter=${exporter('/v1/traces')}`,
-    '-c', 'otel.log_user_prompt=true', ...childArgs], {stdin: 'inherit', stdout: 'pipe', stderr: 'inherit'});
+    '-c', `otel.log_user_prompt=${captureContents}`, ...childArgs], {stdin: 'inherit', stdout: 'pipe', stderr: 'inherit'});
   child = processChild;
-  record('process_start', {pid: child.pid, captureId: randomUUID(), machineId: currentMachineIdentity().id}, start);
+  record('process_start', {pid: child.pid, captureId: randomUUID(), machineId: currentMachineIdentity().id, capture_contents: captureContents}, start);
   const stdout = (async () => {
     let pending = ''; const decoder = new TextDecoder();
     for await (const buffer of processChild.stdout) {

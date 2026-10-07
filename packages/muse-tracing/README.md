@@ -47,7 +47,12 @@ To record automatically in new sessions where the plugin is enabled:
 agentprof-muse configure --auto-start
 ```
 
-Restore manual recording with `agentprof-muse configure --manual`. Muse's native
+Restore manual recording with `agentprof-muse configure --manual`. For
+metadata-only new captures use `agentprof-muse configure --no-content` or set
+`AGENTPROF_CAPTURE_CONTENTS=0` before launching Muse. To opt back in, use
+`agentprof-muse configure --capture-content` and remove the environment
+opt-out. This setting is stored with each recording for deterministic recovery.
+Muse's native
 plugin API does not expose custom keybindings; use the typed controls or tools.
 Session logging must remain enabled (do not pass `--no-session-log`).
 
@@ -84,7 +89,14 @@ Events use `muse.*` categories and the common Agent Profiler capture schema.
 Sessions are logical tracks under the actual Muse process, with machine identity,
 real-time clock snapshots, token units and counter resets at recording end.
 
-Prompts and bounded tool arguments are included, so review a trace before sharing.
+By default, prompts and bounded tool arguments are included, so review a trace
+before sharing. In metadata-only mode, main and reminder-session prompts and
+tool argument values are dropped during export parsing; prompt lengths, tool
+argument sizes/key names, tool names/IDs, timing, model/provider, usage and
+outcomes remain. Recording paths, session IDs and process metadata remain.
+Muse's own session journal is unaffected, and its export command temporarily
+writes a private full native export that is removed after parsing; this switch
+cannot prevent those upstream/transient copies.
 Provider credentials, model system instructions and encrypted reasoning are not
 copied into the trace or recorder state. Native exports use temporary private
 directories, removed after conversion. Only sessions

@@ -11,6 +11,7 @@ import {captureClockReadings} from '../pi-tracing/extensions/pi-tracing/tracer.t
 import {currentMachineIdentity} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {convert, controlPrompt, type Capture} from './convert.ts';
 import {readExport, validSession, string, object, integer, type NativeSession} from './native.ts';
+import {captureContentsEnabled} from '../agent-tracing/content.ts';
 
 const execute = promisify(execFile);
 export const now = () => (BigInt(Date.now()) * 1000000n).toString();
@@ -95,7 +96,7 @@ export async function exportSessions(recording: Recording, data: string): Promis
         env: nativeEnv(data), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: Math.max(1, Math.min(15000, deadline - Date.now())),
       });
       if ((await stat(exported)).size > 256 * 1024 * 1024) throw new Error('Muse session export exceeds 256 MiB');
-      const session = readExport(JSON.parse(await readFile(exported, 'utf8')), id);
+      const session = readExport(JSON.parse(await readFile(exported, 'utf8')), id, recording.capture!.capture_contents !== false);
       await rm(exported);
       const configuration = (await readJson(statePath(data, id)))?.configuration ?? [];
       for (const h of configuration) if (!recording.capture!.hooks.some(n => n.session === h.session && n.at === h.at)) recording.capture!.hooks.push(h);
@@ -146,7 +147,8 @@ export async function control(data: string, id: string, action: string, output?:
       if (cached && Date.now() - cached.at < 86400000) models = cached.models;
       else try {models = await catalog(record.binary, data); await atomicJson(join(data, 'catalog.json'), {at: Date.now(), models});} catch {}
       record.capture = {id: randomUUID(), session: id, pid: record.pid, machineId: currentMachineIdentity().id,
-        start: now(), end: now(), clocks: [clock()], catalog: models, hooks: []};
+        start: now(), end: now(), clocks: [clock()], catalog: models, hooks: [],
+        capture_contents: config?.capture_contents !== false && captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS)};
       if (record.model) record.capture.hooks.push({at: record.capture.start, session: id, event: 'PreLLMCall',
         model: record.model, provider: record.provider, effort: record.effort});
       record.output = target; record.saved = undefined; record.summary = undefined; record.stopping = false; record.watcher = undefined;

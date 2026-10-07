@@ -88,6 +88,15 @@ test('native timestamps, deduplication, logical subagents, flows and counters su
   expect(output.trim().split('\n').at(-1)).toBe('1,1,1,1,1,1,1,1,1,1,1,1,1,1,1');
 }, 30000);
 
+test('legacy conversion honors the persisted content policy even for unsanitized observations', () => {
+  const rows = fixture();
+  rows[0]!.data.capture_contents = false;
+  const trace = Buffer.from(convertObservations(rows).trace);
+  for (const secret of ['A measured fixture', 'Check the sum', 'Independent check', 'exit 7'])
+    expect(trace.includes(secret)).toBe(false);
+  expect(trace.includes('fixture-model')).toBe(true);
+});
+
 test('Claude events and counters use harness-specific categories', () => {
   const {trace} = convertObservations(fixture());
   const events = tracePackets(trace).flatMap(packet => decodeFields(packet)

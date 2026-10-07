@@ -332,6 +332,31 @@ function framePacket(packet) {
   return toU8(encodeBytesField(1, packet));
 }
 
+// packages/agent-tracing/content.ts
+function captureContentsEnabled(value, fallback = true) {
+  if (value === false || typeof value === "string" && ["0", "false"].includes(value.toLowerCase()))
+    return false;
+  if (value === true || typeof value === "string" && ["1", "true"].includes(value.toLowerCase()))
+    return true;
+  return fallback;
+}
+var metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
+function omitContent(value) {
+  if (Array.isArray(value))
+    return value.map(omitContent);
+  if (value === null || typeof value !== "object")
+    return value;
+  const source = value;
+  if (typeof source.key === "string" && (!metadataAttribute.test(source.key) || /(?:prompt|argument|output|input|content|body|text|tool_response|tool_result)/i.test(source.key) && !/(?:length|bytes|tokens|count|duration|status|exit_code)$/i.test(source.key)))
+    return;
+  return Object.fromEntries(Object.entries(source).flatMap(([key, entry]) => {
+    if (/(?:^|[._-])(?:prompt|arguments?|output|input|content|body|text|tool_response|tool_result|error|message|description|stack|script)(?:$|[._-])/i.test(key) && !/(?:length|bytes|tokens|count|duration|status|exit_code)$/i.test(key))
+      return [];
+    const safe = omitContent(entry);
+    return safe === undefined ? [] : [[key, safe]];
+  }));
+}
+
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
 function scriptAnnotations(language, code) {
   return { language, ...typeof code === "string" ? {
@@ -650,6 +675,7 @@ var DEFAULT_COUNTERS = [
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
+var MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 var OWNER_GRACE_MS = 5 * 60 * 1000;
 var utf82 = new TextEncoder;
 var runtimeIdentity = randomToken();
@@ -895,7 +921,7 @@ var isControlScript = (source) => {
   const calls = [...source.matchAll(/\btools\.([\w]+)\s*\(/g)];
   return calls.length > 0 && calls.every((call) => isControl(call[1]));
 };
-function addHooks(rows, spans, logs, first, last) {
+function addHooks(rows, spans, logs, first, last, captureContents = true) {
   const extra = [], tools = new Map, compactions = new Map;
   const hooks = rows.filter((row) => row.source === "codex.hook");
   for (const control of rows.filter((row) => row.source === "codex.control")) {
@@ -948,7 +974,10 @@ function addHooks(rows, spans, logs, first, last) {
         attrs: { "conversation.id": string(data.agent_id), "event.name": "codex.conversation_starts", model: string(data.model) }
       });
     if (event === "UserPromptSubmit") {
-      log("codex.user_prompt", { prompt: string(data.prompt) });
+      log("codex.user_prompt", {
+        prompt_length: integer(data.prompt_length) ?? string(data.prompt).length,
+        ...captureContents ? { prompt: string(data.prompt) } : {}
+      });
       const native = [...spans.values()].find((span) => span.name === "session_task.turn" && (span.attrs["conversation.id"] ?? span.attrs["thread.id"]) === id && span.attrs["turn.id"] === turn);
       if (native) {
         native.start = at;
@@ -981,7 +1010,7 @@ function addHooks(rows, spans, logs, first, last) {
     if (event === "PreToolUse" && !isControl(tool)) {
       const native = logs.some((log) => log.attrs["event.name"] === "codex.tool_result" && log.attrs["conversation.id"] === id && log.attrs.call_id === call);
       if (!native) {
-        const annotation = toolArgumentAnnotations(data.tool_input, true);
+        const annotation = data.tool_input === undefined ? {} : toolArgumentAnnotations(data.tool_input, captureContents);
         if (annotation.truncated !== undefined) {
           annotation.args_truncated = annotation.truncated;
           delete annotation.truncated;
@@ -1006,11 +1035,12 @@ function addHooks(rows, spans, logs, first, last) {
         slice.end = at;
         slice.attrs.incomplete = false;
         const result = object(data.tool_response);
-        if (typeof result.exit_code === "number") {
-          slice.attrs.exit_code = result.exit_code;
-          slice.attrs.is_error = result.exit_code !== 0;
-        } else if (typeof result.isError === "boolean")
-          slice.attrs.is_error = result.isError;
+        const exit = typeof result.exit_code === "number" ? result.exit_code : integer(data.exit_code);
+        if (exit !== undefined) {
+          slice.attrs.exit_code = exit;
+          slice.attrs.is_error = exit !== 0;
+        } else if (typeof result.isError === "boolean" || typeof data.is_error === "boolean")
+          slice.attrs.is_error = typeof result.isError === "boolean" ? result.isError : data.is_error;
       }
     }
     if (event === "PreCompact") {
@@ -1049,11 +1079,12 @@ function convertObservations(rows) {
   const pid = integer(processStart?.data.pid), capture = string(processStart?.data.captureId);
   if (!pid || !capture || !processStart)
     throw new Error("Missing recorded Codex process identity");
+  const captureContents = processStart.data.capture_contents !== false;
   const first = BigInt(processStart.timestamp), processEnd = rows.findLast((r) => r.source === "process_end");
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const { spans, logs } = readOtel(rows);
   const plugin = processStart.data.recorder === "codex-plugin-1";
-  const extra = plugin ? addHooks(rows, spans, logs, first, last) : [];
+  const extra = plugin ? addHooks(rows, spans, logs, first, last, captureContents) : [];
   const ordered = [...spans.values()].sort((a, b) => compareTime(a.start, b.start));
   logs.sort((a, b) => compareTime(a.at, b.at));
   const cli = rows.filter((r) => r.source === "cli").map((r) => r.data);
@@ -1217,7 +1248,8 @@ function convertObservations(rows) {
       kind: "prompt",
       turn_id: string(turn.attrs["turn.id"]),
       ...turn.attrs["capture.incomplete"] ? { incomplete: true } : {},
-      ...promptAnnotations(log?.attrs.prompt === "[REDACTED]" ? undefined : log?.attrs.prompt, true)
+      ...promptAnnotations(log?.attrs.prompt === "[REDACTED]" ? undefined : log?.attrs.prompt, captureContents),
+      ...integer(log?.attrs.prompt_length) !== undefined ? { length: integer(log?.attrs.prompt_length) } : {}
     });
     edge(input, prompt);
     prompts.push(prompt);
@@ -1229,7 +1261,12 @@ function convertObservations(rows) {
     if (!sessions.has(id))
       continue;
     const input = add(id, `${log.key}:input`, "Inputs", "prompt-input", log.at, undefined, { source: "user" });
-    const prompt = add(id, log.key, "Session", "prompt", log.at, getSession(id).end, { kind: "prompt", incomplete: true, ...promptAnnotations(log.attrs.prompt, true) });
+    const prompt = add(id, log.key, "Session", "prompt", log.at, getSession(id).end, {
+      kind: "prompt",
+      incomplete: true,
+      ...promptAnnotations(log.attrs.prompt, captureContents),
+      ...integer(log.attrs.prompt_length) !== undefined ? { length: integer(log.attrs.prompt_length) } : {}
+    });
     edge(input, prompt);
     prompts.push(prompt);
     inputs.set(id, input);
@@ -1331,7 +1368,7 @@ function convertObservations(rows) {
     } catch {
       args = { code: source };
     }
-    const annotation = toolArgumentAnnotations(args, true);
+    const annotation = source ? toolArgumentAnnotations(args, captureContents) : {};
     if (annotation.truncated !== undefined) {
       annotation.args_truncated = annotation.truncated;
       delete annotation.truncated;
@@ -1352,7 +1389,7 @@ function convertObservations(rows) {
     if (native?.attrs["capture.incomplete"])
       attrs.incomplete = true;
     const intent = object(args).description ?? object(args).justification;
-    if (typeof intent === "string" && intent)
+    if (captureContents && typeof intent === "string" && intent)
       attrs.intent = intent;
     const slice = add(id, log.key, "Tools", name, start, end, attrs);
     if (plugin && start < first) {
@@ -1494,14 +1531,16 @@ var now = () => String(BigInt(Date.now()) * 1000000n);
 
 class Journal {
   sessionId;
+  captureContents;
   output;
   directory;
   start = now();
   fd;
   bytes = 0;
   dropped = 0;
-  constructor(sessionId, pid, cwd, path) {
+  constructor(sessionId, pid, cwd, path, captureContents = true) {
     this.sessionId = sessionId;
+    this.captureContents = captureContents;
     if (path !== undefined && (!path.trim() || !path.endsWith(".pftrace") || path.includes("\x00")))
       throw new Error("output_path must name a .pftrace file.");
     const captureId = randomUUID();
@@ -1518,7 +1557,8 @@ class Journal {
       sessionId,
       output: this.output,
       machineId: currentMachineIdentity().id,
-      recorder: "codex-plugin-1"
+      recorder: "codex-plugin-1",
+      capture_contents: this.captureContents
     } });
     this.clock();
   }
@@ -1526,7 +1566,24 @@ class Journal {
     this.add({ source: "clock_snapshot", timestamp: now(), data: Object.fromEntries(Object.entries(captureClockReadings()).map(([key, value]) => [key, String(value)])) });
   }
   add(row) {
-    const line = JSON.stringify(row) + `
+    const safe = this.captureContents || ["process_start", "process_end", "clock_snapshot", "session_metadata"].includes(row.source) ? row : { ...row, data: row.source === "codex.hook" ? Object.fromEntries(Object.entries(row.data).filter(([key]) => [
+      "hook_event_name",
+      "session_id",
+      "parent_session",
+      "agent_id",
+      "agent_type",
+      "turn_id",
+      "tool_name",
+      "tool_use_id",
+      "model",
+      "source",
+      "trigger",
+      "prompt_length",
+      "started_before_capture",
+      "exit_code",
+      "is_error"
+    ].includes(key))) : omitContent(row.data) };
+    const line = JSON.stringify(safe) + `
 `;
     const size = Buffer.byteLength(line);
     if (this.bytes + size > 128 * 1024 * 1024 && row.source !== "process_end") {
@@ -1705,6 +1762,7 @@ var alive = (pid) => {
 class Collector {
   state;
   drainMs;
+  captureContents;
   sessions = new Map;
   captures = new Map;
   routes = new Map;
@@ -1713,9 +1771,10 @@ class Collector {
   spans = new Map;
   lastActivity = Date.now();
   lastClock = Date.now();
-  constructor(state, drainMs = 7000) {
+  constructor(state, drainMs = 7000, captureContents = true) {
     this.state = state;
     this.drainMs = drainMs;
+    this.captureContents = captureContents;
     mkdirSync3(state, { recursive: true, mode: 448 });
   }
   recordState(id, value) {
@@ -1760,7 +1819,7 @@ class Collector {
       return;
     capture.journal.add(row);
   }
-  start(id, output) {
+  start(id, output, requestedContents = this.captureContents) {
     const session = this.sessions.get(id);
     if (!session || session.ended)
       throw new Error("No live Codex session. Enable and trust the Agent Profiler hooks.");
@@ -1774,7 +1833,8 @@ class Collector {
         throw new Error(`Already recording to ${existing.journal.output}`);
       return this.status(id);
     }
-    const journal = new Journal(id, session.pid, session.cwd, output);
+    const policy = this.captureContents && session.captureContents !== false && requestedContents;
+    const journal = new Journal(id, session.pid, session.cwd, output, policy);
     const capture = { journal, sessions: new Set([id]), telemetry: false };
     this.captures.set(id, capture);
     for (const item of this.sessions.values()) {
@@ -1846,7 +1906,7 @@ class Collector {
     })();
     return capture.saving;
   }
-  async hook(data, pid, timestamp, autoStart = false) {
+  async hook(data, pid, timestamp, autoStart = false, requestedContents = this.captureContents) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !["SubagentStart", "SubagentStop"].includes(event))
       data = { ...data, parent_session: data.session_id, session_id: data.agent_id };
@@ -1860,6 +1920,10 @@ class Collector {
       session = { id, pid, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model) };
       this.sessions.set(id, session);
     }
+    session.captureContents = session.captureContents !== false && requestedContents && this.captureContents;
+    const liveCapture = this.captureFor(id);
+    if (session.captureContents === false && liveCapture)
+      liveCapture.journal.captureContents = false;
     session.pid = pid;
     if (data.cwd)
       session.cwd = string(data.cwd);
@@ -1899,7 +1963,7 @@ class Collector {
         const message = status.state === "recording" ? `Recording to ${status.output}` : status.state === "saved" ? `Saved ${status.output}` : status.state === "saving" ? `Saving ${status.output}` : status.state === "idle" ? "Not recording." : string(status.error) || string(status.message);
         return { decision: "block", reason: `Agent Profiler: ${message}` };
       }
-      session.prompt = { source: "codex.hook", timestamp, data };
+      session.prompt = { source: "codex.hook", timestamp, data: session.captureContents ? data : { ...data, prompt: undefined, prompt_length: string(data.prompt).length } };
     }
     if (event === "SubagentStart" || event === "SubagentStop") {
       const childId = string(data.agent_id);
@@ -1924,7 +1988,14 @@ class Collector {
       capture.sessions.add(id);
       if (data.agent_id)
         capture.sessions.add(string(data.agent_id));
-      this.add(capture, { source: "codex.hook", timestamp, data });
+      const response = object(data.tool_response);
+      this.add(capture, { source: "codex.hook", timestamp, data: session.captureContents && capture.journal.captureContents ? data : {
+        ...data,
+        prompt: undefined,
+        prompt_length: typeof data.prompt === "string" ? data.prompt.length : data.prompt_length,
+        ...typeof response.exit_code === "number" ? { exit_code: response.exit_code } : {},
+        ...typeof response.isError === "boolean" ? { is_error: response.isError } : {}
+      } });
     }
     if (event === "Stop" || event === "Interrupt")
       session.prompt = undefined;
@@ -2072,10 +2143,10 @@ async function serve(state) {
         return reply(200, {});
       }
       if (request.url === "/hook")
-        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true));
+        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false));
       const id = string(data.session_id);
       if (request.url === "/start")
-        return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined));
+        return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === "/stop")
         return reply(200, await collector.stop(id));
       if (request.url === "/status")
@@ -2100,6 +2171,7 @@ async function serve(state) {
 
 // packages/codex-tracing/plugin.ts
 var script = fileURLToPath(import.meta.url);
+var captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 var args = process.argv.slice(2);
 var command = args.shift();
 function option(name) {
@@ -2118,7 +2190,7 @@ async function request(path, data = {}) {
   const response = await fetch(`http://127.0.0.1:${connection.port}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${connection.token}` },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...object(data), capture_contents: captureContents }),
     signal: AbortSignal.timeout(12000)
   });
   const result = object(await response.json());

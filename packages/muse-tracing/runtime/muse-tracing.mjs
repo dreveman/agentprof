@@ -233,6 +233,15 @@ function framePacket(packet) {
   return toU8(encodeBytesField(1, packet));
 }
 
+// packages/agent-tracing/content.ts
+function captureContentsEnabled(value, fallback = true) {
+  if (value === false || typeof value === "string" && ["0", "false"].includes(value.toLowerCase()))
+    return false;
+  if (value === true || typeof value === "string" && ["1", "true"].includes(value.toLowerCase()))
+    return true;
+  return fallback;
+}
+
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
 function toolArgumentAnnotations(input, captureContents) {
   const attrs = {};
@@ -473,6 +482,7 @@ var DEFAULT_COUNTERS = [
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
+var MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 var OWNER_GRACE_MS = 5 * 60 * 1000;
 var utf82 = new TextEncoder;
 var runtimeIdentity = randomToken();
@@ -659,7 +669,7 @@ var fields = {
   completed: [],
   task_stream_linked: ["task_id", "display"]
 };
-function readExport(raw, id) {
+function readExport(raw, id, captureContents = true) {
   const doc = object(raw);
   if (doc.export_schema_version !== 1 || !Array.isArray(doc.events))
     throw new Error("Unsupported Muse session export. Expected export_schema_version 1.");
@@ -686,6 +696,25 @@ function readExport(raw, id) {
     if (!keys && !child)
       return;
     const data = Object.fromEntries((keys ?? []).filter((k) => inner[k] !== undefined).map((k) => [k, inner[k]]));
+    if (kind === "started" && family === "run" && !captureContents) {
+      data.prompt_length = string(inner.prompt).length;
+      delete data.prompt;
+    }
+    if (!captureContents) {
+      delete data.reason;
+      delete data.error;
+      if (kind === "tool_batch_effect" && data.outcome)
+        data.outcome = { kind: string(data.outcome.kind) };
+    }
+    if (kind === "assistant_tool_calls_committed" && !captureContents)
+      data.tool_calls = (inner.tool_calls ?? []).map((call) => {
+        let args = call.args;
+        try {
+          if (typeof args === "string")
+            args = JSON.parse(args);
+        } catch {}
+        return { call_id: string(call.call_id), name: string(call.name), args_meta: toolArgumentAnnotations(args, false) };
+      });
     if (kind === "assistant_message_committed") {
       const chars = string(inner.text).length;
       data.context_chars = chars;
@@ -762,6 +791,7 @@ var controlPrompt = (text) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|
 var controlTool = (text) => /(?:^|[._:/-])tracing_(start|stop|status)$/.test(text);
 function convert(capture, native) {
   const first = BigInt(capture.start), last = BigInt(capture.end);
+  const captureContents = capture.capture_contents !== false;
   if (last < first)
     throw new Error("Recording end precedes start");
   const sessions = [], slices = [], counters = [];
@@ -836,7 +866,8 @@ function convert(capture, native) {
         const p = add(id, r.id, "Session", "prompt", at, terminal ? BigInt(terminal.at) : last, {
           kind: "prompt",
           turn_id: r.run,
-          ...promptAnnotations(d.prompt, true),
+          ...promptAnnotations(d.prompt, captureContents),
+          ...integer(d.prompt_length) !== undefined ? { length: d.prompt_length } : {},
           ...!terminal ? { incomplete: true } : {},
           ...terminal?.data.terminal && terminal.data.terminal !== "completed" ? { outcome: string(terminal.data.terminal) } : {}
         });
@@ -904,7 +935,7 @@ function convert(capture, native) {
         requestContext = { at, items: [...contextItems], categories };
       }
       if (r.family === "run" && r.kind === "started" && !controlPrompt(string(d.prompt))) {
-        const chars = string(d.prompt).length;
+        const chars = integer(d.prompt_length) ?? string(d.prompt).length;
         contextItems.push({ id: r.id, category: "prompts", chars, tokens: estimateContextTokens(chars), source_kind: "prompt", label: "User prompt" });
       }
       if (r.kind === "tool_result_batch_committed")
@@ -923,7 +954,7 @@ function convert(capture, native) {
         }
       if (r.kind === "assistant_tool_calls_committed")
         for (const call of d.tool_calls ?? []) {
-          const chars = typeof call.args === "string" ? call.args.length : JSON.stringify(call.args ?? {}).length;
+          const chars = !captureContents && integer(call.args_meta?.bytes) !== undefined ? call.args_meta.bytes : typeof call.args === "string" ? call.args.length : JSON.stringify(call.args ?? {}).length;
           contextItems.push({ id: `call:${call.call_id}`, category: "assistant", chars, tokens: estimateContextTokens(chars), source_kind: "tool", source_id: string(call.call_id), label: "Tool arguments" });
         }
       if (r.kind === "model_completed") {
@@ -989,8 +1020,8 @@ function convert(capture, native) {
           kind: "tool-execution",
           name,
           call_id: string(d.call_id),
-          ...toolArgumentAnnotations(args, true),
-          ...typeof object(args).description === "string" ? { intent: string(object(args).description).slice(0, 1024) } : {},
+          ...call?.args_meta ?? toolArgumentAnnotations(args, captureContents),
+          ...captureContents && typeof object(args).description === "string" ? { intent: string(object(args).description).slice(0, 1024) } : {},
           ...result?.exit_code !== undefined ? { exit_code: result.exit_code, outcome: result.terminal_status } : {},
           ...incomplete ? { incomplete: true } : { is_error: Boolean(failed) },
           ...!result && outcome.kind ? { outcome: string(outcome.kind) } : {}
@@ -1024,7 +1055,10 @@ function convert(capture, native) {
         const tool = add(id, key, "Tools", name, task.start, task.end ?? last, {
           kind: "tool-execution",
           name,
-          ...call ? { call_id: string(call.call_id), ...toolArgumentAnnotations(args, true) } : {},
+          ...call ? {
+            call_id: string(call.call_id),
+            ...call.args_meta ?? toolArgumentAnnotations(args, captureContents)
+          } : {},
           ...task.end ? { is_error: Boolean(task.error) } : { incomplete: true }
         });
         if (tool) {
@@ -1236,7 +1270,7 @@ async function exportSessions(recording, data) {
       });
       if ((await stat(exported)).size > 256 * 1024 * 1024)
         throw new Error("Muse session export exceeds 256 MiB");
-      const session = readExport(JSON.parse(await readFile(exported, "utf8")), id);
+      const session = readExport(JSON.parse(await readFile(exported, "utf8")), id, recording.capture.capture_contents !== false);
       await rm(exported);
       const configuration = (await readJson(statePath(data, id)))?.configuration ?? [];
       for (const h of configuration)
@@ -1315,7 +1349,8 @@ async function control(data, id, action, output) {
         end: now(),
         clocks: [clock()],
         catalog: models,
-        hooks: []
+        hooks: [],
+        capture_contents: config?.capture_contents !== false && captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS)
       };
       if (record.model)
         record.capture.hooks.push({
@@ -1589,11 +1624,13 @@ try {
 Then start Muse normally and type: tracing start
 Type tracing stop to save, or exit Muse to finish recording.`);
   } else if (action === "configure") {
-    if (args.length !== 1 || !["--auto-start", "--manual"].includes(args[0]))
-      throw new Error("Use configure --auto-start or configure --manual");
+    if (args.length !== 1 || !["--auto-start", "--manual", "--no-content", "--capture-content"].includes(args[0]))
+      throw new Error("Use configure --auto-start|--manual|--no-content|--capture-content");
     await mkdir2(data, { recursive: true, mode: 448 });
-    await atomicJson(join2(data, "config.json"), { auto_start: args[0] === "--auto-start" });
-    console.log(`Muse tracing: ${args[0] === "--auto-start" ? "start automatically in new sessions" : "start manually"}`);
+    const previous = await readJson(join2(data, "config.json")) ?? {};
+    const next = args[0] === "--auto-start" ? { auto_start: true } : args[0] === "--manual" ? { auto_start: false } : { capture_contents: args[0] === "--capture-content" };
+    await atomicJson(join2(data, "config.json"), { ...previous, ...next });
+    console.log(`Muse tracing: ${args[0]}`);
   } else if (["start", "stop", "status", "recover"].includes(action ?? "")) {
     const index = args.indexOf("--session"), id = index >= 0 ? args.splice(index, 2)[1] : process.env.MUSE_SESSION_ID;
     if (!id)
@@ -1603,7 +1640,7 @@ Type tracing stop to save, or exit Muse to finish recording.`);
       await ensureWatcher(data, id, script);
     console.log(JSON.stringify(result, null, 2));
   } else {
-    console.log("Usage: agentprof-muse install [--project] | configure --auto-start|--manual | start [OUTPUT.pftrace] --session ID | stop|status|recover --session ID");
+    console.log("Usage: agentprof-muse install [--project] | configure --auto-start|--manual|--no-content|--capture-content | start [OUTPUT.pftrace] --session ID | stop|status|recover --session ID");
     if (action && action !== "--help")
       process.exitCode = 2;
   }

@@ -72,6 +72,22 @@ test('observation preserves streamed chunks and final usage without per-tool pro
   expect(JSON.stringify(rows)).not.toContain('answer');
 });
 
+test('content opt-out excludes prompt and tool values from rows and persisted host state', async () => {
+  const shared = {};
+  const r = await recorder({AGENTPROF_TRACE_FILE: '/recording.pftrace', AGENTPROF_CAPTURE_CONTENTS: '0'}, shared);
+  await r.call('turn.start', {turnId: 'private-turn', text: 'PRIVATE_PROMPT'});
+  await r.call('agent.spawn', {tool_use_id: 'call', prompt: 'PRIVATE_CHILD', subagentType: 'worker'},
+    async () => ({agentId: 'child', model: 'model'}));
+  await r.call('tool.call', {tool: 'Bash', tool_use_id: 'bash', command: 'PRIVATE_COMMAND'},
+    async () => ({result: 'PRIVATE_OUTPUT'}));
+  expect(JSON.stringify(shared.value)).not.toMatch(/PRIVATE_PROMPT|PRIVATE_CHILD|PRIVATE_COMMAND|PRIVATE_OUTPUT/);
+  const rows = await r.finish();
+  expect(JSON.stringify(rows)).not.toMatch(/PRIVATE_PROMPT|PRIVATE_CHILD|PRIVATE_COMMAND|PRIVATE_OUTPUT/);
+  expect(rows.find(row => row.data.event === 'prompt' && row.data.phase === 'begin').data.prompt_length).toBe(14);
+  expect(rows.find(row => row.data.event === 'session' && row.data.phase === 'begin').data.capture_contents).toBe(false);
+  expect(rows.find(row => row.data.event === 'tool' && row.data.phase === 'begin').data.content_omitted).toBe(true);
+});
+
 test('cancellation closes the underlying model stream and records an incomplete response', async () => {
   const r = await recorder();
   let closed = false;

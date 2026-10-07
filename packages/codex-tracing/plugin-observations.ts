@@ -8,7 +8,7 @@ export const isControlScript = (source: string) => {
   const calls = [...source.matchAll(/\btools\.([\w]+)\s*\(/g)];
   return calls.length > 0 && calls.every(call => isControl(call[1]!));
 };
-export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Log[], first: bigint, last: bigint): Slice[] {
+export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Log[], first: bigint, last: bigint, captureContents = true): Slice[] {
   const extra: Slice[] = [], tools = new Map<string, Slice>(), compactions = new Map<string, Slice>();
   const hooks = rows.filter(row => row.source === 'codex.hook');
   for (const control of rows.filter(row => row.source === 'codex.control')) {
@@ -52,7 +52,8 @@ export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Lo
     if (event === 'SubagentStart') logs.push({key: `${key}:child`, trace: key, span: '', at,
       attrs: {'conversation.id': string(data.agent_id), 'event.name': 'codex.conversation_starts', model: string(data.model)}});
     if (event === 'UserPromptSubmit') {
-      log('codex.user_prompt', {prompt: string(data.prompt)});
+      log('codex.user_prompt', {prompt_length: integer(data.prompt_length) ?? string(data.prompt).length,
+        ...(captureContents ? {prompt: string(data.prompt)} : {})});
       const native = [...spans.values()].find(span => span.name === 'session_task.turn' &&
         (span.attrs['conversation.id'] ?? span.attrs['thread.id']) === id && span.attrs['turn.id'] === turn);
       if (native) {
@@ -77,7 +78,7 @@ export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Lo
       const native = logs.some(log => log.attrs['event.name'] === 'codex.tool_result' &&
         log.attrs['conversation.id'] === id && log.attrs.call_id === call);
       if (!native) {
-        const annotation = toolArgumentAnnotations(data.tool_input, true);
+        const annotation = data.tool_input === undefined ? {} : toolArgumentAnnotations(data.tool_input, captureContents);
         if (annotation.truncated !== undefined) {annotation.args_truncated = annotation.truncated; delete annotation.truncated;}
         const slice: Slice = {id: `hook-tool:${id}:${call}`, session: id, track: 'Tool dispatch', name: tool === 'Bash' ? 'bash' : tool,
           start: at, end: last, flows: [], attrs: {kind: 'tool-execution', call_id: call, timing: 'hook-dispatch', incomplete: true, ...annotation}};
@@ -89,8 +90,10 @@ export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Lo
       if (slice) {
         slice.end = at; slice.attrs.incomplete = false;
         const result = object(data.tool_response);
-        if (typeof result.exit_code === 'number') {slice.attrs.exit_code = result.exit_code; slice.attrs.is_error = result.exit_code !== 0;}
-        else if (typeof result.isError === 'boolean') slice.attrs.is_error = result.isError;
+        const exit = typeof result.exit_code === 'number' ? result.exit_code : integer(data.exit_code);
+        if (exit !== undefined) {slice.attrs.exit_code = exit; slice.attrs.is_error = exit !== 0;}
+        else if (typeof result.isError === 'boolean' || typeof data.is_error === 'boolean')
+          slice.attrs.is_error = typeof result.isError === 'boolean' ? result.isError : data.is_error as boolean;
       }
     }
     if (event === 'PreCompact') {

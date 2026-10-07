@@ -12,6 +12,7 @@ export interface Capture {
   catalog: {model: string; provider: string; context: number}[];
   hooks: {at: string; session: string; event: string; model?: string; provider?: string; effort?: string; trigger?: string}[];
   incomplete?: boolean;
+  capture_contents?: boolean;
 }
 const min = (a: bigint, b: bigint) => a < b ? a : b;
 const max = (a: bigint, b: bigint) => a > b ? a : b;
@@ -20,6 +21,7 @@ export const controlTool = (text: string) => /(?:^|[._:/-])tracing_(start|stop|s
 
 export function convert(capture: Capture, native: NativeSession[]) {
   const first = BigInt(capture.start), last = BigInt(capture.end);
+  const captureContents = capture.capture_contents !== false;
   if (last < first) throw new Error('Recording end precedes start');
   const sessions: Session[] = [], slices: Slice[] = [], counters: Counter[] = [];
   const inputs = new Map<string, Slice>(), delegates: {slice: Slice; child: string}[] = [];
@@ -72,7 +74,8 @@ export function convert(capture: Capture, native: NativeSession[]) {
       if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
         const terminal = records.find(n => n.run === r.run && n.family === 'run' && n.kind === 'terminal' && BigInt(n.at) >= at);
         const p = add(id, r.id, 'Session', 'prompt', at, terminal ? BigInt(terminal.at) : last,
-          {kind: 'prompt', turn_id: r.run, ...promptAnnotations(d.prompt, true), ...(!terminal ? {incomplete: true} : {}),
+          {kind: 'prompt', turn_id: r.run, ...promptAnnotations(d.prompt, captureContents),
+            ...(integer(d.prompt_length) !== undefined ? {length: d.prompt_length} : {}), ...(!terminal ? {incomplete: true} : {}),
             ...(terminal?.data.terminal && terminal.data.terminal !== 'completed' ? {outcome: string(terminal.data.terminal)} : {})});
         if (p) {
           prompts.set(r.run, p);
@@ -119,7 +122,7 @@ export function convert(capture: Capture, native: NativeSession[]) {
         requestContext = {at, items: [...contextItems], categories};
       }
       if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
-        const chars = string(d.prompt).length;
+        const chars = integer(d.prompt_length) ?? string(d.prompt).length;
         contextItems.push({id: r.id, category: 'prompts', chars, tokens: estimateContextTokens(chars), source_kind: 'prompt', label: 'User prompt'});
       }
       if (r.kind === 'tool_result_batch_committed') for (const result of d.results ?? []) {
@@ -127,7 +130,8 @@ export function convert(capture: Capture, native: NativeSession[]) {
           tokens: n, chars: integer(result.context_chars), source_id: string(result.call_id), source_kind: 'tool', label: 'Tool result'});
       }
       if (r.kind === 'assistant_tool_calls_committed') for (const call of d.tool_calls ?? []) {
-        const chars = typeof call.args === 'string' ? call.args.length : JSON.stringify(call.args ?? {}).length;
+        const chars = !captureContents && integer(call.args_meta?.bytes) !== undefined ? call.args_meta.bytes :
+          typeof call.args === 'string' ? call.args.length : JSON.stringify(call.args ?? {}).length;
         contextItems.push({id: `call:${call.call_id}`, category: 'assistant', chars, tokens: estimateContextTokens(chars), source_kind: 'tool', source_id: string(call.call_id), label: 'Tool arguments'});
       }
 
@@ -172,8 +176,9 @@ export function convert(capture: Capture, native: NativeSession[]) {
         let args: unknown = call?.args;
         try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
         const tool = add(id, r.id, 'Tools', name, task?.start ?? at, terminal ? BigInt(terminal.at) : last,
-          {kind: 'tool-execution', name, call_id: string(d.call_id), ...toolArgumentAnnotations(args, true),
-            ...(typeof object(args).description === 'string' ? {intent: string(object(args).description).slice(0, 1024)} : {}),
+          {kind: 'tool-execution', name, call_id: string(d.call_id),
+            ...(call?.args_meta ?? toolArgumentAnnotations(args, captureContents)),
+            ...(captureContents && typeof object(args).description === 'string' ? {intent: string(object(args).description).slice(0, 1024)} : {}),
             ...(result?.exit_code !== undefined ? {exit_code: result.exit_code, outcome: result.terminal_status!} : {}),
             ...(incomplete ? {incomplete: true} : {is_error: Boolean(failed)}),
             ...(!result && outcome.kind ? {outcome: string(outcome.kind)} : {})});
@@ -195,7 +200,8 @@ export function convert(capture: Capture, native: NativeSession[]) {
       const call = task.call ? calls.get(task.call) : candidates.length === 1 ? candidates[0] : undefined;
       let args = call?.args; try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
       const tool = add(id, key, 'Tools', name, task.start, task.end ?? last,
-        {kind: 'tool-execution', name, ...(call ? {call_id: string(call.call_id), ...toolArgumentAnnotations(args, true)} : {}),
+        {kind: 'tool-execution', name, ...(call ? {call_id: string(call.call_id),
+          ...(call.args_meta ?? toolArgumentAnnotations(args, captureContents))} : {}),
           ...(task.end ? {is_error: Boolean(task.error)} : {incomplete: true})});
       if (tool) {if (call) tools.set(call.call_id, tool); edge(responses.findLast(s => s.end! <= tool.start), tool);}
     }

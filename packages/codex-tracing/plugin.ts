@@ -9,8 +9,10 @@ import {configure, readConnection, stateDirectory} from './plugin-config.ts';
 import {serve} from './plugin-collector.ts';
 import {publish, now} from './plugin-journal.ts';
 import {object, string} from './otel.ts';
+import {captureContentsEnabled} from '../agent-tracing/content.ts';
 
 const script = fileURLToPath(import.meta.url);
+const captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 const args = process.argv.slice(2), command = args.shift();
 function option(name: string): string | undefined {
   const index = args.indexOf(name);
@@ -25,7 +27,7 @@ async function request(path: string, data: unknown = {}): Promise<Record<string,
   const connection = readConnection(state);
   const response = await fetch(`http://127.0.0.1:${connection.port}${path}`, {method: 'POST',
     headers: {'content-type': 'application/json', authorization: `Bearer ${connection.token}`},
-    body: JSON.stringify(data), signal: AbortSignal.timeout(12000)});
+    body: JSON.stringify({...object(data), capture_contents: captureContents}), signal: AbortSignal.timeout(12000)});
   const result = object(await response.json());
   if (!response.ok) throw new Error(string(result.error) || `Recorder returned ${response.status}`);
   return result;

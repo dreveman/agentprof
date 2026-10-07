@@ -121,7 +121,15 @@ Direct capture records:
   and the Overview card and Context tab. Child breakdowns remain unavailable.
 
 The plugin forwards events and results unchanged and does not record response
-text or tool output. It batches observations once per second into private
+text or tool output. Set `AGENTPROF_CAPTURE_CONTENTS=0` before launching Claude,
+or turn off the plugin's `capture_contents` setting, to omit prompt text and tool
+argument values from new direct recordings, checkpoints and raw journals.
+Prompt lengths, tool names/IDs, timing, usage and context counts remain. The
+legacy print-mode launcher honors the same environment opt-out, disables
+Claude's prompt/tool-detail telemetry and filters text before journaling.
+The recording output path, capture directory, session IDs and model/provider
+metadata remain; a journal from an earlier content-on capture is not rewritten.
+It batches observations once per second into private
 `agent.pftrace.capture/` files, with no per-tool helper process or telemetry
 collector. Prompts and tool arguments are bounded and contain potentially
 sensitive task content. The journal is bounded to 64 MiB;
@@ -222,7 +230,7 @@ npx bun tools/convert-claude.ts \
 ```
 
 The raw journal is bounded to 128 MiB. Dropped observations appear in the summary.
-The receiver accepts only authenticated requests on loopback. Traces and raw
+The receiver accepts only authenticated requests on loopback. With the default content-on policy, traces and raw
 journals contain prompts and tool inputs, including commands and edit arguments;
 raw telemetry may also contain account metadata supplied by Claude. The hook
 does not copy tool results, and full API bodies and assistant text export are

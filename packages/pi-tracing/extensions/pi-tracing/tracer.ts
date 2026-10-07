@@ -20,6 +20,7 @@ import { hostname, uptime } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import {Recording} from "./recording.ts";
+import {captureContentsEnabled} from '../../../agent-tracing/content.ts';
 
 import type { CategoryId, TracingConfig } from "./config.ts";
 import { SCHEMA_VERSION, TRACE_VERSION, reportedTokenUsage, tokenCount, runConfigurationAnnotations, type RunConfiguration } from "./annotations.ts";
@@ -696,7 +697,8 @@ export class Recorder {
           "clock_uncertainty_ns": Number(clock.uncertaintyNs),
           "categories": Object.entries(this.config.categories)
             .filter(([, enabled]) => enabled).map(([name]) => name).join(","),
-          "tool_arguments": this.config.captureContents && this.config.categories.contents,
+          "tool_arguments": this.config.captureContents && this.config.categories.contents &&
+            captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS),
         },
         tNs: this.tStartNs,
       }, true);

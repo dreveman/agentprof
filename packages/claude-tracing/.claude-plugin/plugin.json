@@ -15,6 +15,10 @@
     "show_controls": {
       "type": "boolean", "title": "Show recording controls", "default": true,
       "description": "Show recording status and a start/stop button above the prompt."
+    },
+    "capture_contents": {
+      "type": "boolean", "title": "Capture prompt and tool content", "default": true,
+      "description": "Record prompt text and tool arguments. Disable for metadata-only recordings."
     }
   }
 }

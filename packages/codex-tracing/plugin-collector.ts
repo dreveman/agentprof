@@ -12,7 +12,7 @@ import type {Observation} from './convert.ts';
 
 const validId = (id: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(id);
 const alive = (pid: number) => {try {process.kill(pid, 0); return true;} catch {return false;}};
-interface LiveSession {id: string; pid: number; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean}
+interface LiveSession {id: string; pid: number; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean; captureContents?: boolean}
 interface Capture {journal: Journal; sessions: Set<string>; end?: string; saving?: Promise<Record<string, unknown>>; telemetry: boolean}
 
 export class Collector {
@@ -24,7 +24,7 @@ export class Collector {
   private spans = new Map<string, Span>();
   private lastActivity = Date.now();
   private lastClock = Date.now();
-  constructor(readonly state: string, readonly drainMs = 7000) {mkdirSync(state, {recursive: true, mode: 0o700});}
+  constructor(readonly state: string, readonly drainMs = 7000, readonly captureContents = true) {mkdirSync(state, {recursive: true, mode: 0o700});}
   private recordState(id: string, value: Record<string, unknown>) {
     writeFileSync(join(this.state, `${id}.json`), JSON.stringify(value), {mode: 0o600});
   }
@@ -55,7 +55,7 @@ export class Collector {
     if (capture.end && BigInt(row.timestamp) > BigInt(capture.end)) return;
     capture.journal.add(row);
   }
-  start(id: string, output?: string): Record<string, unknown> {
+  start(id: string, output?: string, requestedContents = this.captureContents): Record<string, unknown> {
     const session = this.sessions.get(id);
     if (!session || session.ended) throw new Error('No live Codex session. Enable and trust the Agent Profiler hooks.');
     if (session.parent) throw new Error('Start recording in the primary session; its subagents share the trace.');
@@ -65,7 +65,8 @@ export class Collector {
       if (output) throw new Error(`Already recording to ${existing.journal.output}`);
       return this.status(id);
     }
-    const journal = new Journal(id, session.pid, session.cwd, output);
+    const policy = this.captureContents && session.captureContents !== false && requestedContents;
+    const journal = new Journal(id, session.pid, session.cwd, output, policy);
     const capture: Capture = {journal, sessions: new Set([id]), telemetry: false};
     this.captures.set(id, capture);
     for (const item of this.sessions.values()) {
@@ -115,7 +116,7 @@ export class Collector {
     })();
     return capture.saving;
   }
-  async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false) {
+  async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false, requestedContents = this.captureContents) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !['SubagentStart', 'SubagentStop'].includes(event))
       data = {...data, parent_session: data.session_id, session_id: data.agent_id};
@@ -128,6 +129,11 @@ export class Collector {
       session = {id, pid, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model)};
       this.sessions.set(id, session);
     }
+    // The hook process, not the shared receiver, owns this session's policy.
+    // A disabled setting wins even when another Codex process started the server.
+    session.captureContents = session.captureContents !== false && requestedContents && this.captureContents;
+    const liveCapture = this.captureFor(id);
+    if (session.captureContents === false && liveCapture) liveCapture.journal.captureContents = false;
     session.pid = pid;
     if (data.cwd) session.cwd = string(data.cwd);
     if (data.transcript_path && event !== 'SubagentStart') session.transcript = string(data.transcript_path);
@@ -155,7 +161,8 @@ export class Collector {
           status.state === 'idle' ? 'Not recording.' : string(status.error) || string(status.message);
         return {decision: 'block', reason: `Agent Profiler: ${message}`};
       }
-      session.prompt = {source: 'codex.hook', timestamp, data};
+      session.prompt = {source: 'codex.hook', timestamp, data: session.captureContents ? data :
+        {...data, prompt: undefined, prompt_length: string(data.prompt).length}};
     }
     if (event === 'SubagentStart' || event === 'SubagentStop') {
       const childId = string(data.agent_id);
@@ -173,7 +180,11 @@ export class Collector {
     if (capture && !capture.end) {
       capture.sessions.add(id);
       if (data.agent_id) capture.sessions.add(string(data.agent_id));
-      this.add(capture, {source: 'codex.hook', timestamp, data});
+      const response = object(data.tool_response);
+      this.add(capture, {source: 'codex.hook', timestamp, data: session.captureContents && capture.journal.captureContents ? data :
+        {...data, prompt: undefined, prompt_length: typeof data.prompt === 'string' ? data.prompt.length : data.prompt_length,
+          ...(typeof response.exit_code === 'number' ? {exit_code: response.exit_code} : {}),
+          ...(typeof response.isError === 'boolean' ? {is_error: response.isError} : {})}});
     }
     if (event === 'Stop' || event === 'Interrupt') session.prompt = undefined;
     if (event === 'SessionEnd') {
@@ -275,9 +286,9 @@ export async function serve(state: string) {
       const data = object(JSON.parse(body.toString('utf8')));
       if (request.url === '/health') return reply(200, {ready: true});
       if (request.url === '/v1/logs' || request.url === '/v1/traces') {collector.ingest(data); return reply(200, {});}
-      if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true));
+      if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false));
       const id = string(data.session_id);
-      if (request.url === '/start') return reply(200, collector.start(id, typeof data.output_path === 'string' ? data.output_path : undefined));
+      if (request.url === '/start') return reply(200, collector.start(id, typeof data.output_path === 'string' ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === '/stop') return reply(200, await collector.stop(id));
       if (request.url === '/status') return reply(200, collector.status(id));
       reply(404, {error: 'Unknown operation'});
