@@ -347,7 +347,6 @@ export const OVERVIEW_QUERIES = {
     s.session, s.capture, s.recorded_id,
     p.prompt_id, p.prompt_text, h.is_subagent,
     CASE WHEN h.is_subagent = 0 THEN 'Primary'
-      WHEN r.child_role = 'rig-worker' THEN 'Rig worker'
       WHEN NULLIF(r.subagent_type, '') IS NOT NULL
         THEN 'Subagent · ' || r.subagent_type
       ELSE 'Subagent' END AS role,

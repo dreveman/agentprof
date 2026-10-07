@@ -85,7 +85,7 @@ export function defaultConfig(): TracingConfig {
     queueBytes: 1024 * 1024,
     finalizeDeadlineMs: 1000,
     laneCap: 64,
-    childTools: ["rig_launch", "subagent"],
+    childTools: ["subagent"],
   };
 }
 

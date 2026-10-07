@@ -56,7 +56,7 @@ export interface ChildLaunchInfo {
   annotations: Record<string, string | number | boolean>;
 }
 
-function rigLaunchInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>): string {
+function workflowLaunchInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>): string {
   const taskId = asBoundedString(ownValue(args, "task_id"), 64);
   const rootId = asBoundedString(ownValue(args, "root_id"), 64);
   const namespace = asBoundedString(ownValue(args, "namespace"), 64);
@@ -96,10 +96,10 @@ export function describeChildLaunch(toolName: string, args: unknown, captureCont
   };
   const record = asRecord(args);
   let label: string;
-  if (toolName === "rig_launch" && record !== null) {
-    label = rigLaunchInfo(record, annotations);
-  } else if (toolName === "subagent" && record !== null) {
+  if (toolName === "subagent" && record !== null) {
     label = subagentInfo(record, annotations, captureContents);
+  } else if (record !== null) {
+    label = workflowLaunchInfo(record, annotations);
   } else {
     label = "launch";
   }
@@ -107,7 +107,7 @@ export function describeChildLaunch(toolName: string, args: unknown, captureCont
 }
 
 /** Best-effort extraction of the child's session UUID from a launch tool's
- * result content (e.g. rig_launch's "Spawned detached Pi session <uuid>"). */
+ * result content (e.g. "Spawned detached Pi session <uuid>"). */
 export function extractChildSessionId(toolName: string, result: unknown, captureContents = true): string | null {
   void toolName;
   if (!captureContents) {
@@ -145,7 +145,6 @@ export interface ChildRoleInfo {
   /** Stable role token for labels and track names (no free-form text). */
   role: string;
   parentSession?: string;
-  ownerPid?: number;
   subagentType?: string;
   sessionKeyBytes?: number;
 }
@@ -153,14 +152,6 @@ export interface ChildRoleInfo {
 /** Detect that this Pi process is itself a spawned child worker. Reads only
  * the standard orchestrator-provided variables; never model content. */
 export function detectChildRole(env: NodeJS.ProcessEnv): ChildRoleInfo | null {
-  if (env["WORKFLOW_RIG_PROCESS"] === "worker") {
-    const info: ChildRoleInfo = { role: "rig-worker" };
-    const parent = env["DEVMATE_PARENT_SESSION_ID"];
-    if (typeof parent === "string" && UUID_PATTERN.test(parent)) info.parentSession = parent;
-    const owner = env["WORKFLOW_RIG_OWNER_PID"];
-    if (typeof owner === "string" && /^[0-9]{1,10}$/.test(owner)) info.ownerPid = Number(owner);
-    return info;
-  }
   const subagentType = env["PI_SUBAGENT_TYPE"];
   if (typeof subagentType === "string" && subagentType !== "") {
     const info: ChildRoleInfo = { role: "subagent", subagentType: subagentType.slice(0, 64) };

@@ -289,12 +289,11 @@ export default function (pi: ExtensionAPI) {
     state.toolLastPartialBytes.clear();
     state.toolFlows.clear();
     state.childLaunches.clear();
-    rigRunSpans.clear();
   };
 
   /** Mirror recording state into the env children inherit. While recording,
    * ensure spawned workers autostart tracing (PI_TRACING) and load this
-   * extension (PI_SUBAGENT_EXTENSIONS, honored by braid and subagent launchers). Explicit
+   * extension (PI_SUBAGENT_EXTENSIONS, for launchers that opt into it). Explicit
    * user settings are never overridden; everything is restored to the
    * session-start values when recording stops. */
   const syncChildEnv = (): void => {
@@ -373,236 +372,6 @@ export default function (pi: ExtensionAPI) {
     return tracks?.sessionUuid ?? null;
   };
 
-  const workflowTrack = (): bigint | null => {
-    const tracks = session?.recorder.trackSet() as TrackSet | null;
-    return tracks?.workflowUuid ?? null;
-  };
-
-  /** Parent-side launch announcements from cooperating orchestrators (rig
-   * emits `workflow-rig:worker-launched` on the shared bus). Covers spawn
-   * paths invisible to tool hooks, e.g. rig slash commands. Validated and
-   * metadata-only; malformed payloads are ignored. */
-  const handleRigWorkerLaunched = (data: unknown): void => {
-    if (session === null) return;
-    try {
-      if (!session.recorder.isRecording() || !session.recorder.categoryOn("workflow")) return;
-      if (typeof data !== "object" || data === null || Array.isArray(data)) return;
-      const payload = data as Record<string, unknown>;
-      const str = (key: string, maxLen: number): string | null => {
-        const value = payload[key];
-        if (typeof value !== "string" || value === "") return null;
-        return value.length > maxLen ? value.slice(0, maxLen) : value;
-      };
-      const taskId = str("taskId", 64);
-      const childSession = str("sessionId", 64);
-      if (taskId === null && childSession === null) return;
-      const track = workflowTrack();
-      if (track === null) return;
-      const annotations: Record<string, string | number | boolean> = { source: "bus" };
-      const namespace = str("namespace", 64);
-      const rootId = str("rootId", 64);
-      const role = str("role", 64);
-      const mode = str("mode", 16);
-      const outcome = str("outcome", 16);
-      const parentSession = str("parentSessionId", 64);
-      if (namespace !== null) annotations["namespace"] = namespace;
-      if (rootId !== null) annotations["root_id"] = rootId;
-      if (taskId !== null) annotations["task_id"] = taskId;
-      if (childSession !== null) annotations["child_session"] = childSession;
-      if (role !== null) annotations["role"] = role;
-      if (mode !== null) annotations["mode"] = mode;
-      if (outcome !== null) annotations["outcome"] = outcome;
-      if (parentSession !== null) annotations["parent_session"] = parentSession;
-      const attempt = payload["attempt"];
-      if (typeof attempt === "number" && Number.isSafeInteger(attempt)) annotations["attempt"] = attempt;
-      session.recorder.emitInstant({
-        cat: "workflow",
-        trackUuid: track,
-        name: "launch",
-        annotations,
-      });
-      session.recorder.noteChildLaunch({ task: taskId, childSession, correlation: null });
-    } catch {
-      // Observability must never break the agent.
-    }
-  };
-
-  try {
-    const bus = (pi as unknown as { events?: { on?: (name: string, listener: (data: unknown) => void) => void } }).events;
-    bus?.on?.("workflow-rig:worker-launched", handleRigWorkerLaunched);
-  } catch {
-    // Runtimes without a shared event bus simply miss bus-sourced launches.
-  }
-
-  /** Open run slices by root id: `run-started` begins a long slice on the
-   * workflow parent track, `run-terminal` ends it. The stop-time cutoff
-   * machinery closes orphans, so a missing terminal never leaks a slice. */
-  const rigRunSpans = new Map<string, number>();
-
-  const rigRecord = (): boolean => {
-    if (session === null) return false;
-    return session.recorder.isRecording() && session.recorder.categoryOn("workflow");
-  };
-
-  const rigStr = (payload: Record<string, unknown>, key: string, maxLen: number): string | null => {
-    const value = payload[key];
-    if (typeof value !== "string" || value === "") return null;
-    return value.length > maxLen ? value.slice(0, maxLen) : value;
-  };
-
-  const rigAnnotations = (
-    payload: Record<string, unknown>,
-    fields: Array<{ key: string; annotation?: string; maxLen: number }>,
-  ): Record<string, string | number | boolean> => {
-    const annotations: Record<string, string | number | boolean> = { source: "bus" };
-    for (const field of fields) {
-      const value = rigStr(payload, field.key, field.maxLen);
-      if (value !== null) annotations[field.annotation ?? field.key] = value;
-    }
-    const attempt = payload["attempt"];
-    if (typeof attempt === "number" && Number.isSafeInteger(attempt)) annotations["attempt"] = attempt;
-    return annotations;
-  };
-
-  const handleRigRunStarted = (data: unknown): void => {
-    if (session === null) return;
-    try {
-      if (!rigRecord()) return;
-      if (typeof data !== "object" || data === null || Array.isArray(data)) return;
-      const payload = data as Record<string, unknown>;
-      const rootId = rigStr(payload, "rootId", 64);
-      if (rootId === null) return;
-      const track = workflowTrack();
-      if (track === null) return;
-      const previous = rigRunSpans.get(rootId);
-      if (previous !== undefined) {
-        session.recorder.emitEnd(previous, { superseded: true });
-        rigRunSpans.delete(rootId);
-      }
-      const span = session.recorder.beginSlice({
-        cat: "workflow",
-        trackUuid: track,
-        name: "run",
-        annotations: rigAnnotations(payload, [
-          { key: "rootId", annotation: "root_id", maxLen: 64 },
-          { key: "namespace", maxLen: 64 },
-          { key: "runId", annotation: "run_id", maxLen: 64 },
-          { key: "workflowName", annotation: "workflow_name", maxLen: 120 },
-        ]),
-      });
-      if (span !== null) rigRunSpans.set(rootId, span);
-    } catch {
-      // Observability must never break the agent.
-    }
-  };
-
-  const handleRigReconcile = (data: unknown): void => {
-    if (session === null) return;
-    try {
-      if (!rigRecord()) return;
-      if (typeof data !== "object" || data === null || Array.isArray(data)) return;
-      const payload = data as Record<string, unknown>;
-      const rootId = rigStr(payload, "rootId", 64);
-      const outcome = rigStr(payload, "outcome", 32) ?? "unknown";
-      const track = workflowTrack();
-      if (track === null) return;
-      const annotations = rigAnnotations(payload, [
-        { key: "namespace", maxLen: 64 },
-        { key: "runId", annotation: "run_id", maxLen: 64 },
-        { key: "source", maxLen: 32 },
-      ]);
-      const actionCount = payload["actionCount"];
-      if (typeof actionCount === "number" && Number.isSafeInteger(actionCount)) annotations["action_count"] = actionCount;
-      if (rootId !== null) annotations["root_id"] = rootId;
-      annotations["outcome"] = outcome;
-      const name = "reconcile";
-      const duration = payload["durationMs"];
-      if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
-        annotations["duration_ms"] = duration;
-        const endNs = process.hrtime.bigint();
-        const beginNs = endNs - BigInt(Math.round(duration * 1e6));
-        const span = session.recorder.beginSlice({ cat: "workflow", trackUuid: track, name, annotations, tNs: beginNs });
-        if (span !== null) session.recorder.emitEnd(span, undefined, endNs);
-      } else {
-        session.recorder.emitInstant({ cat: "workflow", trackUuid: track, name, annotations });
-      }
-    } catch {
-      // Observability must never break the agent.
-    }
-  };
-
-  const handleRigRunTerminal = (data: unknown): void => {
-    if (session === null) return;
-    try {
-      if (!rigRecord()) return;
-      if (typeof data !== "object" || data === null || Array.isArray(data)) return;
-      const payload = data as Record<string, unknown>;
-      const rootId = rigStr(payload, "rootId", 64);
-      const track = workflowTrack();
-      if (track === null) return;
-      const outcome = rigStr(payload, "outcome", 64);
-      const reason = rigStr(payload, "reason", 200);
-      const extra: Record<string, string | number | boolean> = {};
-      if (rootId !== null) extra["root_id"] = rootId;
-      if (outcome !== null) extra["outcome"] = outcome;
-      if (reason !== null) extra["reason"] = reason;
-      if (rootId !== null) {
-        const span = rigRunSpans.get(rootId);
-        rigRunSpans.delete(rootId);
-        if (span !== undefined) {
-          session.recorder.emitEnd(span, extra);
-          return;
-        }
-      }
-      session.recorder.emitInstant({
-        cat: "workflow",
-        trackUuid: track,
-        name: "run-terminal",
-        annotations: extra,
-      });
-    } catch {
-      // Observability must never break the agent.
-    }
-  };
-
-  const handleRigSpawnConfirm = (data: unknown): void => {
-    if (session === null) return;
-    try {
-      if (!rigRecord()) return;
-      if (typeof data !== "object" || data === null || Array.isArray(data)) return;
-      const payload = data as Record<string, unknown>;
-      const track = workflowTrack();
-      if (track === null) return;
-      const taskId = rigStr(payload, "taskId", 64);
-      const granted = payload["granted"];
-      const annotations = rigAnnotations(payload, [{ key: "source", maxLen: 32 }]);
-      if (taskId !== null) annotations["task_id"] = taskId;
-      if (typeof granted === "boolean") annotations["granted"] = granted;
-      session.recorder.emitInstant({
-        cat: "workflow",
-        trackUuid: track,
-        name: "spawn-confirmation",
-        annotations,
-      });
-    } catch {
-      // Observability must never break the agent.
-    }
-  };
-
-  // Subscriptions live after all handler definitions: referencing the const
-  // handlers any earlier throws a temporal-dead-zone ReferenceError, which
-  // the guarded block would swallow while silently dropping every event
-  // after the first.
-  try {
-    const bus = (pi as unknown as { events?: { on?: (name: string, listener: (data: unknown) => void) => void } }).events;
-    bus?.on?.("workflow-rig:run-started", handleRigRunStarted);
-    bus?.on?.("workflow-rig:reconcile", handleRigReconcile);
-    bus?.on?.("workflow-rig:run-terminal", handleRigRunTerminal);
-    bus?.on?.("workflow-rig:spawn-confirm", handleRigSpawnConfirm);
-  } catch {
-    // Runtimes without a shared event bus simply miss bus-sourced run events.
-  }
-
   // -- lifecycle --
 
   pi.on("session_start", async (_event, ctx) => {
@@ -619,7 +388,6 @@ export default function (pi: ExtensionAPI) {
     if (childRole !== null) {
       captureAnnotations.child_role = childRole.role;
       if (childRole.parentSession !== undefined) captureAnnotations.parent_session = childRole.parentSession;
-      if (childRole.ownerPid !== undefined) captureAnnotations.owner_pid = childRole.ownerPid;
       if (childRole.subagentType !== undefined) captureAnnotations.subagent_type = childRole.subagentType;
       if (childRole.sessionKeyBytes !== undefined) captureAnnotations.session_key_bytes = childRole.sessionKeyBytes;
     }

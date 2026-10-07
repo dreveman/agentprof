@@ -187,9 +187,10 @@ Event names identify operations, never their arguments or results. For example,
 use the normal `response`, `request`, `tool-result`, or
 `tool-middleware` name with `start_not_recorded = true`.
 
-Workflow events use `launch`, `delegate`, `run`, `reconcile`, `run-terminal`, and
-`spawn-confirmation`; identifiers, outcomes, counts, durations, and confirmation
-decisions are annotations. `user_bash` records `executable` and
+Workflow-category spans describe observed `subagent` or explicitly configured
+child-tool executions, with bounded delegation identifiers and returned child
+session IDs when available. No external orchestrator lifecycle is inferred from
+unrelated events. `user_bash` records `executable` and
 `length` (UTF-16 code units), never the command body in its name.
 
 Annotation values use protobuf integers for integral counts/status codes,

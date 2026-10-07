@@ -50,8 +50,8 @@ Flags / env:
 - `PI_TRACING_STARTUP=off|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,
   `PI_TRACING_MAX_FILE_MB`, `PI_TRACING_CAPTURE_CONTENTS=0` (omit tool arguments),
   `AGENTPROF_CAPTURE_CONTENTS=0` (omit prompt text and tool values across harnesses).
-- `PI_TRACING_CHILD_TOOLS=rig_launch,subagent,my_tool` — override the
-  child-agent spawner allowlist (default `rig_launch,subagent`).
+- `PI_TRACING_CHILD_TOOLS=subagent,my_launch_tool` — override the
+  child-agent spawner allowlist (default `subagent`).
 - `PI_SUBAGENT_EXTENSIONS=<paths>` — extra `--extension` flags for
   spawned workers (honored by the braid and subagent launchers); pair with
   `PI_TRACING=1` so workers join the recording.
@@ -163,23 +163,12 @@ launch returns the child session UUID for the parent recorder to capture.
   track UUIDs internally; identical names and Perfetto's sibling merge behavior
   combine them into a compact row with overlapping calls laid out separately.
 - `Workflow` — delegation metadata on the existing tool execution span for
-  `rig_launch`, `subagent`, and configured `childTools`: `delegation = true`,
-  launch identifiers, and the returned `child_session`. There is one interval on
-  `Tools`, measuring the launch call. The child records its own lifetime.
-  With the `tools` category disabled, `workflow` still records these calls on tool lanes.
-  Rig slash-command launches (`/rig:launch`, `/rig:advance`-driven spawns)
-  bypass Pi tool hooks, so workflow-rig announces them on the shared
-  extension event bus (`workflow-rig:worker-launched`); pi-tracing subscribes
-  when the event exists and records separate launch events on the workflow track.
-- **Run lifecycle** (same bus, same `workflow` category, no rig dependency
-  when absent): `workflow-rig:run-started` opens a long `run` slice
-  on the `Workflow` track; `workflow-rig:reconcile` renders each reconcile
-  pass as a backfilled `reconcile` slice, with `root_id`, `outcome`, and measured
-  `duration_ms` in typed debug annotations; `workflow-rig:run-terminal` closes the run slice with the
-  durable outcome (or an instant when the start was missed);
-  `workflow-rig:spawn-confirm` marks human confirmation gates. Together they
-  show run start, orchestration overhead, confirm waits, launches, and final
-  result on one timeline.
+  `subagent` and explicitly configured `childTools`: `delegation = true`,
+  bounded launch identifiers, and the returned `child_session`. There is one
+  interval on `Tools`, measuring the launch call. The child records its own
+  lifetime. With the `tools` category disabled, `workflow` still records these
+  calls on tool lanes. External orchestration events not dispatched through
+  Pi tool hooks are not inferred or synthesized.
 - **Flows:** every tool call emits one Perfetto flow from the `tool-preflight`
   instant on the agent track to the execution BEGIN on the tool lane, drawn
   as an arrow in the UI (`flow` table in SQL). Flows ride on existing packets
@@ -189,17 +178,18 @@ launch returns the child session UUID for the parent recorder to capture.
   supplies that UUID, using the saved start timestamp. Later inputs and repeated
   results for the same child do not reuse the link. See
   [prompt flows](../../docs/prompt-flows.md) for the encoding and import limits.
-- **Parent/child correlation:** spawned children (`pi --mode rpc` via rig or
-  subagent) inherit the parent environment, so `PI_TRACING=1` traces them too.
+- **Parent/child correlation:** spawned Pi child agents inherit the parent
+  environment, so `PI_TRACING=1` traces them too.
   You rarely set this by hand: while this session is recording, pi-tracing
   mirrors `PI_TRACING=1` and its own `--extension` path into the environment
-  children inherit (braid and subagent read the latter via `PI_SUBAGENT_EXTENSIONS`).
+  children inherit. Launchers must preserve that environment and load the
+  extension (for example, from `PI_SUBAGENT_EXTENSIONS`) for child capture.
   Explicit user settings are never overridden and are restored on stop.
   `PI_TRACING=0` blocks inheritance even while recording.
-  Each trace carries a random `session:<uuid>` process label; rig workers and
-  subagents additionally annotate the `profile (N)` span with the launching session ID
-  (`DEVMATE_PARENT_SESSION_ID`) and their role. `rig_launch` results contribute
-  the detached child session ID (`child_session` annotation) when present.
+  Each trace carries a random `session:<uuid>` process label; subagents
+  additionally annotate the `profile (N)` span with the launching session ID
+  (`DEVMATE_PARENT_SESSION_ID`) and their role. Supported child-tool results
+  contribute a detached child session ID (`child_session`) when present.
 - **One file per recording:** the top-level session and local descendants share
   a recording directory inherited through `PI_TRACING_RECORDING_DIR`. Each
   process uses its existing bounded writer and 5 ms flush timer for a private
@@ -251,8 +241,8 @@ substitutions, and shell punctuation are redacted.
 Exceptions required for the workflow feature (documented, identifiers only):
 
 - `session:<uuid>` process label on every trace (random join key, also in the
-  filename tag) plus `role:rig-worker` / `role:subagent` when applicable.
-- Workflow spans record rig `task_id` / `root_id` / `namespace` /
+  filename tag) plus `role:subagent` when applicable.
+- Configured workflow launch spans record bounded `task_id` / `root_id` / `namespace` /
   `expected_session_id` and the launched child's session id when the tool
   result carries one. The child's task prompt is recorded on its own operation
   when `prompt-data` is enabled; launch metadata does not duplicate task text.

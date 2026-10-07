@@ -11,8 +11,8 @@ import {
 } from "./workflow.ts";
 
 describe("pi-tracing workflow helpers", () => {
-  test("rig_launch description keeps identifiers, drops bodies", () => {
-    const info = describeChildLaunch("rig_launch", {
+  test("configured launch tool keeps identifiers, drops bodies", () => {
+    const info = describeChildLaunch("delegate_launch", {
       namespace: "ns",
       root_id: "root-1",
       task_id: "task-7",
@@ -62,23 +62,12 @@ describe("pi-tracing workflow helpers", () => {
     for (const id of ids) expect(/^[0-9a-f]{8}$/.test(id)).toBe(true);
   });
 
-  test("child session extraction finds rig session uuid", () => {
-    const id = extractChildSessionId("rig_launch", {
+  test("child session extraction finds a delegated session uuid", () => {
+    const id = extractChildSessionId("delegate_launch", {
       content: [{ type: "text", text: "Spawned detached Pi session 019ffdb0-3e55-713c-a283-1373113797d5. Remote output monitored." }],
     });
     expect(id).toBe("019ffdb0-3e55-713c-a283-1373113797d5");
-    expect(extractChildSessionId("rig_launch", { content: [] })).toBeNull();
-  });
-
-  test("rig worker role detection", () => {
-    const role = detectChildRole({
-      WORKFLOW_RIG_PROCESS: "worker",
-      DEVMATE_PARENT_SESSION_ID: "019ffdb0-3e55-713c-a283-1373113797d5",
-      WORKFLOW_RIG_OWNER_PID: "4242",
-    });
-    expect(role?.role).toBe("rig-worker");
-    expect(role?.parentSession).toBe("019ffdb0-3e55-713c-a283-1373113797d5");
-    expect(role?.ownerPid).toBe(4242);
+    expect(extractChildSessionId("delegate_launch", { content: [] })).toBeNull();
   });
 
   test("subagent role detection ignores malformed parent", () => {
@@ -94,7 +83,7 @@ describe("pi-tracing workflow helpers", () => {
 
   test("plain orchestrator has no child role", () => {
     expect(detectChildRole({})).toBeNull();
-    expect(detectChildRole({ WORKFLOW_RIG_PROCESS: "orchestrator" })).toBeNull();
+    expect(detectChildRole({ PI_SUBAGENT_TYPE: "" })).toBeNull();
   });
 });
 
