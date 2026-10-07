@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // packages/codex-tracing/plugin.ts
 import { spawn as spawn2, spawnSync } from "node:child_process";
-import { readFileSync as readFileSync8, openSync as openSync2, closeSync as closeSync2 } from "node:fs";
+import { readFileSync as readFileSync8, existsSync as existsSync5, openSync as openSync2, closeSync as closeSync2 } from "node:fs";
 import { connect } from "node:net";
 import { createInterface as createInterface2 } from "node:readline";
 import { dirname as dirname3, join as join5, resolve as resolve3 } from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-import { createHash as createHash5 } from "node:crypto";
+import { createHash as createHash5, randomUUID as randomUUID3 } from "node:crypto";
 import { setTimeout as delay3 } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-config.ts
@@ -2585,6 +2585,22 @@ async function request(path, data = {}) {
     throw new Error(response.status === 403 ? `Receiver authentication failed on port ${connection.port}; reinstall Agent Profiler and restart Codex if another process owns this port.` : string(result.error) || `Recorder returned ${response.status}`);
   return result;
 }
+async function legacyReceiver(port) {
+  try {
+    const challenge = await fetch(`http://127.0.0.1:${port}/health`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer invalid-agentprof-probe" },
+      body: "{}",
+      signal: AbortSignal.timeout(1500)
+    });
+    if (challenge.status !== 403 || object(await challenge.json()).error !== "Forbidden")
+      return "other";
+    const id = randomUUID3(), status = await request("/status", { session_id: id });
+    return status.state === "idle" && status.session_id === id ? "legacy" : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
 var portOccupied = (port) => new Promise((resolve) => {
   const socket = connect({ host: "127.0.0.1", port });
   let done = false;
@@ -2736,6 +2752,33 @@ try {
       console.log(JSON.stringify(control ? { decision: "block", reason: message } : { systemMessage: message }));
     }
   } else if (command === "install") {
+    const hasConnection = existsSync5(join5(state, "connection.json"));
+    let mustRebind = false;
+    if (hasConnection) {
+      let current;
+      try {
+        current = await request("/health");
+      } catch (error) {
+        if (!(error instanceof TransportError))
+          mustRebind = await portOccupied(readConnection(state).port);
+      }
+      if (current?.ready === true && current.build === undefined) {
+        const owner = await legacyReceiver(readConnection(state).port);
+        if (owner === "legacy")
+          throw new Error("An older Agent Profiler receiver is still running and cannot be upgraded safely. Finish or exit existing Codex sessions, wait for its receiver to exit, then retry install. The tracing profile was not changed.");
+        if (owner === "unknown")
+          throw new Error("Cannot verify the receiver on the configured port. Stop it and retry install; the tracing profile was not changed.");
+        mustRebind = true;
+      }
+      if (!mustRebind)
+        try {
+          await ensureReceiver();
+        } catch (error) {
+          if (!String(error).includes("Receiver port"))
+            throw error;
+          mustRebind = true;
+        }
+    }
     const root = resolve3(dirname3(script), "../../..");
     const market = spawnSync("codex", ["plugin", "marketplace", "add", root], { stdio: "inherit" });
     if (market.status !== 0)
@@ -2745,7 +2788,7 @@ try {
       throw new Error(`Codex plugin installation failed: ${install.stderr || install.error || install.status}`);
     const installed = object(JSON.parse(install.stdout));
     const runtime = join5(string(installed.installedPath), "runtime/codex-tracing.mjs");
-    let profile = await configure(state, dirname3(state), runtime, args.includes("--auto-start"));
+    let profile = await configure(state, dirname3(state), runtime, args.includes("--auto-start"), mustRebind);
     for (let attempt = 0;attempt < 3; attempt++)
       try {
         await ensureReceiver();

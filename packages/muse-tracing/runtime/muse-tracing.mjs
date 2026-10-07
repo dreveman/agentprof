@@ -649,6 +649,7 @@ function writeTrace(options) {
 // packages/muse-tracing/native.ts
 var object = (v) => v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
 var string = (v) => typeof v === "string" ? v : "";
+var controlPrompt = (text) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|status)$/.test(text.trim());
 var integer = (v) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
 var validSession = (id) => /^[a-f0-9]{8}-[a-f0-9-]{27}$/i.test(id);
 var fields = {
@@ -699,7 +700,9 @@ function readExport(raw, id, captureContents = true) {
       return;
     const data = Object.fromEntries((keys ?? []).filter((k) => inner[k] !== undefined && (captureContents || k !== "tool_calls")).map((k) => [k, inner[k]]));
     if (kind === "started" && family === "run" && !captureContents) {
-      data.prompt_length = string(inner.prompt).length;
+      const prompt = string(inner.prompt);
+      data.prompt_length = prompt.length;
+      data.control_prompt = controlPrompt(prompt);
       delete data.prompt;
     }
     if (!captureContents) {
@@ -787,7 +790,6 @@ function readExport(raw, id, captureContents = true) {
 // packages/muse-tracing/convert.ts
 var min = (a, b) => a < b ? a : b;
 var max = (a, b) => a > b ? a : b;
-var controlPrompt = (text) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|status)$/.test(text.trim());
 var controlTool = (text) => /(?:^|[._:/-])tracing_(start|stop|status)$/.test(text);
 function convert(capture, native) {
   const first = BigInt(capture.start), last = BigInt(capture.end);
@@ -861,7 +863,7 @@ function convert(capture, native) {
     let requestContext;
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
-      if (r.family === "run" && r.kind === "started" && !controlPrompt(string(d.prompt))) {
+      if (r.family === "run" && r.kind === "started" && d.control_prompt !== true && !controlPrompt(string(d.prompt))) {
         const terminal = records.find((n) => n.run === r.run && n.family === "run" && n.kind === "terminal" && BigInt(n.at) >= at);
         const p = add(id, r.id, "Session", "prompt", at, terminal ? BigInt(terminal.at) : last, {
           kind: "prompt",
@@ -934,7 +936,7 @@ function convert(capture, native) {
           categories.unattributed = (categories.unattributed ?? 0) + Math.ceil(d.omitted_bytes / 4);
         requestContext = { at, items: [...contextItems], categories };
       }
-      if (r.family === "run" && r.kind === "started" && !controlPrompt(string(d.prompt))) {
+      if (r.family === "run" && r.kind === "started" && d.control_prompt !== true && !controlPrompt(string(d.prompt))) {
         const chars = integer(d.prompt_length) ?? string(d.prompt).length;
         contextItems.push({ id: r.id, category: "prompts", chars, tokens: estimateContextTokens(chars), source_kind: "prompt", label: "User prompt" });
       }

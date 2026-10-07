@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import {spawn, spawnSync} from 'node:child_process';
-import {readFileSync, openSync, closeSync} from 'node:fs';
+import {readFileSync, existsSync, openSync, closeSync} from 'node:fs';
 import {connect} from 'node:net';
 import {createInterface} from 'node:readline';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createHash} from 'node:crypto';
+import {createHash, randomUUID} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
 import {configure, readConnection, stateDirectory} from './plugin-config.ts';
 import {serve} from './plugin-collector.ts';
@@ -52,6 +52,20 @@ async function request(path: string, data: unknown = {}): Promise<Record<string,
     `Receiver authentication failed on port ${connection.port}; reinstall Agent Profiler and restart Codex if another process owns this port.` :
     string(result.error) || `Recorder returned ${response.status}`);
   return result;
+}
+
+// The pre-build receiver has no build header, but its authenticated /status
+// and 403 Forbidden response can distinguish it from a service reusing its
+// port. An inconclusive probe must not discard a potentially active capture.
+async function legacyReceiver(port: number): Promise<'legacy' | 'other' | 'unknown'> {
+  try {
+    const challenge = await fetch(`http://127.0.0.1:${port}/health`, {method: 'POST',
+      headers: {'content-type': 'application/json', authorization: 'Bearer invalid-agentprof-probe'},
+      body: '{}', signal: AbortSignal.timeout(1500)});
+    if (challenge.status !== 403 || object(await challenge.json()).error !== 'Forbidden') return 'other';
+    const id = randomUUID(), status = await request('/status', {session_id: id});
+    return status.state === 'idle' && status.session_id === id ? 'legacy' : 'unknown';
+  } catch {return 'unknown';}
 }
 
 const portOccupied = (port: number) => new Promise<boolean>(resolve => {
@@ -159,6 +173,34 @@ try {
       console.log(JSON.stringify(control ? {decision: 'block', reason: message} : {systemMessage: message}));
     }
   } else if (command === 'install') {
+    // Check the receiver before changing an owned profile. Receivers shipped
+    // before build fencing have no authenticated shutdown protocol; replacing
+    // their hook command first would strand an otherwise working installation.
+    const hasConnection = existsSync(join(state, 'connection.json'));
+    let mustRebind = false;
+    if (hasConnection) {
+      let current: Record<string, unknown> | undefined;
+      try {current = await request('/health');}
+      catch (error) {
+        // A legacy connection has no generation header. An unrelated process
+        // may reuse its port and return any status or even non-JSON: only a
+        // still-occupied port needs rebinding, not a dead receiver.
+        if (!(error instanceof TransportError)) mustRebind = await portOccupied(readConnection(state).port);
+      }
+      if (current?.ready === true && current.build === undefined) {
+        const owner = await legacyReceiver(readConnection(state).port);
+        if (owner === 'legacy')
+          throw new Error('An older Agent Profiler receiver is still running and cannot be upgraded safely. Finish or exit existing Codex sessions, wait for its receiver to exit, then retry install. The tracing profile was not changed.');
+        if (owner === 'unknown')
+          throw new Error('Cannot verify the receiver on the configured port. Stop it and retry install; the tracing profile was not changed.');
+        mustRebind = true;
+      }
+      if (!mustRebind) try {await ensureReceiver();}
+      catch (error) {
+        if (!String(error).includes('Receiver port')) throw error;
+        mustRebind = true;
+      }
+    }
     const root = resolve(dirname(script), '../../..');
     const market = spawnSync('codex', ['plugin', 'marketplace', 'add', root], {stdio: 'inherit'});
     if (market.status !== 0) throw new Error(`Codex marketplace installation failed: ${market.error ?? market.status}`);
@@ -166,7 +208,7 @@ try {
     if (install.status !== 0) throw new Error(`Codex plugin installation failed: ${install.stderr || install.error || install.status}`);
     const installed = object(JSON.parse(install.stdout));
     const runtime = join(string(installed.installedPath), 'runtime/codex-tracing.mjs');
-    let profile = await configure(state, dirname(state), runtime, args.includes('--auto-start'));
+    let profile = await configure(state, dirname(state), runtime, args.includes('--auto-start'), mustRebind);
     // Bind before the user starts Codex: its OTLP endpoints are fixed for the
     // lifetime of that process. Retry a collision only while installing.
     for (let attempt = 0; attempt < 3; attempt++) try {await ensureReceiver(); break;}

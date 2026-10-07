@@ -17,9 +17,10 @@ import {fixture, rootSession, childSession, epoch, at, log} from './fixture.ts';
 import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
 
-async function runRuntimeClient(state: string, cwd: string, args: string[], input = ''): Promise<{code: number | null; output: string; error: string}> {
+async function runRuntimeClient(state: string, cwd: string, args: string[], input = '',
+                                env: NodeJS.ProcessEnv = process.env): Promise<{code: number | null; output: string; error: string}> {
   const child = spawn('node', [resolve(import.meta.dir, 'runtime/codex-tracing.mjs'), ...args, '--state', state],
-    {cwd, stdio: ['pipe', 'pipe', 'pipe']});
+    {cwd, env, stdio: ['pipe', 'pipe', 'pipe']});
   let output = '', error = '';
   child.stdout.on('data', chunk => {output += chunk;});
   child.stderr.on('data', chunk => {error += chunk;});
@@ -74,6 +75,75 @@ test('profile setup is private, repeatable and does not replace existing user co
     await expect(configure(join(home, 'agentprof'), home)).rejects.toThrow('different settings');
     expect(stateDirectory(join(home, 'plugins/data/agent-plugins/hash'))).toBe(join(home, 'agentprof'));
   } finally {rmSync(home, {recursive: true, force: true});}
+});
+
+test('install leaves the profile untouched when a legacy receiver cannot shut down', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-legacy-upgrade-'));
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof'), profile = await configure(state, home);
+    const connection = readConnection(state);
+    // The receiver on origin/main has no generation/build response headers,
+    // active-capture count or /shutdown endpoint.
+    writeFileSync(join(state, 'connection.json'), JSON.stringify({port: connection.port, token: connection.token}));
+    server = httpServer(async (request, response) => {
+      const reply = (status: number, body: unknown) => {
+        response.writeHead(status, {'content-type': 'application/json'}); response.end(JSON.stringify(body));
+      };
+      if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${connection.token}`)
+        return reply(403, {error: 'Forbidden'});
+      if (request.url === '/health') return reply(200, {ready: true});
+      if (request.url === '/status') {
+        let body = '';
+        for await (const chunk of request) body += chunk;
+        return reply(200, {state: 'idle', session_id: JSON.parse(body).session_id});
+      }
+      reply(404, {error: 'Unknown operation'});
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const before = readFileSync(profile, 'utf8');
+    const bin = join(home, 'bin'), invoked = join(home, 'codex-invoked'); mkdirSync(bin);
+    writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho invoked >> "$FAKE_CODEX_MARKER"\nexit 0\n', {mode: 0o755});
+    const result = await runRuntimeClient(state, home, ['install'], '',
+      {...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_CODEX_MARKER: invoked});
+    expect(result.code).toBe(1);
+    expect(result.error).toContain('older Agent Profiler receiver');
+    expect(readFileSync(profile, 'utf8')).toBe(before);
+    expect(existsSync(invoked)).toBe(false);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('install rebinds a legacy connection whose port was reused by another service', async () => {
+  for (const mode of ['not-found', 'ready'] as const) {
+    const home = mkdtempSync(join(tmpdir(), 'codex-legacy-port-'));
+    let blocker: ReturnType<typeof httpServer> | undefined, receiverPid: number | undefined;
+    try {
+      const state = join(home, 'agentprof'), profile = await configure(state, home);
+      const original = readConnection(state);
+      writeFileSync(join(state, 'connection.json'), JSON.stringify({port: original.port, token: original.token}));
+      blocker = httpServer((_request, response) => {
+        response.writeHead(mode === 'ready' ? 200 : 404, {'content-type': mode === 'ready' ? 'application/json' : 'text/html'});
+        response.end(mode === 'ready' ? '{"ready":true}' : '<html>unrelated service</html>');
+      });
+      await new Promise<void>((done, reject) => {blocker!.once('error', reject); blocker!.listen(original.port, '127.0.0.1', done);});
+      const bin = join(home, 'bin'); mkdirSync(bin);
+      writeFileSync(join(bin, 'codex'), `#!/bin/sh\nif [ "$2" = add ]; then echo '${JSON.stringify({installedPath: resolve(import.meta.dir)})}'; fi\n`, {mode: 0o755});
+      const result = await runRuntimeClient(state, home, ['install'], '',
+        {...process.env, PATH: `${bin}:${process.env.PATH}`});
+      expect(result.code, `${mode}: ${result.error}`).toBe(0);
+      const next = readConnection(state);
+      expect(next.port).not.toBe(original.port);
+      expect(readFileSync(profile, 'utf8')).toContain(`127.0.0.1:${next.port}/v1/logs`);
+      receiverPid = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8')).pid;
+    } finally {
+      if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+      if (blocker) await new Promise<void>(done => blocker!.close(() => done()));
+      rmSync(home, {recursive: true, force: true});
+    }
+  }
 });
 
 test('install can rebind a collided port without replacing an edited profile', async () => {

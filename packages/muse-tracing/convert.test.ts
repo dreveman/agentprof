@@ -93,6 +93,25 @@ test('metadata-only export and conversion omit main and reminder prompts and too
   expect(bytes.includes('fixture-model')).toBe(true);
 });
 
+test('metadata-only export still excludes tracing controls from prompts', () => {
+  const f = fixture();
+  const started = (f.raw.events as any[]).find(event => event.envelope.payload.event?.kind === 'started'
+    && event.envelope.payload.kind === 'run')!.envelope.payload.event;
+  started.prompt = 'tracing status';
+  const full = readExport(f.raw, root);
+  const stripped = readExport(f.raw, root, false);
+  const prompt = stripped.records.find(r => r.family === 'run' && r.kind === 'started')!;
+  expect(prompt.data).toMatchObject({prompt_length: 14, control_prompt: true});
+  expect(prompt.data.prompt).toBeUndefined();
+  f.sessions[0] = full;
+  expect(query(f, `SELECT (SELECT COUNT(*) FROM slice WHERE name='prompt'),
+    (SELECT COUNT(*) FROM slice WHERE name='prompt-input');`)).toBe('1,1');
+  f.capture.capture_contents = false;
+  f.sessions[0] = stripped;
+  expect(query(f, `SELECT (SELECT COUNT(*) FROM slice WHERE name='prompt'),
+    (SELECT COUNT(*) FROM slice WHERE name='prompt-input');`)).toBe('1,1');
+});
+
 test('disabled Muse export never serializes object-valued tool arguments', () => {
   const f = fixture();
   const calls = (f.raw.events as any[]).find(event => event.envelope.payload.event?.kind === 'assistant_tool_calls_committed')!

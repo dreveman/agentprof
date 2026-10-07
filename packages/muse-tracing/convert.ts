@@ -4,7 +4,8 @@ import {ContextTracker, estimateContextTokens, type ContextItem} from '../pi-tra
 import {writeTrace, compareTime, type Attrs, type Slice, type Session, type Counter} from '../agent-tracing/trace.ts';
 import {fnv1a64} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {promptAnnotations, toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
-import {integer, object, string, type NativeSession} from './native.ts';
+import {controlPrompt, integer, object, string, type NativeSession} from './native.ts';
+export {controlPrompt} from './native.ts';
 
 export interface Capture {
   id: string; session: string; pid: number; machineId: number; start: string; end: string;
@@ -17,7 +18,6 @@ export interface Capture {
 }
 const min = (a: bigint, b: bigint) => a < b ? a : b;
 const max = (a: bigint, b: bigint) => a > b ? a : b;
-export const controlPrompt = (text: string) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|status)$/.test(text.trim());
 export const controlTool = (text: string) => /(?:^|[._:/-])tracing_(start|stop|status)$/.test(text);
 
 export function convert(capture: Capture, native: NativeSession[]) {
@@ -72,7 +72,7 @@ export function convert(capture: Capture, native: NativeSession[]) {
     let requestContext: {at: bigint; items: ContextItem[]; categories: Record<string, number>} | undefined;
     for (const r of records) {
       const d = r.data, at = BigInt(r.at);
-      if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
+      if (r.family === 'run' && r.kind === 'started' && d.control_prompt !== true && !controlPrompt(string(d.prompt))) {
         const terminal = records.find(n => n.run === r.run && n.family === 'run' && n.kind === 'terminal' && BigInt(n.at) >= at);
         const p = add(id, r.id, 'Session', 'prompt', at, terminal ? BigInt(terminal.at) : last,
           {kind: 'prompt', turn_id: r.run, ...promptAnnotations(d.prompt, captureContents),
@@ -122,7 +122,7 @@ export function convert(capture: Capture, native: NativeSession[]) {
         if (integer(d.omitted_bytes)) categories.unattributed = (categories.unattributed ?? 0) + Math.ceil(d.omitted_bytes / 4);
         requestContext = {at, items: [...contextItems], categories};
       }
-      if (r.family === 'run' && r.kind === 'started' && !controlPrompt(string(d.prompt))) {
+      if (r.family === 'run' && r.kind === 'started' && d.control_prompt !== true && !controlPrompt(string(d.prompt))) {
         const chars = integer(d.prompt_length) ?? string(d.prompt).length;
         contextItems.push({id: r.id, category: 'prompts', chars, tokens: estimateContextTokens(chars), source_kind: 'prompt', label: 'User prompt'});
       }

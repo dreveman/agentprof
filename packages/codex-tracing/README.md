@@ -88,7 +88,10 @@ and starts its receiver. Restart Codex afterward: already-running Codex
 processes still export native telemetry to the old port and cannot be silently
 repaired. Plugin updates restart an idle receiver when its build differs; an
 active recording must finish before the receiver can be replaced; stop/status
-and SessionEnd remain usable against the older receiver during that interval.
+and SessionEnd remain usable against newer versioned receivers during that interval.
+A receiver from versions without the safe shutdown protocol requires closing
+existing Codex sessions and retrying installation after it exits; the installer
+leaves the existing profile unchanged rather than half-upgrading it.
 A crashed startup lease is reclaimed after its grace period under a kernel
 lock (`flock` on Linux, `lockf` on macOS, a named mutex on Windows). If the
 platform helper is unavailable, stale recovery fails safely instead of

@@ -4,6 +4,7 @@ import {estimateContextTokens} from '../pi-tracing/extensions/pi-tracing/context
 import {toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
 export const object = (v: unknown): Record<string, any> => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, any> : {};
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
+export const controlPrompt = (text: string) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|status)$/.test(text.trim());
 export const integer = (v: unknown): number | undefined => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
 export const validSession = (id: string): boolean => /^[a-f0-9]{8}-[a-f0-9-]{27}$/i.test(id);
 export interface NativeRecord {id: string; at: string; family: string; run: string; task: string; kind: string; data: Record<string, any>}
@@ -53,7 +54,9 @@ export function readExport(raw: unknown, id: string, captureContents = true): Na
       .filter(k => inner[k] !== undefined && (captureContents || k !== 'tool_calls'))
       .map(k => [k, inner[k]]));
     if (kind === 'started' && family === 'run' && !captureContents) {
-      data.prompt_length = string(inner.prompt).length;
+      const prompt = string(inner.prompt);
+      data.prompt_length = prompt.length;
+      data.control_prompt = controlPrompt(prompt);
       delete data.prompt;
     }
     if (!captureContents) {
