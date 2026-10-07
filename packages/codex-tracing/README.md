@@ -21,15 +21,16 @@ In Codex, open `/hooks` once to review and trust the recording hooks. Then type:
 tracing start
 ```
 
-Run your task normally. Type `tracing stop` to save, or exit Codex. Use
-`tracing status` to see the state and absolute output path. A start can also
+Run your task normally. Type `tracing stop` to begin saving, or exit Codex.
+Stop returns **saving** immediately; use `tracing status` later to confirm
+**saved** or inspect an **error** and its retained journal. A start can also
 specify a new path: `tracing start recordings/my-task.pftrace`. Relative paths
 are resolved against that session's working directory. Existing traces and
 capture journals are never overwritten.
 
 These are plain typed controls, without a slash. They are handled before a
 model request. Codex currently labels the intercepted turn **Blocked by hook**;
-the message below it reports whether recording started or the file was saved.
+the message below it reports whether recording started or saving began.
 Codex 0.160.0 does not expose plugin toolbar buttons or custom recording
 keybindings.
 
@@ -73,9 +74,11 @@ Codex's normal trust review.
 
 The receiver starts on demand and exits after its Codex sessions end and exports
 drain. It flushes private journals every second. It writes only sessions being
-recorded; unrecorded native telemetry is discarded. Stopping waits seven seconds
-for batched exports, while the recording's end timestamp remains fixed. Exit
-saves asynchronously after this drain. Recording controls are excluded from
+recorded; unrecorded native telemetry is discarded. Saving continues in the
+receiver for approximately seven seconds to collect batched exports, while the
+recording's end timestamp remains fixed. The receiver remains alive until it
+publishes or persists an error; `tracing status` reports the terminal result.
+Exit also initiates asynchronous saving. Recording controls are excluded from
 tool activity. No upstream Codex changes are required.
 
 ## Optional exec launcher
@@ -138,7 +141,11 @@ context limit comes from Codex's own session metadata, not the observed peak.
 
 Each recording creates `agent.pftrace.capture/observations.jsonl`, with captured
 native telemetry, hooks and narrowly selected session metadata. It can be
-converted again without running a model:
+converted again without running a model. Recovery skips malformed complete
+JSONL records and an interrupted final fragment, counts them as
+`corruptRecords` in `summary.json`, and marks the trace incomplete while
+retaining later valid observations. A missing process identity still prevents
+publication:
 
 ```sh
 agentprof-codex recover agent.pftrace.capture recovered.pftrace

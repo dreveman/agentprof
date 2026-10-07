@@ -51,7 +51,7 @@ async function ensureReceiver() {
 export const tools = ['start', 'stop', 'status'].map(action => ({
   name: `tracing_${action}`,
   description: action === 'start' ? 'Start a local Agent Profiler recording of this Codex session and its subagents. Returns the trace output path.' :
-    action === 'stop' ? 'Stop and save this session’s Agent Profiler trace. Waits for batched telemetry and returns the saved trace path.' :
+    action === 'stop' ? 'Stop this recording and begin saving asynchronously. Returns a saving state and output path immediately; call tracing_status later to confirm saved or error.' :
     'Get this session’s recording state and trace path.',
   inputSchema: {type: 'object', properties: action === 'start' ? {output_path: {type: 'string', description: 'Optional new .pftrace path, relative to the session working directory.'}} : {}, additionalProperties: false},
   annotations: {readOnlyHint: action === 'status', destructiveHint: false, openWorldHint: false},

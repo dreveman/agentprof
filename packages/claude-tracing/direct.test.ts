@@ -6,6 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations, type Observation} from './convert.ts';
 import {initializeDirectCapture, readDirectCapture, finishDirectCapture} from './direct-journal.ts';
+import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
 import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
 
@@ -155,6 +156,58 @@ test('child causal link survives estimated execution start after actual child st
     JOIN slice a ON a.id=flow.slice_out JOIN slice b ON b.id=flow.slice_in
     WHERE a.name='Agent' AND EXTRACT_ARG(a.arg_set_id, 'debug.kind')='tool-dispatch' AND b.name='prompt-input';`)).toBe('1');
 }, 30000);
+
+test('Claude recovery skips and counts corrupt middle records while publishing later events incomplete', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-corrupt-journal-'));
+  try {
+    const capture = initializeDirectCapture(join(directory, 'salvaged.pftrace'), 12345);
+    const events = fixture().filter(r => r.source === 'claude.mod');
+    const lines = events.map(r => JSON.stringify(r));
+    lines.splice(3, 0, '{bad-json}', 'null', JSON.stringify({source: 'claude.mod', timestamp: 'invalid', data: {}}));
+    writeFileSync(join(capture.directory, 'events-000000.jsonl'), lines.join('\n') + '\n');
+    const rows = readDirectCapture(capture.directory);
+    expect(rows.filter(r => r.source === 'claude.mod')).toHaveLength(events.length);
+    expect(rows.filter(r => r.source === 'recovery')).toHaveLength(1);
+    expect(rows.find(r => r.source === 'recovery')!.data).toMatchObject({corrupt_records: 3, incomplete_chunk: 'events-000000.jsonl'});
+    expect(finishDirectCapture(capture.directory)).toMatchObject({corruptRecords: 3, responses: 3});
+    const packets = tracePackets(readFileSync(capture.output));
+    const incomplete = packets.some(packet => {
+      const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
+      if (!event) return false;
+      const fields = decodeFields(event);
+      if (new TextDecoder().decode(fields.find(f => f.number === 23)?.bytes) !== 'profile (1)') return false;
+      return fields.filter(f => f.number === 4).some(f => {
+        const annotation = decodeFields(f.bytes!);
+        return new TextDecoder().decode(annotation.find(a => a.number === 10)?.bytes) === 'incomplete' &&
+          annotation.find(a => a.number === 2)?.value === 1n;
+      });
+    });
+    expect(incomplete).toBe(true);
+    expect(JSON.parse(readFileSync(join(capture.directory, 'summary.json'), 'utf8')).corruptRecords).toBe(3);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('damaged Claude identity metadata never redirects publication', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-corrupt-identity-'));
+  try {
+    const output = join(directory, 'original.pftrace'), capture = initializeDirectCapture(output, 12345);
+    const path = join(capture.directory, 'metadata.json');
+    const metadata = JSON.parse(readFileSync(path, 'utf8'));
+    delete metadata[0].data.output;
+    writeFileSync(path, JSON.stringify(metadata));
+    expect(() => finishDirectCapture(capture.directory)).toThrow('Invalid Claude capture identity');
+    const packaged = spawnSync('node', [resolve(import.meta.dir, 'runtime/direct-writer.mjs'), 'finish', capture.directory],
+      {cwd: directory, encoding: 'utf8'});
+    expect(packaged.status).toBe(1);
+    expect(packaged.stderr).toContain('Invalid Claude capture identity');
+    expect(existsSync(join(directory, 'undefined'))).toBe(false);
+    expect(existsSync(output)).toBe(false);
+    metadata[0].data.output = join(directory, 'wrong.pftrace');
+    writeFileSync(path, JSON.stringify(metadata));
+    expect(() => finishDirectCapture(capture.directory)).toThrow('Invalid Claude capture identity');
+    expect(existsSync(join(directory, 'wrong.pftrace'))).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
 
 test('journal recovery retains complete records, protects existing output, and publishes privately', () => {
   const directory = mkdtempSync(join(tmpdir(), 'claude-direct-journal-'));

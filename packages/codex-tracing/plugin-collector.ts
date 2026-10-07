@@ -18,6 +18,7 @@ interface Capture {journal: Journal; sessions: Set<string>; end?: string; saving
 export class Collector {
   readonly sessions = new Map<string, LiveSession>();
   readonly captures = new Map<string, Capture>();
+  private terminalResults = new Map<string, Record<string, unknown>>();
   private routes = new Map<string, Set<string>>();
   private pending = new Map<string, {span: Span; wire: unknown; bytes: number}>();
   private pendingBytes = 0;
@@ -33,9 +34,23 @@ export class Collector {
     const capture = this.captureFor(id);
     if (capture) return {state: capture.end ? 'saving' : 'recording', output: capture.journal.output,
       session_id: capture.journal.sessionId, native_telemetry_received: capture.telemetry};
+    const terminal = this.terminalResults.get(id);
+    if (terminal) return terminal;
     const path = join(this.state, `${id}.json`);
     if (existsSync(path)) {
       const status = JSON.parse(readFileSync(path, 'utf8'));
+      if (['recording', 'saving'].includes(status.state) && typeof status.output === 'string') {
+        // A receiver may die after publication but before persisting its
+        // terminal status. Reconcile only this capture's private sidecars.
+        const directory = `${status.output}.capture`, summary = join(directory, 'summary.json');
+        try {
+          if (existsSync(status.output) && existsSync(summary))
+            return {state: 'saved', ...JSON.parse(readFileSync(summary, 'utf8'))};
+        } catch {}
+        const error = join(directory, 'error.txt');
+        try {if (existsSync(error)) return {state: 'error', output: status.output, journal: directory,
+          error: readFileSync(error, 'utf8').trim()};} catch {}
+      }
       if (['recording', 'saving'].includes(status.state)) return {...status, state: 'interrupted',
         message: 'Recorder restarted. Recover the retained capture journal.'};
       return status;
@@ -68,6 +83,7 @@ export class Collector {
     const policy = this.captureContents && session.captureContents !== false && requestedContents;
     const journal = new Journal(id, session.pid, session.cwd, output, policy);
     const capture: Capture = {journal, sessions: new Set([id]), telemetry: false};
+    this.terminalResults.delete(id);
     this.captures.set(id, capture);
     for (const item of this.sessions.values()) {
       if (this.captureFor(item.id) !== capture || item.ended) continue;
@@ -82,13 +98,16 @@ export class Collector {
     this.recordState(id, status);
     return status;
   }
-  async stop(id: string, incomplete = false): Promise<Record<string, unknown>> {
+  stop(id: string, incomplete = false): Record<string, unknown> {
     const capture = this.captureFor(id);
     if (!capture) return this.status(id);
     if (capture.journal.sessionId !== id) throw new Error('Stop the recording from its primary session.');
-    if (capture.saving) return capture.saving;
+    if (capture.saving) return this.status(id);
     capture.end = now();
-    this.recordState(id, this.status(id));
+    const saving = this.status(id);
+    // A state-file failure must not strand an ended capture before its save
+    // task starts. The journal and its sidecars remain the recovery source.
+    try {this.recordState(id, saving);} catch {}
     capture.saving = (async () => {
       try {
         // Codex batches native telemetry independently of hooks. Continue to
@@ -104,17 +123,23 @@ export class Collector {
         capture.journal.close(capture.end!, incomplete);
         const summary = publish(capture.journal.directory);
         const result = {state: 'saved', ...summary};
-        this.recordState(id, result);
+        this.terminalResults.set(id, result);
+        // The output and summary are already published; failing to update the
+        // receiver's status file must not turn successful work into an error.
+        try {this.recordState(id, result);} catch {}
         return result;
       } catch (error) {
         const result = {state: 'error', output: capture.journal.output,
           journal: capture.journal.directory, error: String(error)};
-        this.recordState(id, result);
-        writeFileSync(join(capture.journal.directory, 'error.txt'), String(error), {mode: 0o600});
+        this.terminalResults.set(id, result);
+        // A detached save must never reject unobserved, even if the disk also
+        // fails while persisting its error. The journal remains recoverable.
+        try {this.recordState(id, result);} catch {}
+        try {writeFileSync(join(capture.journal.directory, 'error.txt'), String(error), {mode: 0o600});} catch {}
         return result;
       } finally {this.captures.delete(id); this.lastActivity = Date.now();}
     })();
-    return capture.saving;
+    return saving;
   }
   async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false, requestedContents = this.captureContents) {
     const event = string(data.hook_event_name);
@@ -152,7 +177,7 @@ export class Collector {
           action: control[1], prompt_length: Buffer.byteLength(string(data.prompt))}};
         if (capture && !capture.end) capture.journal.add(observation);
         let result;
-        try {result = control[1] === 'start' ? this.start(id, control[2]) : control[1] === 'stop' ? await this.stop(id) : this.status(id);}
+        try {result = control[1] === 'start' ? this.start(id, control[2]) : control[1] === 'stop' ? this.stop(id) : this.status(id);}
         catch (error) {result = {state: 'error', error: String(error)};}
         if (!capture && control[1] === 'start') this.captureFor(id)?.journal.add(observation);
         const status = object(result);
@@ -189,7 +214,7 @@ export class Collector {
     if (event === 'Stop' || event === 'Interrupt') session.prompt = undefined;
     if (event === 'SessionEnd') {
       session.ended = true;
-      if (capture && !capture.end && capture.journal.sessionId === id) void this.stop(id);
+      if (capture && !capture.end && capture.journal.sessionId === id) this.stop(id);
     }
     this.flushPending();
     return {};
@@ -261,7 +286,7 @@ export class Collector {
       capture.journal.flush();
       if (Date.now() - this.lastClock >= 60000) capture.journal.clock();
       const root = this.sessions.get(capture.journal.sessionId);
-      if (root && !alive(root.pid)) {root.ended = true; void this.stop(root.id, true);}
+      if (root && !alive(root.pid)) {root.ended = true; this.stop(root.id, true);}
     }
     if (Date.now() - this.lastClock >= 60000) this.lastClock = Date.now();
     return !this.captures.size && Date.now() - this.lastActivity > 15000 &&
@@ -289,7 +314,7 @@ export async function serve(state: string) {
       if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false));
       const id = string(data.session_id);
       if (request.url === '/start') return reply(200, collector.start(id, typeof data.output_path === 'string' ? data.output_path : undefined, data.capture_contents !== false));
-      if (request.url === '/stop') return reply(200, await collector.stop(id));
+      if (request.url === '/stop') return reply(200, collector.stop(id));
       if (request.url === '/status') return reply(200, collector.status(id));
       reply(404, {error: 'Unknown operation'});
     } catch (error) {reply(400, {error: String(error)});}

@@ -138,7 +138,11 @@ collector. Prompts and tool arguments are bounded and contain potentially
 sensitive task content. The journal is bounded to 64 MiB;
 omitted content is marked, and dropped events mark the recording incomplete.
 An abrupt process kill can lose up to the latest unflushed batch. The journal
-survives; a failed background conversion writes `error.txt` beside it. Recover
+survives; recovery skips malformed complete JSONL records and an interrupted
+final fragment, counts them as `corruptRecords` in `summary.json`, and marks the
+published trace incomplete while retaining later valid records. A damaged
+identity `metadata.json` cannot be safely reconstructed. A failed background
+conversion writes `error.txt` beside the journal. Recover
 with the bundled writer (find the installed plugin path with
 `claude plugin list --json`):
 

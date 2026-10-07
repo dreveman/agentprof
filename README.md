@@ -71,8 +71,9 @@ codex --no-daemon -p agentprof
 ```
 
 Review the recording hooks in `/hooks`, then type `tracing start`. Type
-`tracing stop` to save, or exit Codex. Agent tools can also start, stop and
-report recording status. Subagents share the same trace, with native model
+`tracing stop` to begin saving, or exit Codex. Stop returns `saving` promptly;
+use `tracing status` to confirm publication or see an error. Agent tools can also
+start, stop and report recording status. Subagents share the same trace, with native model
 timing, token usage, context limits, and scripts and their nested tools.
 
 For Muse Code, install the [native recording plugin](packages/muse-tracing/README.md):

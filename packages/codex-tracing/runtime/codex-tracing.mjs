@@ -114,7 +114,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-journal.ts
 import { mkdirSync as mkdirSync2, openSync, writeSync, fsyncSync, closeSync, readFileSync as readFileSync4, writeFileSync as writeFileSync2, existsSync as existsSync2, linkSync, unlinkSync } from "node:fs";
-import { dirname as dirname2, join as join2, resolve as resolve2 } from "node:path";
+import { dirname as dirname2, join as join2, resolve as resolve2, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
@@ -1526,6 +1526,28 @@ function convertObservations(rows) {
   } };
 }
 
+// packages/agent-tracing/journal.ts
+function parseObservationJournal(text) {
+  const lines = text.split(`
+`), tail = lines.pop();
+  const rows = [];
+  let corruptRecords = tail ? 1 : 0;
+  for (const line of lines) {
+    try {
+      const row = JSON.parse(line);
+      if (row === null || typeof row !== "object" || Array.isArray(row))
+        throw new Error("invalid observation");
+      const value = row;
+      if (typeof value.source !== "string" || !value.source || typeof value.timestamp !== "string" || !/^\d{1,20}$/.test(value.timestamp) || BigInt(value.timestamp) > (1n << 64n) - 1n || value.data === null || typeof value.data !== "object" || Array.isArray(value.data))
+        throw new Error("invalid observation");
+      rows.push(value);
+    } catch {
+      corruptRecords++;
+    }
+  }
+  return { rows, corruptRecords };
+}
+
 // packages/codex-tracing/plugin-journal.ts
 var now = () => String(BigInt(Date.now()) * 1000000n);
 
@@ -1603,13 +1625,17 @@ class Journal {
   }
 }
 function publish(directory, output) {
-  const text = readFileSync4(join2(directory, "observations.jsonl"), "utf8");
-  const lines = text.split(`
-`), tail = lines.pop();
-  const rows = lines.filter(Boolean).map((line) => JSON.parse(line));
-  if (tail)
-    rows.push({ source: "recovery", timestamp: rows.at(-1)?.timestamp ?? now(), data: { incomplete: true } });
-  const target = output ? resolve2(output) : String(rows.find((r) => r.source === "process_start")?.data.output ?? "");
+  const { rows, corruptRecords } = parseObservationJournal(readFileSync4(join2(directory, "observations.jsonl"), "utf8"));
+  if (corruptRecords)
+    rows.push({
+      source: "recovery",
+      timestamp: rows.at(-1)?.timestamp ?? now(),
+      data: { incomplete: true, corrupt_records: corruptRecords }
+    });
+  const original = rows.find((r) => r.source === "process_start")?.data.output;
+  if (!output && (typeof original !== "string" || !isAbsolute(original) || !resolve2(directory).endsWith(".pftrace.capture") || resolve2(original) !== resolve2(directory).slice(0, -".capture".length)))
+    throw new Error("Invalid Codex capture identity or output path.");
+  const target = output ? resolve2(output) : original;
   if (!target || !target.endsWith(".pftrace"))
     throw new Error("Missing trace output path.");
   if (existsSync2(target))
@@ -1622,7 +1648,7 @@ function publish(directory, output) {
   } finally {
     unlinkSync(temporary);
   }
-  const summary = { output: target, ...result.summary };
+  const summary = { output: target, ...result.summary, corruptRecords };
   writeFileSync2(join2(directory, "summary.json"), JSON.stringify(summary, null, 2) + `
 `, { mode: 384 });
   return summary;
@@ -1765,6 +1791,7 @@ class Collector {
   captureContents;
   sessions = new Map;
   captures = new Map;
+  terminalResults = new Map;
   routes = new Map;
   pending = new Map;
   pendingBytes = 0;
@@ -1791,9 +1818,29 @@ class Collector {
         session_id: capture.journal.sessionId,
         native_telemetry_received: capture.telemetry
       };
+    const terminal = this.terminalResults.get(id);
+    if (terminal)
+      return terminal;
     const path = join3(this.state, `${id}.json`);
     if (existsSync3(path)) {
       const status = JSON.parse(readFileSync5(path, "utf8"));
+      if (["recording", "saving"].includes(status.state) && typeof status.output === "string") {
+        const directory = `${status.output}.capture`, summary = join3(directory, "summary.json");
+        try {
+          if (existsSync3(status.output) && existsSync3(summary))
+            return { state: "saved", ...JSON.parse(readFileSync5(summary, "utf8")) };
+        } catch {}
+        const error = join3(directory, "error.txt");
+        try {
+          if (existsSync3(error))
+            return {
+              state: "error",
+              output: status.output,
+              journal: directory,
+              error: readFileSync5(error, "utf8").trim()
+            };
+        } catch {}
+      }
       if (["recording", "saving"].includes(status.state))
         return {
           ...status,
@@ -1836,6 +1883,7 @@ class Collector {
     const policy = this.captureContents && session.captureContents !== false && requestedContents;
     const journal = new Journal(id, session.pid, session.cwd, output, policy);
     const capture = { journal, sessions: new Set([id]), telemetry: false };
+    this.terminalResults.delete(id);
     this.captures.set(id, capture);
     for (const item of this.sessions.values()) {
       if (this.captureFor(item.id) !== capture || item.ended)
@@ -1860,16 +1908,19 @@ class Collector {
     this.recordState(id, status);
     return status;
   }
-  async stop(id, incomplete = false) {
+  stop(id, incomplete = false) {
     const capture = this.captureFor(id);
     if (!capture)
       return this.status(id);
     if (capture.journal.sessionId !== id)
       throw new Error("Stop the recording from its primary session.");
     if (capture.saving)
-      return capture.saving;
+      return this.status(id);
     capture.end = now();
-    this.recordState(id, this.status(id));
+    const saving = this.status(id);
+    try {
+      this.recordState(id, saving);
+    } catch {}
     capture.saving = (async () => {
       try {
         await delay(this.drainMs);
@@ -1887,7 +1938,10 @@ class Collector {
         capture.journal.close(capture.end, incomplete);
         const summary = publish(capture.journal.directory);
         const result = { state: "saved", ...summary };
-        this.recordState(id, result);
+        this.terminalResults.set(id, result);
+        try {
+          this.recordState(id, result);
+        } catch {}
         return result;
       } catch (error) {
         const result = {
@@ -1896,15 +1950,20 @@ class Collector {
           journal: capture.journal.directory,
           error: String(error)
         };
-        this.recordState(id, result);
-        writeFileSync3(join3(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
+        this.terminalResults.set(id, result);
+        try {
+          this.recordState(id, result);
+        } catch {}
+        try {
+          writeFileSync3(join3(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
+        } catch {}
         return result;
       } finally {
         this.captures.delete(id);
         this.lastActivity = Date.now();
       }
     })();
-    return capture.saving;
+    return saving;
   }
   async hook(data, pid, timestamp, autoStart = false, requestedContents = this.captureContents) {
     const event = string(data.hook_event_name);
@@ -1953,7 +2012,7 @@ class Collector {
           capture.journal.add(observation);
         let result;
         try {
-          result = control[1] === "start" ? this.start(id, control[2]) : control[1] === "stop" ? await this.stop(id) : this.status(id);
+          result = control[1] === "start" ? this.start(id, control[2]) : control[1] === "stop" ? this.stop(id) : this.status(id);
         } catch (error) {
           result = { state: "error", error: String(error) };
         }
@@ -2148,7 +2207,7 @@ async function serve(state) {
       if (request.url === "/start")
         return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === "/stop")
-        return reply(200, await collector.stop(id));
+        return reply(200, collector.stop(id));
       if (request.url === "/status")
         return reply(200, collector.status(id));
       reply(404, { error: "Unknown operation" });
@@ -2223,7 +2282,7 @@ async function ensureReceiver() {
 }
 var tools = ["start", "stop", "status"].map((action) => ({
   name: `tracing_${action}`,
-  description: action === "start" ? "Start a local Agent Profiler recording of this Codex session and its subagents. Returns the trace output path." : action === "stop" ? "Stop and save this session’s Agent Profiler trace. Waits for batched telemetry and returns the saved trace path." : "Get this session’s recording state and trace path.",
+  description: action === "start" ? "Start a local Agent Profiler recording of this Codex session and its subagents. Returns the trace output path." : action === "stop" ? "Stop this recording and begin saving asynchronously. Returns a saving state and output path immediately; call tracing_status later to confirm saved or error." : "Get this session’s recording state and trace path.",
   inputSchema: { type: "object", properties: action === "start" ? { output_path: { type: "string", description: "Optional new .pftrace path, relative to the session working directory." } } : {}, additionalProperties: false },
   annotations: { readOnlyHint: action === "status", destructiveHint: false, openWorldHint: false }
 }));

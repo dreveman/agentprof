@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // packages/claude-tracing/direct-journal.ts
 import { mkdirSync, writeFileSync, readFileSync as readFileSync3, readdirSync, renameSync, existsSync, linkSync, unlinkSync, statSync } from "node:fs";
-import { resolve, dirname, join } from "node:path";
+import { resolve, dirname, join, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
@@ -1041,6 +1041,28 @@ function convertDirectObservations(rows) {
   } };
 }
 
+// packages/agent-tracing/journal.ts
+function parseObservationJournal(text) {
+  const lines = text.split(`
+`), tail = lines.pop();
+  const rows = [];
+  let corruptRecords = tail ? 1 : 0;
+  for (const line of lines) {
+    try {
+      const row = JSON.parse(line);
+      if (row === null || typeof row !== "object" || Array.isArray(row))
+        throw new Error("invalid observation");
+      const value = row;
+      if (typeof value.source !== "string" || !value.source || typeof value.timestamp !== "string" || !/^\d{1,20}$/.test(value.timestamp) || BigInt(value.timestamp) > (1n << 64n) - 1n || value.data === null || typeof value.data !== "object" || Array.isArray(value.data))
+        throw new Error("invalid observation");
+      rows.push(value);
+    } catch {
+      corruptRecords++;
+    }
+  }
+  return { rows, corruptRecords };
+}
+
 // packages/claude-tracing/direct-journal.ts
 function initializeDirectCapture(path, pid = process.ppid) {
   const captureId = randomUUID();
@@ -1062,24 +1084,30 @@ function initializeDirectCapture(path, pid = process.ppid) {
   return metadata;
 }
 function readDirectCapture(directory) {
-  const rows = JSON.parse(readFileSync3(join(directory, "metadata.json"), "utf8"));
+  const metadata = JSON.parse(readFileSync3(join(directory, "metadata.json"), "utf8"));
+  if (!Array.isArray(metadata) || !metadata.every((row) => row && typeof row === "object" && typeof row.source === "string" && typeof row.timestamp === "string" && row.data && typeof row.data === "object" && !Array.isArray(row.data)))
+    throw new Error("Invalid Claude capture metadata");
+  const rows = metadata;
   for (const file of readdirSync(directory).filter((p) => /^events-\d+\.jsonl$/.test(p)).sort()) {
-    const text = readFileSync3(join(directory, file), "utf8");
-    const lines = text.split(`
-`);
-    const tail = lines.pop();
-    for (const line of lines)
-      if (line)
-        rows.push(JSON.parse(line));
-    if (tail)
-      rows.push({ source: "recovery", timestamp: rows.at(-1).timestamp, data: { incomplete_chunk: file } });
+    const { rows: valid, corruptRecords } = parseObservationJournal(readFileSync3(join(directory, file), "utf8"));
+    rows.push(...valid);
+    if (corruptRecords)
+      rows.push({
+        source: "recovery",
+        timestamp: rows.at(-1).timestamp,
+        data: { incomplete_chunk: file, corrupt_records: corruptRecords }
+      });
   }
   return rows;
 }
 function finishDirectCapture(directory) {
   const rows = readDirectCapture(directory), identity = rows.find((r) => r.source === "process_start");
-  const output = String(identity.data.output), captureId = String(identity.data.captureId);
+  const expected = resolve(directory);
+  if (!expected.endsWith(".pftrace.capture") || !identity || typeof identity.data.output !== "string" || !isAbsolute(identity.data.output) || resolve(identity.data.output) !== expected.slice(0, -".capture".length) || typeof identity.data.directory !== "string" || resolve(identity.data.directory) !== expected || typeof identity.data.captureId !== "string" || !identity.data.captureId)
+    throw new Error("Invalid Claude capture identity or output path");
+  const output = identity.data.output, captureId = identity.data.captureId;
   const result = convertDirectObservations(rows);
+  const corruptRecords = rows.filter((r) => r.source === "recovery").reduce((sum, r) => sum + Number(r.data.corrupt_records ?? 0), 0);
   const ownership = join(directory, "published");
   const owned = existsSync(ownership) ? JSON.parse(readFileSync3(ownership, "utf8")) : undefined;
   const replace = existsSync(output);
@@ -1104,9 +1132,9 @@ function finishDirectCapture(directory) {
   renameSync(`${ownership}.tmp`, ownership);
   if (existsSync(join(directory, "error.txt")))
     unlinkSync(join(directory, "error.txt"));
-  writeFileSync(join(directory, "summary.json"), JSON.stringify({ output, ...result.summary }, null, 2) + `
+  writeFileSync(join(directory, "summary.json"), JSON.stringify({ output, ...result.summary, corruptRecords }, null, 2) + `
 `, { mode: 384 });
-  return { output, ...result.summary };
+  return { output, ...result.summary, corruptRecords };
 }
 
 // packages/claude-tracing/direct-writer.ts
