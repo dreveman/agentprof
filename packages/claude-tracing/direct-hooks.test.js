@@ -82,6 +82,11 @@ test('content opt-out excludes prompt and tool values from rows and persisted ho
     async () => ({agentId: 'child', model: 'model'}));
   await r.call('tool.call', {tool: 'Bash', tool_use_id: 'bash', command: 'PRIVATE_COMMAND'},
     async () => ({result: 'PRIVATE_OUTPUT'}));
+  let inspected = false;
+  await r.call('tool.call', {tool: 'Bash', tool_use_id: 'guarded',
+    get command() {inspected = true; throw new Error('disabled content was inspected');}},
+    async () => ({result: 'ok'}));
+  expect(inspected).toBe(false);
   expect(JSON.stringify(shared.value)).not.toMatch(/PRIVATE_PROMPT|PRIVATE_CHILD|PRIVATE_COMMAND|PRIVATE_OUTPUT/);
   const rows = await r.finish();
   expect(JSON.stringify(rows)).not.toMatch(/PRIVATE_PROMPT|PRIVATE_CHILD|PRIVATE_COMMAND|PRIVATE_OUTPUT/);

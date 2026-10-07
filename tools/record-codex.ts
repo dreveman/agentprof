@@ -8,6 +8,7 @@ import {currentMachineIdentity} from '../packages/pi-tracing/extensions/pi-traci
 import {captureClockReadings} from '../packages/pi-tracing/extensions/pi-tracing/tracer.ts';
 import {convertObservations, type Observation} from '../packages/codex-tracing/convert.ts';
 import {capturedSessionIds, sessionMetadata} from '../packages/codex-tracing/metadata.ts';
+import {tagControlScripts} from '../packages/codex-tracing/plugin-observations.ts';
 import {captureContentsEnabled, omitContent} from '../packages/agent-tracing/content.ts';
 
 const args = process.argv.slice(2), separator = args.indexOf('--');
@@ -28,6 +29,8 @@ const journal = openSync(join(directory, 'observations.jsonl'), 'wx', 0o600);
 const timestamp = () => String(BigInt(Date.now()) * 1_000_000n);
 let bytes = 0, dropped = 0;
 function record(source: string, data: unknown, at = timestamp()) {
+  if (!captureContents && source === '/v1/logs' && data && typeof data === 'object')
+    tagControlScripts(data as Record<string, unknown>);
   const line = JSON.stringify({source, timestamp: at, data: captureContents || ['process_start', 'process_end', 'clock_snapshot', 'session_metadata'].includes(source)
     ? data : source === 'cli' ? {type: (data as any)?.type, thread_id: (data as any)?.thread_id} : omitContent(data)}) + '\n';
   if (source !== 'process_end' && bytes + Buffer.byteLength(line) > 128 * 1024 * 1024) {dropped++; return;}

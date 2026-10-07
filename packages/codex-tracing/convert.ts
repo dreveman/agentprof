@@ -217,12 +217,15 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const native = ordered.find(s => s.name === 'code_mode.handler.execute' && s.attrs.call_id === call && spanSession(s) === id);
     const start = native?.start ?? log.at - ms(duration), end = native?.end ?? log.at;
     const source = string(log.attrs.arguments);
-    if (native && isControlScript(source)) continue;
+    if (native && (log.attrs['agentprof.control_script'] === true ||
+      (captureContents && isControlScript(source)))) continue;
     let args: unknown;
-    try {args = JSON.parse(source);} catch {args = {code: source};}
-    const annotation = source ? toolArgumentAnnotations(args, captureContents) : {};
+    if (captureContents && source) {
+      try {args = JSON.parse(source);} catch {args = {code: source};}
+    }
+    const annotation = captureContents && source ? toolArgumentAnnotations(args, true) : {};
     if (annotation.truncated !== undefined) {annotation.args_truncated = annotation.truncated; delete annotation.truncated;}
-    const output = string(log.attrs.output);
+    const output = captureContents ? string(log.attrs.output) : '';
     const exit = ['exec_command', 'write_stdin', 'shell', 'shell_command'].includes(name)
       ? output.match(/(?:Process exited with code |"exit_code"\s*:\s*)(-?\d+)/) : null;
     const denied = logs.some(l => l.attrs['event.name'] === 'codex.sandbox_outcome' &&
@@ -232,9 +235,9 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
       timing: native ? 'native-span' : 'native-tool-duration',
       ...(failed ? {is_error: true} : native?.attrs.outcome === 'completed' ? {is_error: false} : exit ? {is_error: Number(exit[1]) !== 0} : {}),
       ...(exit ? {exit_code: Number(exit[1])} : {}),
-      ...(native ? scriptAnnotations('JavaScript', source) : {})};
+      ...(native ? scriptAnnotations('JavaScript', captureContents ? source : undefined) : {})};
     if (native?.attrs['capture.incomplete']) attrs.incomplete = true;
-    const intent = object(args).description ?? object(args).justification;
+    const intent = captureContents ? object(args).description ?? object(args).justification : undefined;
     if (captureContents && typeof intent === 'string' && intent) attrs.intent = intent;
     const slice = add(id, log.key, 'Tools', name, start, end, attrs);
     if (plugin && start < first) {slice.start = first; slice.attrs.incomplete = true;}
@@ -260,7 +263,8 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   // that Rust task IDs or agent sessions are operating-system threads.
   for (const session of sessions.values()) {
     const parent = string(session.attrs.parent_session); if (!parent) continue;
-    const launch = toolSlices.find(({slice, log}) => slice.session === parent && slice.name.endsWith('spawn_agent') && string(log.attrs.output).includes(session.id))?.slice;
+    const launch = captureContents ? toolSlices.find(({slice, log}) => slice.session === parent &&
+      slice.name.endsWith('spawn_agent') && string(log.attrs.output).includes(session.id))?.slice : undefined;
     if (launch) {launch.attrs.delegation = true; launch.attrs.child_session = session.id; edge(launch, inputs.get(session.id));}
   }
   for (const session of sessions.values()) {

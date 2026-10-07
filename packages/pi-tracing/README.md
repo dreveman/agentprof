@@ -235,8 +235,10 @@ execution span, capped at 65,536 UTF-16 code units across keys and text, 128 val
 and eight nesting levels. `args_truncated` marks omitted arguments. Set
 `PI_TRACING_CAPTURE_CONTENTS=0`, `captureContents: false` in configuration, or
 `/tracing categories contents off` to omit values without disabling prompt text.
-Preflight retains argument sizes and key lists; execution spans without a
-preflight may have no argument metadata when contents are disabled. Tool names,
+When content is on, preflight can retain exact JSON byte size and bounded key
+names without duplicating values on an already-started execution span. When
+content is off, arguments are not serialized for those measurements; byte size
+and key lists are absent rather than estimated. Tool names,
 IDs, timing and usage remain. The output path, process labels/session IDs, and
 workflow identifiers are metadata and remain in the trace.
 Tool results remain excluded. `/tracing status` reports prompt and tool-argument

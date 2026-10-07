@@ -1037,9 +1037,9 @@ export default function (pi: ExtensionAPI) {
       // Arguments belong to the execution span. Keep them here only when its
       // start was not recorded, so preflight-only captures still have details.
       const hasSpan = typeof toolCallId === "string" && state.toolSpans.has(toolCallId);
-      const annotations = toolArgumentAnnotations(input, !hasSpan &&
-        state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
-        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS));
+      const canCapture = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
+      const annotations = toolArgumentAnnotations(input, canCapture ? (hasSpan ? 'metadata' : true) : 'disabled');
       annotations["name"] = toolName;
       if (typeof toolCallId === "string") annotations["call_id"] = toolCallId;
       const parent = (event as {parentToolCallId?: unknown}).parentToolCallId;
@@ -1078,12 +1078,12 @@ export default function (pi: ExtensionAPI) {
       }
       const rawArgs = event as {args?: unknown; input?: unknown};
       const input = rawArgs.args ?? rawArgs.input;
-      const argumentData = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
-        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS)
-        ? toolArgumentAnnotations(input, true) : {};
+      const canCapture = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
+      const argumentData = canCapture ? toolArgumentAnnotations(input, true) : {};
       const launch = typeof toolName === "string" && state.recorder.categoryOn("workflow") &&
         state.recorder.getConfig().childTools.includes(toolName)
-        ? describeChildLaunch(toolName, input) : null;
+        ? describeChildLaunch(toolName, input, canCapture) : null;
       if (launch !== null) delete launch.annotations.tool; // The tool span already records its name.
       const span = state.recorder.beginToolSlice(toolCallId, name, startedNs, flowIds, {
         // Workflow-only recording still captures delegation on the tool lane.
@@ -1093,7 +1093,8 @@ export default function (pi: ExtensionAPI) {
         kind: name === "codemode" ? "script" : undefined,
         category: launch !== null && !state.recorder.categoryOn("tools") ? "workflow" : "tools",
         annotations: {
-          ...(name === "codemode" ? scriptAnnotations("JavaScript", (input as {code?: unknown} | undefined)?.code) : {}),
+          ...(name === "codemode" ? scriptAnnotations("JavaScript",
+            canCapture ? (input as {code?: unknown} | undefined)?.code : undefined) : {}),
           ...(argumentData.args === undefined ? {} : {args: argumentData.args}),
           ...(argumentData.truncated ? {args_truncated: true} : {}),
           ...(typeof parentToolCallId === "string" ? {parent_call_id: parentToolCallId} : {}),
@@ -1125,7 +1126,14 @@ export default function (pi: ExtensionAPI) {
         if (track !== null) state.recorder.emitInstant({ cat: "stream.verbose", trackUuid: track, name: "tool_update" });
       }
       const partial = (event as { partialResult?: unknown }).partialResult;
-      if (toolName === "codemode") codemodeCalls.observe(state.recorder, toolCallId, span, partial);
+      const canCapture = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
+      if (toolName === "codemode") codemodeCalls.observe(state.recorder, toolCallId, span, partial, false, canCapture);
+      if (!canCapture) {
+        state.recorder.annotateSpan(span, {bytes_unavailable: true});
+        state.recorder.accumulate(span, 0);
+        return;
+      }
       const currentBytes = partialResultBytes(partial);
       const previousBytes = state.toolLastPartialBytes.get(toolCallId) ?? 0;
       state.toolLastPartialBytes.set(toolCallId, currentBytes);
@@ -1149,8 +1157,10 @@ export default function (pi: ExtensionAPI) {
       if (typeof toolCallId !== "string") return;
       const endedNs = state.recorder.captureTimestamp();
       const span = state.toolSpans.get(toolCallId);
+      const canCapture = state.recorder.getConfig().captureContents && state.recorder.categoryOn("contents") &&
+        captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
       if (toolName === "codemode" && span !== undefined) {
-        codemodeCalls.observe(state.recorder, toolCallId, span, result, true);
+        codemodeCalls.observe(state.recorder, toolCallId, span, result, true, canCapture);
       }
       state.toolSpans.delete(toolCallId);
       state.toolLastPartialBytes.delete(toolCallId);
@@ -1158,7 +1168,7 @@ export default function (pi: ExtensionAPI) {
       const launch = state.childLaunches.get(toolCallId);
       state.childLaunches.delete(toolCallId);
       const childSession = launch !== undefined && typeof toolName === "string"
-        ? extractChildSessionId(toolName, result) : null;
+        ? extractChildSessionId(toolName, result, canCapture) : null;
       const childKey = childSession?.toLowerCase();
       const childFlow = childKey === undefined || state.linkedChildSessions.has(childKey)
         ? undefined : childPromptFlowId(childKey);

@@ -83,13 +83,29 @@ test('metadata-only export and conversion omit main and reminder prompts and too
   const serialized = JSON.stringify(session);
   expect(serialized).not.toMatch(/Read the fixture and fix the bug|exit 2/);
   expect(serialized).toContain('prompt_length');
-  expect(serialized).toContain('args_meta');
+  expect(serialized).toContain('args_chars');
+  expect(serialized).not.toContain('args_meta');
   f.sessions[0] = session;
   const bytes = Buffer.from(convert(f.capture, f.sessions).trace);
   expect(bytes.includes('Read the fixture and fix the bug')).toBe(false);
   expect(bytes.includes('Inspect the tests.')).toBe(false);
   expect(bytes.includes('exit 2')).toBe(false);
   expect(bytes.includes('fixture-model')).toBe(true);
+});
+
+test('disabled Muse export never serializes object-valued tool arguments', () => {
+  const f = fixture();
+  const calls = (f.raw.events as any[]).find(event => event.envelope.payload.event?.kind === 'assistant_tool_calls_committed')!
+    .envelope.payload.event.tool_calls;
+  let inspected = false;
+  calls[0].args = {toJSON() {inspected = true; throw new Error('must not serialize');}};
+  const native = readExport(f.raw, root, false);
+  expect(inspected).toBe(false);
+  const committed = native.records.find(r => r.kind === 'assistant_tool_calls_committed')!;
+  expect(committed.data.tool_calls[0].args).toBeUndefined();
+  f.capture.capture_contents = false; f.sessions[0] = native;
+  expect(() => convert(f.capture, f.sessions)).not.toThrow();
+  expect(inspected).toBe(false);
 });
 
 test('export deduplicates records, excludes inherited history and never retains reasoning', () => {

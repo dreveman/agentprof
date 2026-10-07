@@ -220,7 +220,9 @@ function framePacket(packet) {
 }
 
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
-function toolArgumentAnnotations(input, captureContents) {
+function toolArgumentAnnotations(input, mode) {
+  if (mode === false || mode === "disabled")
+    return {};
   const attrs = {};
   let json;
   try {
@@ -237,7 +239,7 @@ function toolArgumentAnnotations(input, captureContents) {
     if (keys.length > 12 || keys.some((key) => key.length > 200))
       attrs["keys_truncated"] = true;
   }
-  if (!captureContents)
+  if (mode === "metadata")
     return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
@@ -841,7 +843,7 @@ function convertDirectObservations(rows) {
       ...!measured || !close || close.data.incomplete ? { incomplete: true } : {},
       ...close ? { is_error: Boolean(close.data.is_error) } : execution ? { is_error: Boolean(execution.data.is_error) } : {}
     };
-    const intent = object(d.arguments).description;
+    const intent = captureContents ? object(d.arguments).description : undefined;
     if (captureContents && typeof intent === "string")
       attrs.intent = intent;
     const tool = add(r, "Tools", text(d.tool) || "tool", start, end, attrs);

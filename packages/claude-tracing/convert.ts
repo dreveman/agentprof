@@ -189,7 +189,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
       const name = string(parent?.attrs.tool_name) || string(hook?.event.tool_name) || 'tool';
       const args = toolArgumentAnnotations(hook?.event.tool_input, captureContents);
       if (args.truncated !== undefined) {args.args_truncated = args.truncated; delete args.truncated;}
-      const description = object(hook?.event.tool_input).description;
+      const description = captureContents ? object(hook?.event.tool_input).description : undefined;
       const tool = add(s.key, scope, 'Tools', name, s.start, s.end,
         {kind: 'tool-execution', call_id: callId, is_error: s.error || s.attrs.success === false, ...args,
           ...(captureContents && typeof description === 'string' ? {intent: description} : {})});

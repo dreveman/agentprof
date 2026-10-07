@@ -12,7 +12,8 @@ completed turns, and compaction. The full message list is read once at capture
 start (and after compaction), not before every model request. Subsequent item
 changes are best-effort counts observed from prompt, response and tool hooks;
 post-turn samples are labeled `transcript-observed` and do not claim exact
-request-input composition. Final response usage supplies exact reported input
+request-input composition. In content-disabled mode, tool argument/result size
+attribution that would require serialization is omitted. Final response usage supplies exact reported input
 counts separately. Pi estimates the observed
 outgoing transcript, including system sections and active tool definitions.
 Muse uses native outgoing-request lane byte counts when available, with

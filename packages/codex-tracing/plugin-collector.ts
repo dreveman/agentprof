@@ -7,7 +7,9 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {readConnection} from './plugin-config.ts';
 import {Journal, publish, now} from './plugin-journal.ts';
 import {readKnownSession} from './metadata.ts';
-import {readOtel, object, string, array, attributes, type Span} from './otel.ts';
+import {tagControlScripts} from './plugin-observations.ts';
+import {readOtel, object, string, array, attributes, isoTime, ns, type Span} from './otel.ts';
+import {omitContent} from '../agent-tracing/content.ts';
 import type {Observation} from './convert.ts';
 
 const validId = (id: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(id);
@@ -220,8 +222,11 @@ export class Collector {
     return {};
   }
   ingest(data: Record<string, unknown>) {
-    const rows: Observation[] = [{source: 'otel', timestamp: now(), data}];
-    const parsed = readOtel(rows);
+    // Routing only needs identity, timing and bounded native metadata. Never
+    // fingerprint full arguments/output before the per-capture journal strips
+    // them; a shared receiver can serve content-on and content-off sessions.
+    if ([...this.captures.values()].some(c => !c.journal.captureContents)) tagControlScripts(data);
+    const parsed = readOtel([{source: 'otel', timestamp: now(), data: omitContent(data) as Record<string, unknown>}]);
     const remember = (trace: string, id: string) => {
       if (!trace || !id) return;
       const ids = this.routes.get(trace) ?? new Set<string>(); ids.add(id); this.routes.set(trace, ids);
@@ -239,7 +244,7 @@ export class Collector {
       const capture = this.captureFor(id);
       if (!capture) continue;
       const row = {source: '/v1/logs', timestamp: now(), data: {resourceLogs: [{scopeLogs: [{logRecords: [log]}]}]}};
-      const at = readOtel([row]).logs[0]?.at;
+      const at = ns(object(log).timeUnixNano) || isoTime(attrs['event.timestamp']);
       if (at === undefined || at < BigInt(capture.journal.start) || (capture.end && at > BigInt(capture.end))) continue;
       capture.sessions.add(id); capture.telemetry = true;
       capture.journal.add(row);
@@ -247,7 +252,13 @@ export class Collector {
     for (const resource of array(data.resourceSpans)) for (const scope of array(object(resource).scopeSpans)) for (const wire of array(object(scope).spans)) {
       const value = object(wire), key = `${value.traceId}:${value.spanId}`, span = parsed.spans.get(key);
       if (span) {
-        const bytes = Buffer.byteLength(JSON.stringify(wire));
+        // Estimate an upper bound without JSON-serializing uncaptured text.
+        // Escaped JSON can use up to six bytes per UTF-16 code unit.
+        const bytes = Buffer.byteLength(JSON.stringify(omitContent(wire))) +
+          array(value.attributes).reduce<number>((total, raw) => {
+            const text = object(object(raw).value).stringValue;
+            return total + (typeof text === 'string' ? text.length * 6 : 0);
+          }, 0);
         this.pendingBytes += bytes - (this.pending.get(key)?.bytes ?? 0);
         this.pending.set(key, {span, wire, bytes});
       }

@@ -92,8 +92,10 @@ real-time clock snapshots, token units and counter resets at recording end.
 By default, prompts and bounded tool arguments are included, so review a trace
 before sharing. In metadata-only mode, main and reminder-session prompts and
 tool argument values are dropped during export parsing; prompt lengths, tool
-argument sizes/key names, tool names/IDs, timing, model/provider, usage and
-outcomes remain. Recording paths, session IDs and process metadata remain.
+names/IDs, timing, model/provider, usage and outcomes remain. A raw string
+argument may retain its UTF-16 length for partial context attribution; object
+arguments are not traversed for size or keys. Recording paths, session IDs and
+process metadata remain.
 Muse's own session journal is unaffected, and its export command temporarily
 writes a private full native export that is removed after parsing; this switch
 cannot prevent those upstream/transient copies.

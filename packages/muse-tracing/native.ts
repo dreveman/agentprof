@@ -49,7 +49,9 @@ export function readExport(raw: unknown, id: string, captureContents = true): Na
     // another workspace or copy inherited history into a child capture.
     const child = validSession(string(inner.child_session_id)) ? string(inner.child_session_id) : '';
     if (!keys && !child) return;
-    const data = Object.fromEntries((keys ?? []).filter(k => inner[k] !== undefined).map(k => [k, inner[k]]));
+    const data = Object.fromEntries((keys ?? [])
+      .filter(k => inner[k] !== undefined && (captureContents || k !== 'tool_calls'))
+      .map(k => [k, inner[k]]));
     if (kind === 'started' && family === 'run' && !captureContents) {
       data.prompt_length = string(inner.prompt).length;
       delete data.prompt;
@@ -58,10 +60,9 @@ export function readExport(raw: unknown, id: string, captureContents = true): Na
       delete data.reason; delete data.error;
       if (kind === 'tool_batch_effect' && data.outcome) data.outcome = {kind: string(data.outcome.kind)};
     }
-    if (kind === 'assistant_tool_calls_committed' && !captureContents) data.tool_calls = (inner.tool_calls ?? []).map((call: any) => {
-      let args = call.args; try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
-      return {call_id: string(call.call_id), name: string(call.name), args_meta: toolArgumentAnnotations(args, false)};
-    });
+    if (kind === 'assistant_tool_calls_committed' && !captureContents) data.tool_calls = (inner.tool_calls ?? []).map((call: any) =>
+      ({call_id: string(call.call_id), name: string(call.name),
+        ...(typeof call.args === 'string' ? {args_chars: call.args.length} : {})}));
     if (kind === 'assistant_message_committed') {
       const chars = string(inner.text).length; data.context_chars = chars; data.context_tokens = estimateContextTokens(chars);
     }
@@ -76,7 +77,7 @@ export function readExport(raw: unknown, id: string, captureContents = true): Na
       data.omitted_groups = integer(b.omitted_aggregate_group_count) ?? 0;
     }
     if (kind === 'tool_result_batch_committed') data.results = (inner.results ?? []).map((result: any) => {
-      let outcome = {}; try {outcome = object(JSON.parse(result.text));} catch {}
+      let outcome = {}; if (captureContents) try {outcome = object(JSON.parse(result.text));} catch {}
       const value = object(outcome);
       const chars = string(result.text).length;
       return {call_id: string(result.tool_call_id), context_chars: chars, context_tokens: estimateContextTokens(chars),

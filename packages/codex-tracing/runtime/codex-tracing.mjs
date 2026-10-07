@@ -340,7 +340,7 @@ function captureContentsEnabled(value, fallback = true) {
     return true;
   return fallback;
 }
-var metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
+var metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|agentprof\.control_script|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
 function omitContent(value) {
   if (Array.isArray(value))
     return value.map(omitContent);
@@ -359,11 +359,27 @@ function omitContent(value) {
 
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
 function scriptAnnotations(language, code) {
-  return { language, ...typeof code === "string" ? {
-    line_count: code.length === 0 ? 0 : code.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(code) ? 1 : 0)
-  } : {} };
+  if (typeof code !== "string")
+    return { language };
+  if (!code.length)
+    return { language, line_count: 0 };
+  let lines = 1;
+  for (let i = 0;i < code.length; i++) {
+    const char = code.charCodeAt(i);
+    if (char === 13) {
+      lines++;
+      if (code.charCodeAt(i + 1) === 10)
+        i++;
+    } else if (char === 10)
+      lines++;
+  }
+  if (/[\r\n]$/.test(code))
+    lines--;
+  return { language, line_count: lines };
 }
-function toolArgumentAnnotations(input, captureContents) {
+function toolArgumentAnnotations(input, mode) {
+  if (mode === false || mode === "disabled")
+    return {};
   const attrs = {};
   let json;
   try {
@@ -380,7 +396,7 @@ function toolArgumentAnnotations(input, captureContents) {
     if (keys.length > 12 || keys.some((key) => key.length > 200))
       attrs["keys_truncated"] = true;
   }
-  if (!captureContents)
+  if (mode === "metadata")
     return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
@@ -921,6 +937,16 @@ var isControlScript = (source) => {
   const calls = [...source.matchAll(/\btools\.([\w]+)\s*\(/g)];
   return calls.length > 0 && calls.every((call) => isControl(call[1]));
 };
+function tagControlScripts(wire) {
+  for (const resource of array(wire.resourceLogs))
+    for (const scope of array(object(resource).scopeLogs))
+      for (const raw of array(object(scope).logRecords)) {
+        const log = object(raw), attrs = attributes(log.attributes);
+        if (attrs["event.name"] !== "codex.tool_result" || typeof attrs.arguments !== "string" || attrs.arguments.length > 4096)
+          continue;
+        array(log.attributes).push({ key: "agentprof.control_script", value: { boolValue: isControlScript(attrs.arguments) } });
+      }
+}
 function addHooks(rows, spans, logs, first, last, captureContents = true) {
   const extra = [], tools = new Map, compactions = new Map;
   const hooks = rows.filter((row) => row.source === "codex.hook");
@@ -1360,20 +1386,22 @@ function convertObservations(rows) {
     const native = ordered.find((s) => s.name === "code_mode.handler.execute" && s.attrs.call_id === call && spanSession(s) === id);
     const start = native?.start ?? log.at - ms(duration), end = native?.end ?? log.at;
     const source = string(log.attrs.arguments);
-    if (native && isControlScript(source))
+    if (native && (log.attrs["agentprof.control_script"] === true || captureContents && isControlScript(source)))
       continue;
     let args;
-    try {
-      args = JSON.parse(source);
-    } catch {
-      args = { code: source };
+    if (captureContents && source) {
+      try {
+        args = JSON.parse(source);
+      } catch {
+        args = { code: source };
+      }
     }
-    const annotation = source ? toolArgumentAnnotations(args, captureContents) : {};
+    const annotation = captureContents && source ? toolArgumentAnnotations(args, true) : {};
     if (annotation.truncated !== undefined) {
       annotation.args_truncated = annotation.truncated;
       delete annotation.truncated;
     }
-    const output = string(log.attrs.output);
+    const output = captureContents ? string(log.attrs.output) : "";
     const exit = ["exec_command", "write_stdin", "shell", "shell_command"].includes(name) ? output.match(/(?:Process exited with code |"exit_code"\s*:\s*)(-?\d+)/) : null;
     const denied = logs.some((l) => l.attrs["event.name"] === "codex.sandbox_outcome" && l.attrs["conversation.id"] === id && l.attrs.call_id === call && l.attrs.outcome === "denied");
     const failed = log.attrs.success === false || log.attrs.success === "false" || native?.error || denied;
@@ -1384,11 +1412,11 @@ function convertObservations(rows) {
       timing: native ? "native-span" : "native-tool-duration",
       ...failed ? { is_error: true } : native?.attrs.outcome === "completed" ? { is_error: false } : exit ? { is_error: Number(exit[1]) !== 0 } : {},
       ...exit ? { exit_code: Number(exit[1]) } : {},
-      ...native ? scriptAnnotations("JavaScript", source) : {}
+      ...native ? scriptAnnotations("JavaScript", captureContents ? source : undefined) : {}
     };
     if (native?.attrs["capture.incomplete"])
       attrs.incomplete = true;
-    const intent = object(args).description ?? object(args).justification;
+    const intent = captureContents ? object(args).description ?? object(args).justification : undefined;
     if (captureContents && typeof intent === "string" && intent)
       attrs.intent = intent;
     const slice = add(id, log.key, "Tools", name, start, end, attrs);
@@ -1421,7 +1449,7 @@ function convertObservations(rows) {
     const parent = string(session.attrs.parent_session);
     if (!parent)
       continue;
-    const launch = toolSlices.find(({ slice, log }) => slice.session === parent && slice.name.endsWith("spawn_agent") && string(log.attrs.output).includes(session.id))?.slice;
+    const launch = captureContents ? toolSlices.find(({ slice, log }) => slice.session === parent && slice.name.endsWith("spawn_agent") && string(log.attrs.output).includes(session.id))?.slice : undefined;
     if (launch) {
       launch.attrs.delegation = true;
       launch.attrs.child_session = session.id;
@@ -2067,8 +2095,9 @@ class Collector {
     return {};
   }
   ingest(data) {
-    const rows = [{ source: "otel", timestamp: now(), data }];
-    const parsed = readOtel(rows);
+    if ([...this.captures.values()].some((c) => !c.journal.captureContents))
+      tagControlScripts(data);
+    const parsed = readOtel([{ source: "otel", timestamp: now(), data: omitContent(data) }]);
     const remember = (trace, id) => {
       if (!trace || !id)
         return;
@@ -2093,7 +2122,7 @@ class Collector {
           if (!capture)
             continue;
           const row = { source: "/v1/logs", timestamp: now(), data: { resourceLogs: [{ scopeLogs: [{ logRecords: [log] }] }] } };
-          const at = readOtel([row]).logs[0]?.at;
+          const at = ns(object(log).timeUnixNano) || isoTime(attrs["event.timestamp"]);
           if (at === undefined || at < BigInt(capture.journal.start) || capture.end && at > BigInt(capture.end))
             continue;
           capture.sessions.add(id);
@@ -2105,7 +2134,10 @@ class Collector {
         for (const wire of array(object(scope).spans)) {
           const value = object(wire), key = `${value.traceId}:${value.spanId}`, span = parsed.spans.get(key);
           if (span) {
-            const bytes = Buffer.byteLength(JSON.stringify(wire));
+            const bytes = Buffer.byteLength(JSON.stringify(omitContent(wire))) + array(value.attributes).reduce((total, raw) => {
+              const text = object(object(raw).value).stringValue;
+              return total + (typeof text === "string" ? text.length * 6 : 0);
+            }, 0);
             this.pendingBytes += bytes - (this.pending.get(key)?.bytes ?? 0);
             this.pending.set(key, { span, wire, bytes });
           }

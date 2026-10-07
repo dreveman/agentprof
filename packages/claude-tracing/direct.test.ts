@@ -62,7 +62,13 @@ function query(rows: Observation[], sql: string): string {
 test('direct conversion cannot re-enable content omitted by the capture policy', () => {
   const rows = fixture();
   rows.find(r => r.data.event === 'session' && r.data.phase === 'begin')!.data.capture_contents = false;
+  let serialized = false;
+  rows.find(r => r.data.event === 'tool' && r.data.phase === 'begin' && r.data.id === 'bash')!.data.arguments = {
+    toJSON() {serialized = true; throw new Error('disabled tool input was serialized');},
+    get description() {serialized = true; throw new Error('disabled tool input was inspected');},
+  };
   const trace = Buffer.from(convertObservations(rows).trace);
+  expect(serialized).toBe(false);
   expect(trace.includes('Check these numbers')).toBe(false);
   expect(trace.includes('exit 7')).toBe(false);
   expect(trace.includes('Independent check')).toBe(false);

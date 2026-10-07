@@ -130,9 +130,10 @@ export function convert(capture: Capture, native: NativeSession[]) {
           tokens: n, chars: integer(result.context_chars), source_id: string(result.call_id), source_kind: 'tool', label: 'Tool result'});
       }
       if (r.kind === 'assistant_tool_calls_committed') for (const call of d.tool_calls ?? []) {
-        const chars = !captureContents && integer(call.args_meta?.bytes) !== undefined ? call.args_meta.bytes :
-          typeof call.args === 'string' ? call.args.length : JSON.stringify(call.args ?? {}).length;
-        contextItems.push({id: `call:${call.call_id}`, category: 'assistant', chars, tokens: estimateContextTokens(chars), source_kind: 'tool', source_id: string(call.call_id), label: 'Tool arguments'});
+        const chars = captureContents ? typeof call.args === 'string' ? call.args.length : JSON.stringify(call.args ?? {}).length
+          : integer(call.args_chars);
+        if (chars !== undefined) contextItems.push({id: `call:${call.call_id}`, category: 'assistant', chars,
+          tokens: estimateContextTokens(chars), source_kind: 'tool', source_id: string(call.call_id), label: 'Tool arguments'});
       }
 
       if (r.kind === 'model_completed') {
@@ -173,11 +174,11 @@ export function convert(capture: Capture, native: NativeSession[]) {
         const result = ['bash', 'bash_input'].includes(name) ? results.get(string(d.call_id)) : undefined;
         const incomplete = !terminal, failed = task?.error || (terminal && outcome.kind !== 'completed') ||
           (result?.exit_code !== undefined && result.exit_code !== 0);
-        let args: unknown = call?.args;
-        try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
+        let args: unknown = captureContents ? call?.args : undefined;
+        if (captureContents) try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
         const tool = add(id, r.id, 'Tools', name, task?.start ?? at, terminal ? BigInt(terminal.at) : last,
           {kind: 'tool-execution', name, call_id: string(d.call_id),
-            ...(call?.args_meta ?? toolArgumentAnnotations(args, captureContents)),
+            ...(captureContents ? toolArgumentAnnotations(args, true) : {}),
             ...(captureContents && typeof object(args).description === 'string' ? {intent: string(object(args).description).slice(0, 1024)} : {}),
             ...(result?.exit_code !== undefined ? {exit_code: result.exit_code, outcome: result.terminal_status!} : {}),
             ...(incomplete ? {incomplete: true} : {is_error: Boolean(failed)}),
@@ -198,10 +199,11 @@ export function convert(capture: Capture, native: NativeSession[]) {
       const name = task.kind.slice(5); if (controlTool(name)) continue;
       const candidates = [...calls.values()].filter(c => c.name === name && c.run === task.run && c.at <= task.start && !tools.has(c.call_id));
       const call = task.call ? calls.get(task.call) : candidates.length === 1 ? candidates[0] : undefined;
-      let args = call?.args; try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
+      let args = captureContents ? call?.args : undefined;
+      if (captureContents) try {if (typeof args === 'string') args = JSON.parse(args);} catch {}
       const tool = add(id, key, 'Tools', name, task.start, task.end ?? last,
         {kind: 'tool-execution', name, ...(call ? {call_id: string(call.call_id),
-          ...(call.args_meta ?? toolArgumentAnnotations(args, captureContents))} : {}),
+          ...(captureContents ? toolArgumentAnnotations(args, true) : {})} : {}),
           ...(task.end ? {is_error: Boolean(task.error)} : {incomplete: true})});
       if (tool) {if (call) tools.set(call.call_id, tool); edge(responses.findLast(s => s.end! <= tool.start), tool);}
     }

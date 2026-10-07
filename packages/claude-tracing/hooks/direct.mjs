@@ -44,7 +44,7 @@ const readContext = async ($, includeMessages = false) => {
         items.push({id: `result:${result.tool_use_id}`, category: 'results', chars, tokens: Math.ceil(chars / 4),
           source_id: result.tool_use_id, source_kind: 'tool', label: 'Tool result'});
       }
-      for (const call of message.toolUses ?? []) {
+      for (const call of captureContents ? message.toolUses ?? [] : []) {
         const chars = JSON.stringify(call.input ?? {}).length + (call.tool ?? '').length;
         items.push({id: `call:${call.tool_use_id}`, category: 'assistant', chars, tokens: Math.ceil(chars / 4),
           source_id: call.tool_use_id, source_kind: 'tool', label: 'Tool arguments'});
@@ -412,8 +412,10 @@ export function register(on, options) {
       // Registered tools use Claude's MCP output shape: text or content blocks.
       return {result: JSON.stringify(result), ...(result.error ? {isError: true} : {})};
     }
-    const {tool, tool_use_id: id, agentId, ...args} = e, s = scope(agentId);
-    if (!agentId && s.capture?.active) try {
+    const {tool, tool_use_id: id, agentId} = e, s = scope(agentId);
+    const args = captureContents ? Object.fromEntries(Object.entries(e).filter(([key]) =>
+      !['tool', 'tool_use_id', 'agentId'].includes(key))) : undefined;
+    if (captureContents && !agentId && s.capture?.active) try {
       const chars = JSON.stringify(args).length;
       observe(s, {id: `call:${id}`, category: 'assistant', chars, tokens: Math.ceil(chars / 4),
         source_id: id, source_kind: 'tool', label: 'Tool arguments'});
@@ -425,7 +427,7 @@ export function register(on, options) {
     let completed = false;
     try {
       const result = await next(e); completed = true;
-      if (!agentId && s.capture?.active) try {
+      if (captureContents && !agentId && s.capture?.active) try {
         const output = result.result;
         const chars = typeof output === 'string' ? output.length : JSON.stringify(output ?? '').length;
         observe(s, {id: `result:${id}`, category: 'results', chars, tokens: Math.ceil(chars / 4),

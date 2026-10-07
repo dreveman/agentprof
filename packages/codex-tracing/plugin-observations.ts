@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import {object, string, integer, type Span, type Log} from './otel.ts';
+import {object, string, integer, array, attributes, type Span, type Log} from './otel.ts';
 import type {Observation, Slice, Attrs} from '../agent-tracing/trace.ts';
 import {toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
 
@@ -8,6 +8,18 @@ export const isControlScript = (source: string) => {
   const calls = [...source.matchAll(/\btools\.([\w]+)\s*\(/g)];
   return calls.length > 0 && calls.every(call => isControl(call[1]!));
 };
+
+/** Classify small code-mode controls before the no-content journal strips their
+ * source. Never parse or scan an arbitrarily large disabled script. */
+export function tagControlScripts(wire: Record<string, unknown>): void {
+  for (const resource of array(wire.resourceLogs)) for (const scope of array(object(resource).scopeLogs))
+    for (const raw of array(object(scope).logRecords)) {
+      const log = object(raw), attrs = attributes(log.attributes);
+      if (attrs['event.name'] !== 'codex.tool_result' || typeof attrs.arguments !== 'string' ||
+          attrs.arguments.length > 4096) continue;
+      array(log.attributes).push({key: 'agentprof.control_script', value: {boolValue: isControlScript(attrs.arguments)}});
+    }
+}
 export function addHooks(rows: Observation[], spans: Map<string, Span>, logs: Log[], first: bigint, last: bigint, captureContents = true): Slice[] {
   const extra: Slice[] = [], tools = new Map<string, Slice>(), compactions = new Map<string, Slice>();
   const hooks = rows.filter(row => row.source === 'codex.hook');

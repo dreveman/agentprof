@@ -243,7 +243,9 @@ function captureContentsEnabled(value, fallback = true) {
 }
 
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
-function toolArgumentAnnotations(input, captureContents) {
+function toolArgumentAnnotations(input, mode) {
+  if (mode === false || mode === "disabled")
+    return {};
   const attrs = {};
   let json;
   try {
@@ -260,7 +262,7 @@ function toolArgumentAnnotations(input, captureContents) {
     if (keys.length > 12 || keys.some((key) => key.length > 200))
       attrs["keys_truncated"] = true;
   }
-  if (!captureContents)
+  if (mode === "metadata")
     return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
@@ -695,7 +697,7 @@ function readExport(raw, id, captureContents = true) {
     const child = validSession(string(inner.child_session_id)) ? string(inner.child_session_id) : "";
     if (!keys && !child)
       return;
-    const data = Object.fromEntries((keys ?? []).filter((k) => inner[k] !== undefined).map((k) => [k, inner[k]]));
+    const data = Object.fromEntries((keys ?? []).filter((k) => inner[k] !== undefined && (captureContents || k !== "tool_calls")).map((k) => [k, inner[k]]));
     if (kind === "started" && family === "run" && !captureContents) {
       data.prompt_length = string(inner.prompt).length;
       delete data.prompt;
@@ -707,14 +709,11 @@ function readExport(raw, id, captureContents = true) {
         data.outcome = { kind: string(data.outcome.kind) };
     }
     if (kind === "assistant_tool_calls_committed" && !captureContents)
-      data.tool_calls = (inner.tool_calls ?? []).map((call) => {
-        let args = call.args;
-        try {
-          if (typeof args === "string")
-            args = JSON.parse(args);
-        } catch {}
-        return { call_id: string(call.call_id), name: string(call.name), args_meta: toolArgumentAnnotations(args, false) };
-      });
+      data.tool_calls = (inner.tool_calls ?? []).map((call) => ({
+        call_id: string(call.call_id),
+        name: string(call.name),
+        ...typeof call.args === "string" ? { args_chars: call.args.length } : {}
+      }));
     if (kind === "assistant_message_committed") {
       const chars = string(inner.text).length;
       data.context_chars = chars;
@@ -737,9 +736,10 @@ function readExport(raw, id, captureContents = true) {
     if (kind === "tool_result_batch_committed")
       data.results = (inner.results ?? []).map((result) => {
         let outcome = {};
-        try {
-          outcome = object(JSON.parse(result.text));
-        } catch {}
+        if (captureContents)
+          try {
+            outcome = object(JSON.parse(result.text));
+          } catch {}
         const value = object(outcome);
         const chars = string(result.text).length;
         return {
@@ -954,8 +954,17 @@ function convert(capture, native) {
         }
       if (r.kind === "assistant_tool_calls_committed")
         for (const call of d.tool_calls ?? []) {
-          const chars = !captureContents && integer(call.args_meta?.bytes) !== undefined ? call.args_meta.bytes : typeof call.args === "string" ? call.args.length : JSON.stringify(call.args ?? {}).length;
-          contextItems.push({ id: `call:${call.call_id}`, category: "assistant", chars, tokens: estimateContextTokens(chars), source_kind: "tool", source_id: string(call.call_id), label: "Tool arguments" });
+          const chars = captureContents ? typeof call.args === "string" ? call.args.length : JSON.stringify(call.args ?? {}).length : integer(call.args_chars);
+          if (chars !== undefined)
+            contextItems.push({
+              id: `call:${call.call_id}`,
+              category: "assistant",
+              chars,
+              tokens: estimateContextTokens(chars),
+              source_kind: "tool",
+              source_id: string(call.call_id),
+              label: "Tool arguments"
+            });
         }
       if (r.kind === "model_completed") {
         const duration = integer(d.duration_ms), begin = duration !== undefined ? at - BigInt(duration) * 1000000n : at;
@@ -1011,16 +1020,17 @@ function convert(capture, native) {
         const outcome = object(terminal?.data.outcome), task = tasks.get(string(d.task_id));
         const result = ["bash", "bash_input"].includes(name) ? results.get(string(d.call_id)) : undefined;
         const incomplete = !terminal, failed = task?.error || terminal && outcome.kind !== "completed" || result?.exit_code !== undefined && result.exit_code !== 0;
-        let args = call?.args;
-        try {
-          if (typeof args === "string")
-            args = JSON.parse(args);
-        } catch {}
+        let args = captureContents ? call?.args : undefined;
+        if (captureContents)
+          try {
+            if (typeof args === "string")
+              args = JSON.parse(args);
+          } catch {}
         const tool = add(id, r.id, "Tools", name, task?.start ?? at, terminal ? BigInt(terminal.at) : last, {
           kind: "tool-execution",
           name,
           call_id: string(d.call_id),
-          ...call?.args_meta ?? toolArgumentAnnotations(args, captureContents),
+          ...captureContents ? toolArgumentAnnotations(args, true) : {},
           ...captureContents && typeof object(args).description === "string" ? { intent: string(object(args).description).slice(0, 1024) } : {},
           ...result?.exit_code !== undefined ? { exit_code: result.exit_code, outcome: result.terminal_status } : {},
           ...incomplete ? { incomplete: true } : { is_error: Boolean(failed) },
@@ -1047,17 +1057,18 @@ function convert(capture, native) {
           continue;
         const candidates = [...calls.values()].filter((c) => c.name === name && c.run === task.run && c.at <= task.start && !tools.has(c.call_id));
         const call = task.call ? calls.get(task.call) : candidates.length === 1 ? candidates[0] : undefined;
-        let args = call?.args;
-        try {
-          if (typeof args === "string")
-            args = JSON.parse(args);
-        } catch {}
+        let args = captureContents ? call?.args : undefined;
+        if (captureContents)
+          try {
+            if (typeof args === "string")
+              args = JSON.parse(args);
+          } catch {}
         const tool = add(id, key, "Tools", name, task.start, task.end ?? last, {
           kind: "tool-execution",
           name,
           ...call ? {
             call_id: string(call.call_id),
-            ...call.args_meta ?? toolArgumentAnnotations(args, captureContents)
+            ...captureContents ? toolArgumentAnnotations(args, true) : {}
           } : {},
           ...task.end ? { is_error: Boolean(task.error) } : { incomplete: true }
         });

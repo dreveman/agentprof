@@ -159,7 +159,7 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
       ...(d.content_omitted ? {content_omitted: true} : {}),
       ...(!measured || !close || close.data.incomplete ? {incomplete: true} : {}),
       ...(close ? {is_error: Boolean(close.data.is_error)} : execution ? {is_error: Boolean(execution.data.is_error)} : {})};
-    const intent = object(d.arguments).description;
+    const intent = captureContents ? object(d.arguments).description : undefined;
     if (captureContents && typeof intent === 'string') attrs.intent = intent;
     const tool = add(r, 'Tools', text(d.tool) || 'tool', start, end, attrs); tools.set(`${scope(d)}:${d.id}`, tool);
     const dispatch = add(r, 'Tool dispatch', text(d.tool) || 'tool', dispatchStart, dispatchEnd,

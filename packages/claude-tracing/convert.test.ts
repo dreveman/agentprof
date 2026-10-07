@@ -91,7 +91,12 @@ test('native timestamps, deduplication, logical subagents, flows and counters su
 test('legacy conversion honors the persisted content policy even for unsanitized observations', () => {
   const rows = fixture();
   rows[0]!.data.capture_contents = false;
+  let inspected = false;
+  const hook = rows.find(r => r.source === '/hook' && (r.data.event as any).tool_use_id === 'bash-call')!;
+  (hook.data.event as any).tool_input = {toJSON() {inspected = true; throw new Error('disabled input serialized');},
+    get description() {inspected = true; throw new Error('disabled input inspected');}};
   const trace = Buffer.from(convertObservations(rows).trace);
+  expect(inspected).toBe(false);
   for (const secret of ['A measured fixture', 'Check the sum', 'Independent check', 'exit 7'])
     expect(trace.includes(secret)).toBe(false);
   expect(trace.includes('fixture-model')).toBe(true);

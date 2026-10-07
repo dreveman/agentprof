@@ -12,13 +12,14 @@ import {navigate} from './navigation';
 import type {Trace} from '../../public/trace';
 import type {SqlValue} from '../../trace_processor/query_result';
 import {OVERVIEW_QUERIES} from './overview_queries';
+import {OverviewLoader, type OverviewTab} from './overview_loader';
 import {ContextView, contextSummary} from './context_view';
 import {toolDescription} from './tool_description';
 import './overview.scss';
 
 type Row = Record<string, SqlValue>;
 type Section = keyof typeof OVERVIEW_QUERIES;
-type Tab = 'Summary' | 'Responses' | 'Tools' | 'Sessions' | 'Context';
+type Tab = OverviewTab;
 interface State {rows?: Row[]; error?: string}
 interface Attrs {trace: Trace}
 
@@ -197,24 +198,25 @@ export class Overview implements m.ClassComponent<Attrs> {
   private readonly data: Partial<Record<Section, State>> = {};
   private readonly expandedSessions = new Set<number>();
   private readonly expandedScripts = new Set<number>();
-  private disposed = false;
+  private loader?: OverviewLoader<Row>;
 
   oninit({attrs}: m.Vnode<Attrs>) {
-    for (const [section, sql] of Object.entries(OVERVIEW_QUERIES)) {
-      const key = section as Section;
-      this.data[key] = {};
-      void attrs.trace.engine.query(sql).then(result => {
-        const rows: Row[] = [];
-        for (const it = result.iter({}); it.valid(); it.next()) {
-          rows.push(Object.fromEntries(result.columns().map(c => [c, it.get(c)])));
-        }
-        if (!this.disposed) this.data[key] = {rows};
-      }).catch(error => {
-        if (!this.disposed) this.data[key] = {error: String(error)};
-      }).finally(() => {if (!this.disposed) m.redraw();});
-    }
+    this.loader = new OverviewLoader(async key => {
+      const result = await attrs.trace.engine.query(OVERVIEW_QUERIES[key]);
+      const rows: Row[] = [];
+      for (const it = result.iter({}); it.valid(); it.next()) {
+        rows.push(Object.fromEntries(result.columns().map(c => [c, it.get(c)])));
+      }
+      return rows;
+    }, () => m.redraw(), this.data);
+    this.loader.open(this.tab);
   }
-  onremove() {this.disposed = true;}
+  onremove() {this.loader?.dispose();}
+
+  private selectTab(tab: Tab) {
+    this.tab = tab;
+    this.loader?.open(tab);
+  }
 
   private section(key: Section, render: (rows: Row[]) => m.Children, allowEmpty = false): m.Children {
     const state = this.data[key];
@@ -225,16 +227,17 @@ export class Overview implements m.ClassComponent<Attrs> {
   }
 
   private context(trace: Trace): m.Children {
-    return this.section('context_snapshots', snapshots => this.section('context_changes', changes =>
-      this.section('context_history', history => this.section('context_compactions', compactions =>
-        m(ContextView, {trace, snapshots, changes, history, compactions, detailed: true}), true), true), true), true);
+    return this.section('context_latest', latest => this.section('context_snapshots', snapshots =>
+      this.section('context_changes', changes => this.section('context_history', history =>
+        this.section('context_compactions', compactions =>
+          m(ContextView, {trace, latest, snapshots, changes, history, compactions, detailed: true}), true), true), true), true), true);
   }
 
   private card(title: string, description: string, body: m.Children, tab?: Tab): m.Children {
     return m(Card, {className: 'ap-card'},
       m('.ap-card-header', m('h2', title), tab && m(Button, {
         label: `Explore ${tab.toLowerCase()}`, rightIcon: 'arrow_forward',
-        variant: ButtonVariant.Minimal, onclick: () => {this.tab = tab;},
+        variant: ButtonVariant.Minimal, onclick: () => this.selectTab(tab),
       })),
       m('p.ap-muted', description), body);
   }
@@ -482,7 +485,7 @@ export class Overview implements m.ClassComponent<Attrs> {
                 m('p.ap-muted', 'Provider response-header time is not full request latency. Missing model durations and unfinished tools are excluded.')];
             })),
           this.card('What filled the context?', 'Combined composition from each session’s latest recorded breakdown.',
-            this.section('context_snapshots', contextSummary, true), 'Context'),
+            this.section('context_latest', contextSummary, true), 'Context'),
           this.card(singleModel ? 'How responsive was the model?' : 'How responsive were model responses?', `Responses grouped by provider and model across ${scope}. First content is measured from message start and may include thinking or tool-call content.`, models(), 'Responses'),
           this.card('Which tools took the most time?', `Completed tool work across ${scope}. Work can overlap; its sum is not elapsed wall time.`, tools(), 'Tools'),
           this.card('Was work happening in parallel?', `Concurrency of completed tools across ${scope}, over their measured active time.`,
@@ -529,7 +532,7 @@ export class Overview implements m.ClassComponent<Attrs> {
             this.section('slow', rows => this.table(rows, [['tool', 'Tool'], ['description', 'Description'],
               ['duration_ms', 'Observed duration'], ['is_error', 'Error'], ['incomplete', 'Incomplete']], trace))),
         ] : this.tab === 'Context' ? this.card('Context over time',
-          'Inspect requests and the largest recorded additions. Counts are estimates unless marked as reported.', this.context(trace))
+          'Inspect up to the latest 2,000 observations and 500 largest item changes. The timeline retains all data.', this.context(trace))
           : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. The Overview combines their activity.',
           this.section('sessions', rows => this.section('capture_activity', seriesRows =>
             this.sessionTable(rows.filter(row => number(row.capture_id) === number(row.root_capture_id)),
@@ -548,7 +551,7 @@ export class Overview implements m.ClassComponent<Attrs> {
                 label: `Agent activity · ${this.tab}`, icon: 'analytics',
                 rightIcon: 'arrow_drop_down', variant: ButtonVariant.Outlined,
               })}, tabs.map(([tab, icon]) => m(MenuItem, {
-                label: tab, icon, onclick: () => {this.tab = tab;},
+                label: tab, icon, onclick: () => this.selectTab(tab),
               })))),
             m('.ap-selector', m('span.ap-label', 'Region of interest'),
               m(PopupMenu, {trigger: m(Button, {
@@ -560,7 +563,7 @@ export class Overview implements m.ClassComponent<Attrs> {
             variant: ButtonVariant.Filled, onclick: () => navigate(trace, '/viewer')})),
         m('.ap-banner', m(Icon, {icon: 'smart_toy'}), `Recording ${trace.traceInfo.traceTitle || 'multiple traces'}`)),
       m(Tabs, {className: 'ap-tabs', activeTabKey: this.tab,
-        onTabChange: key => {this.tab = key as Tab;},
+        onTabChange: key => this.selectTab(key as Tab),
         tabs: tabs.map(([tab, icon]) => ({key: tab, title: tab, leftIcon: icon,
           content: tab === this.tab ? content : undefined})),
       }),

@@ -33,6 +33,21 @@ describe("pi-tracing workflow helpers", () => {
     expect(JSON.stringify(info.annotations)).not.toContain("do something secret");
   });
 
+  test('content-disabled child metadata and result linkage never serialize large arguments', () => {
+    let inspected = 0;
+    const args = {type: 'code-search', toJSON() {inspected++; throw new Error('serialized disabled args');},
+      get task() {inspected++; throw new Error('inspected disabled task');}};
+    const info = describeChildLaunch('subagent', args, false);
+    expect(info.label).toBe('delegate');
+    expect(info.annotations.subagent_type).toBe('code-search');
+    expect(info.annotations.task_bytes).toBeUndefined();
+    const id = '019ffdb0-3e55-713c-a283-1373113797d5';
+    const result = {content: [{text: `Spawned detached Pi session ${id}`, toJSON() {
+      inspected++; throw new Error('serialized disabled result');}}]};
+    expect(extractChildSessionId('subagent', result, false)).toBe(id);
+    expect(inspected).toBe(0);
+  });
+
   test("extension path merge dedupes and preserves user entries", () => {
     expect(mergeExtensionPath(undefined, "/a/index.ts")).toBe("/a/index.ts");
     expect(mergeExtensionPath("", "/a/index.ts")).toBe("/a/index.ts");

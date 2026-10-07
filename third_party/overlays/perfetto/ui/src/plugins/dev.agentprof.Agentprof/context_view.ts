@@ -6,7 +6,7 @@ import type {SqlValue} from '../../trace_processor/query_result';
 import {navigate} from './navigation';
 
 type Row = Record<string, SqlValue>;
-interface Attrs {trace: Trace; snapshots: Row[]; changes: Row[]; history: Row[]; compactions: Row[]; detailed?: boolean}
+interface Attrs {trace: Trace; latest?: Row[]; snapshots: Row[]; changes: Row[]; history: Row[]; compactions: Row[]; detailed?: boolean}
 const CATEGORIES: Record<string, [string, string]> = {
   system: ['System instructions', '#639bdb'], rules: ['Rules and memory', '#9274ce'],
   skills: ['Skills', '#cd77af'], tools: ['Tool definitions', '#3da9a1'],
@@ -62,16 +62,17 @@ export class ContextView implements m.ClassComponent<Attrs> {
   private readonly expanded = new Set<string>();
 
   view({attrs}: m.CVnode<Attrs>): m.Children {
-    const {trace, snapshots, changes, history, compactions, detailed} = attrs;
+    const {trace, latest = [], snapshots, changes, history, compactions, detailed} = attrs;
     const sessions = new Map<number, Row>();
-    for (const row of [...history, ...snapshots]) sessions.set(n(row.capture_id), row);
+    for (const row of [...latest, ...history, ...snapshots]) sessions.set(n(row.capture_id), row);
     if (!sessions.size) return m('p.ap-muted', 'Context usage was not recorded.');
     if (this.capture === undefined || !sessions.has(this.capture)) {
       const primary = [...sessions.values()].find(r => n(r.capture_id) === n(r.root_capture_id));
       this.capture = primary ? n(primary.capture_id) : undefined;
       this.capture ??= sessions.keys().next().value;
     }
-    const samples = snapshots.filter(s => n(s.capture_id) === this.capture);
+    const retained = snapshots.filter(s => n(s.capture_id) === this.capture);
+    const samples = retained.length ? retained : latest.filter(s => n(s.capture_id) === this.capture);
     const totals = history.filter(s => n(s.capture_id) === this.capture);
     const compact = compactions.filter(s => n(s.capture_id) === this.capture);
     const selected = samples.find(s => n(s.event_id) === this.selected) ?? samples.at(-1);
@@ -114,6 +115,7 @@ export class ContextView implements m.ClassComponent<Attrs> {
         }}, [...sessions.entries()].map(([id, s]) => m('option', {value: id},
           `${s.harness ? `${s.harness} · ` : ''}${String(s.session).slice(0, 20)}${String(s.session).length > 20 ? '…' : ''}${n(s.root_capture_id) !== id ? ' · subagent' : ''}`)))),
         selected && m('span.ap-muted', `${quality} · ${selected.coverage === 'complete' ? 'Complete' : 'Partial attribution'}`)),
+      !retained.length && samples.length > 0 && m('p.ap-muted', 'Only the latest sample is shown for this session; older detail is outside the bounded overview.'),
       samples.length === 0 && m('p.ap-muted', 'Category breakdown not recorded. Showing total context usage.'),
       transcript && m('p.ap-muted', 'Composition estimates use recorded transcript items; the final model request may differ.'),
       m('svg.ap-context-chart', {viewBox: '0 0 1000 210', role: 'img', 'aria-label': 'Context tokens over time. Select a request to inspect its composition.'},
@@ -158,7 +160,8 @@ export class ContextView implements m.ClassComponent<Attrs> {
         m('label', 'Order ', m('select', {value: this.sort, 'aria-label': 'Context order', onchange: (e: Event) => {this.sort = (e.target as HTMLSelectElement).value;}},
           m('option', {value: 'size'}, 'Largest change'), m('option', {value: 'time'}, 'Time'))),
         m('label', m('input', {type: 'checkbox', checked: this.selectedOnly, onchange: (e: Event) => {this.selectedOnly = (e.target as HTMLInputElement).checked;}}), ' Selected observation only')),
-      !additions.length ? m('p.ap-muted', 'No attributed additions recorded after the initial baseline.') :
+      !additions.length ? m('p.ap-muted',
+        'No attributed additions in the retained 500 largest changes for this selection. Older or smaller changes may exist in the timeline.') :
         m('table.ap-context-table', m('thead', m('tr', (detailed ? ['Source', 'Category', 'Estimated change', 'Estimated context', 'Time'] : ['Source', 'Category', 'Estimated change', 'Time']).map(t => m('th', t)))),
           m('tbody', additions.map(c => {
             const key = `${c.snapshot_id}:${c.item_id}`, expanded = this.expanded.has(key);

@@ -9,7 +9,7 @@ export function captureContentsEnabled(value: unknown, fallback = true): boolean
 
 /** Strip values before writing a raw OTLP/CLI journal. Keep numerical usage,
  * timing and identity attributes, but never serialize text-bearing fields. */
-const metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
+const metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|agentprof\.control_script|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
 
 export function omitContent(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(omitContent);

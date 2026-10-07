@@ -118,6 +118,41 @@ test('content opt-out strips Codex hooks and OTLP before the persistent journal 
   } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
 });
 
+test('content-disabled Codex ingestion never serializes raw OTLP argument or output values', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-no-serialize-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0, false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'bounded.pftrace');
+    let serialized = 0;
+    const wire = log(10, rootSession, 'codex.tool_result', {tool_name: 'exec_command', call_id: 'guarded',
+      duration_ms: '1', arguments: 'SECRET_ARGS'.repeat(50_000), output: 'SECRET_OUTPUT'.repeat(50_000)});
+    for (const attr of wire.attributes.filter(a => ['arguments', 'output'].includes(a.key)))
+      Object.defineProperty(attr.value, 'toJSON', {value() {serialized++; throw new Error('raw value serialized');}});
+    let fingerprinted = 0;
+    const stringify = JSON.stringify;
+    const spy = spyOn(JSON, 'stringify').mockImplementation((value: any, replacer?: any, space?: any) => {
+      // The former readOtel path stringified [time, trace, span, sortedAttrs],
+      // copying primitive argument/output strings before journal sanitization.
+      if (Array.isArray(value) && Array.isArray(value[3]) && value[3].some((entry: unknown) =>
+        Array.isArray(entry) && ['arguments', 'output'].includes(entry[0]) &&
+        typeof entry[1] === 'string' && entry[1].startsWith('SECRET_'))) {
+        fingerprinted++; throw new Error('raw attribute fingerprinted');
+      }
+      return stringify(value, replacer, space);
+    });
+    try {collector.ingest({resourceLogs: [{scopeLogs: [{logRecords: [wire]}]}]});}
+    finally {spy.mockRestore();}
+    expect(serialized).toBe(0);
+    expect(fingerprinted).toBe(0);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    const journal = readFileSync(join(directory, 'bounded.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(journal).not.toContain('SECRET_ARGS');
+    expect(journal).not.toContain('SECRET_OUTPUT');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
 test('a shared Codex receiver honors a later session opt-out independently', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'codex-shared-policy-'));
   try {

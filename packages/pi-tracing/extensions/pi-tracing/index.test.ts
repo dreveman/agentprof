@@ -128,6 +128,63 @@ test('agent tracing tools publish default and requested paths and report state',
 }, 25000);
 
 const processor = process.env.PERFETTO_TRACE_PROCESSOR;
+test('content-disabled Pi hooks do not inspect tool bodies, scripts or cumulative output', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-no-content-'));
+  try {
+    const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
+    const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
+    const driver = join(dir, 'driver.ts');
+    await writeFile(driver, `
+      import tracing from ${JSON.stringify(extension)};
+      import {writeFileSync} from 'node:fs';
+      export default function(pi) {
+        const hooks = new Map();
+        tracing(new Proxy(pi, {get(target, key) {
+          if (key === 'on') return (name, handler) => {hooks.set(name, [...(hooks.get(name) ?? []), handler]); pi.on(name, handler);};
+          return Reflect.get(target, key);
+        }}));
+        pi.registerCommand('no-content-test', {handler: async (_, ctx) => {
+          let inspected = 0;
+          const emit = async (name, event) => {
+            for (const hook of hooks.get(name) ?? []) await hook(event, ctx);
+          };
+          const child = {type: 'code-search', toJSON() {inspected++; throw new Error('serialized task');},
+            get task() {inspected++; throw new Error('read task');}};
+          const script = {get code() {inspected++; throw new Error('read source');}};
+          await emit('tool_execution_start', {toolCallId: 'child', toolName: 'subagent', args: child});
+          await emit('tool_call', {toolCallId: 'child', toolName: 'subagent', input: child});
+          await emit('tool_execution_start', {toolCallId: 'script', toolName: 'codemode', args: script});
+          const modelCall = status => ({id: 'script/models.classify/1', name: 'models.classify', status,
+            get args() {inspected++; throw new Error('read model source');}});
+          await emit('tool_execution_update', {toolCallId: 'script', toolName: 'codemode', partialResult: {
+            details: {calls: [modelCall('running')]}, get content() {inspected++; throw new Error('read output');}}});
+          await emit('tool_execution_end', {toolCallId: 'script', toolName: 'codemode',
+            result: {details: {calls: [modelCall('ok')]}}});
+          await emit('tool_execution_end', {toolCallId: 'child', toolName: 'subagent', result: {
+            content: [{text: 'Spawned detached Pi session 019ffdb0-3e55-713c-a283-1373113797d5'}],
+            toJSON() {inspected++; throw new Error('serialized result');}}});
+          writeFileSync(${JSON.stringify(join(dir, 'inspected.txt'))}, String(inspected));
+        }});
+      }
+    `);
+    const result = spawnSync('node', [cli, '--no-extensions', '-e', driver, '--no-skills',
+      '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
+      '--tracing', '--mode', 'json', '-p', '/no-content-test'], {cwd: dir, encoding: 'utf8', timeout: 20000,
+      env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
+        AGENTPROF_CAPTURE_CONTENTS: '0'}});
+    expect(result.status, result.stderr).toBe(0);
+    expect(await readFile(join(dir, 'inspected.txt'), 'utf8')).toBe('0');
+    const file = (await readdir(join(dir, 'pi-tracing'))).find(name => name.endsWith('.pftrace'))!;
+    const events = tracePackets(await readFile(join(dir, 'pi-tracing', file))).flatMap(packet => {
+      const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
+      return event ? [decodeFields(event)] : [];
+    });
+    const names = events.map(fields => new TextDecoder().decode(fields.find(f => f.number === 23)?.bytes));
+    expect(names).toContain('subagent');
+    expect(names).toContain('codemode');
+  } finally {await rm(dir, {recursive: true, force: true});}
+}, 25000);
+
 const hookTest = processor ? test : test.skip;
 hookTest('codemode hooks link parallel children, preserve errors, and record model-call lifecycle once', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-codemode-'));
@@ -201,7 +258,7 @@ hookTest('codemode hooks link parallel children, preserve errors, and record mod
         (SELECT COUNT(*) FROM calls WHERE name = 'read' AND parent_call_id = 'script' AND dur > 0) = 12
         AND (SELECT COUNT(*) FROM calls WHERE name = 'codemode'
           AND EXTRACT_ARG(arg_set_id, 'debug.language') = 'JavaScript'
-          AND EXTRACT_ARG(arg_set_id, 'debug.line_count') = 1) = 2
+          AND EXTRACT_ARG(arg_set_id, 'debug.line_count') IS NULL) = 2
         AND NOT EXISTS (SELECT 1 FROM args WHERE key GLOB 'debug.args.*')
         AND (SELECT COUNT(*) FROM calls WHERE name = 'read' AND EXTRACT_ARG(arg_set_id, 'debug.is_error') = 1) = 1
         AND (SELECT COUNT(*) FROM calls WHERE name = 'models.classify' AND parent_call_id = 'script') = 1
