@@ -4,10 +4,11 @@ import {decodeFields, tracePackets} from "./test-proto.ts";
 import {childPromptFlowId} from "./workflow.ts";
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { toolArgumentAnnotations } from "./annotations.ts";
 import { defaultConfig } from "./config.ts";
 import { CLOCK_BOOTTIME, CLOCK_PI_CUSTOM, CLOCK_REALTIME, buildTracePacket, buildTrackDescriptor, framePacket } from "./encoder.ts";
 import { Recorder, linuxUptimeReading, boottimeNsForPlatform, sanitizeArgv0 } from "./tracer.ts";
@@ -284,4 +285,156 @@ test('deferred tool begins preserve timestamps, cross-process flows, lane reserv
     expect(imported.status, imported.stderr).toBe(0);
     expect(imported.stdout).toContain('DEFERRED_OK');
   }
+});
+
+test('multibyte deferred tool arguments remain publishable at the 1 MiB file limit', async () => {
+  const {recorder: r, dir} = await recorder('bounded-deferred');
+  const config = r.getConfig();
+  config.maxFileMB = 1;
+  config.finalizeDeadlineMs = 2000;
+  r.setConfig(config);
+  expect((await r.start()).started).toBe(true);
+  const args = toolArgumentAnnotations({command: '🙂'.repeat(40000)}, true);
+  // The captured value is 65,536 UTF-16 units but 131,072 UTF-8 bytes:
+  // bigger than the old fixed 64 KiB finalization reserve.
+  const first = r.beginToolSlice('first', 'large-tool-first', undefined, [77n],
+    {deferBegin: true, annotations: args});
+  const second = r.beginToolSlice('second', 'large-tool-second', undefined, undefined,
+    {deferBegin: true, annotations: args});
+  expect(first).not.toBeNull();
+  expect(second).not.toBeNull();
+  r.addBeginFlow(first!, 88n);
+  const track = r.trackSet()!.sessionUuid;
+  const padding = 'x'.repeat(8192);
+  let limitReached = false;
+  for (let i = 0; i < 150; i++) {
+    if (!r.emitInstant({cat: 'agent', trackUuid: track, name: 'padding', annotations: {padding}})) {
+      limitReached = true;
+      break;
+    }
+  }
+  expect(limitReached).toBe(true);
+  expect(r.getStats().fileLimitReached).toBe(true);
+  expect(r.emitEnd(second!)).not.toBeNull();
+  expect(r.emitEnd(first!, undefined, undefined, [99n])).not.toBeNull();
+  const result = await r.stop('bounded');
+  expect(result?.error).toBeUndefined();
+  expect(result?.shutdownTruncated).toBe(false);
+  expect(result!.path.endsWith('.pftrace')).toBe(true);
+  expect(result!.bytes).toBeLessThanOrEqual(1024 * 1024);
+  expect((await readdir(dir)).some(path => path.endsWith('.pftrace.part'))).toBe(false);
+  const events = tracePackets(await readFile(result!.path)).flatMap(packet => {
+    const event = decodeFields(packet).find(field => field.number === 11)?.bytes;
+    return event ? [decodeFields(event)] : [];
+  });
+  for (const name of ['large-tool-first', 'large-tool-second']) {
+    const begin = events.find(fields => fields.find(field => field.number === 9)?.value === 1n &&
+      new TextDecoder().decode(fields.find(field => field.number === 23)?.bytes) === name)!;
+    expect(begin).toBeDefined();
+    const uuid = begin.find(field => field.number === 11)!.value;
+    expect(events.filter(fields => fields.find(field => field.number === 9)?.value === 2n &&
+      fields.find(field => field.number === 11)?.value === uuid)).toHaveLength(1);
+    const argsAnnotation = begin.filter(field => field.number === 4).map(field => decodeFields(field.bytes!))
+      .find(fields => new TextDecoder().decode(fields.find(field => field.number === 10)?.bytes) === 'args')!;
+    const command = decodeFields(argsAnnotation.find(field => field.number === 11)!.bytes!);
+    const captured = command.find(field => field.number === 6)!.bytes!;
+    expect(captured.length).toBeGreaterThan(64 * 1024);
+    expect(new TextDecoder().decode(captured)).toBe((args.args as {command: string}).command);
+    if (name === 'large-tool-first') {
+      expect(begin.filter(field => field.number === 47).map(field => field.value)).toEqual([77n, 88n, 99n]);
+    }
+  }
+});
+
+test('late oversized END annotations degrade the operation, not publication', async () => {
+  const {recorder: r, dir} = await recorder('bounded-result');
+  const config = r.getConfig();
+  config.maxFileMB = 1;
+  config.finalizeDeadlineMs = 2000;
+  r.setConfig(config);
+  expect((await r.start()).started).toBe(true);
+  const span = r.beginToolSlice('result', 'result-tool', undefined, undefined,
+    {deferBegin: true, annotations: {args: 'begin survives'}})!;
+  expect(span).not.toBeNull();
+  const track = r.trackSet()!.sessionUuid;
+  const padding = 'x'.repeat(8192);
+  let limitReached = false;
+  for (let i = 0; i < 150; i++) {
+    if (!r.emitInstant({cat: 'agent', trackUuid: track, name: 'padding', annotations: {padding}})) {
+      limitReached = true;
+      break;
+    }
+  }
+  expect(limitReached).toBe(true);
+  expect(r.emitEnd(span, {result: '🙂'.repeat(45000)})).not.toBeNull();
+  const result = await r.stop('bounded');
+  expect(result?.error).toBeUndefined();
+  expect(result?.shutdownTruncated).toBe(false);
+  expect(result!.droppedEvents).toBeGreaterThan(0);
+  expect((await readdir(dir)).some(path => path.endsWith('.pftrace.part'))).toBe(false);
+  const events = tracePackets(await readFile(result!.path)).flatMap(packet => {
+    const event = decodeFields(packet).find(field => field.number === 11)?.bytes;
+    return event ? [decodeFields(event)] : [];
+  });
+  const begin = events.find(fields => new TextDecoder().decode(fields.find(field => field.number === 23)?.bytes) === 'result-tool')!;
+  expect(begin).toBeDefined();
+  expect(events.filter(fields => fields.find(field => field.number === 9)?.value === 2n &&
+    fields.find(field => field.number === 11)?.value === begin.find(field => field.number === 11)?.value)).toHaveLength(1);
+});
+
+test('open deferred spans leave queue headroom for capture closure at stop', async () => {
+  const {recorder: r} = await recorder('saturated-queue');
+  const config = r.getConfig();
+  config.queueDepth = 256;
+  config.finalizeDeadlineMs = 2000;
+  r.setConfig(config);
+  expect((await r.start()).started).toBe(true);
+  const captureTrack = r.trackSet()!.sessionUuid;
+  for (let i = 0; i < 16; i++) {
+    expect(r.beginToolSlice(`pending-${i}`, `tool-${i}`, undefined, undefined,
+      {deferBegin: true})).not.toBeNull();
+  }
+  let saturated = false;
+  for (let i = 0; i < 300; i++) {
+    if (!r.emitInstant({cat: 'agent', trackUuid: captureTrack, name: 'padding'})) {
+      saturated = true;
+      break;
+    }
+  }
+  expect(saturated).toBe(true);
+  const result = await r.stop('pending');
+  expect(result?.error).toBeUndefined();
+  expect(result?.shutdownTruncated).toBe(false);
+  const counters = await recordedCounters(result!.path);
+  expect(counters['Dropped events']).toEqual([BigInt(result!.droppedEvents), 0n]);
+  const events = tracePackets(await readFile(result!.path)).flatMap(packet => {
+    const event = decodeFields(packet).find(field => field.number === 11)?.bytes;
+    return event ? [decodeFields(event)] : [];
+  });
+  expect(events.some(fields => fields.find(field => field.number === 9)?.value === 2n &&
+    fields.find(field => field.number === 11)?.value === captureTrack)).toBe(true);
+  for (let i = 0; i < 16; i++) {
+    const begin = events.find(fields => new TextDecoder().decode(fields.find(field => field.number === 23)?.bytes) === `tool-${i}`)!;
+    expect(begin).toBeDefined();
+    expect(events.filter(fields => fields.find(field => field.number === 9)?.value === 2n &&
+      fields.find(field => field.number === 11)?.value === begin.find(field => field.number === 11)?.value)).toHaveLength(1);
+  }
+});
+
+test('a deferred BEGIN larger than the queue budget is dropped without poisoning the writer', async () => {
+  const {recorder: r} = await recorder('oversized-deferred');
+  const config = r.getConfig();
+  config.maxFileMB = 1;
+  config.queueBytes = 64 * 1024;
+  r.setConfig(config);
+  expect((await r.start()).started).toBe(true);
+  const args = toolArgumentAnnotations({command: '🙂'.repeat(40000)}, true);
+  expect(r.beginToolSlice('too-large', 'too-large', undefined, undefined,
+    {deferBegin: true, annotations: args})).toBeNull();
+  expect(r.getStats().openSpans).toBe(0);
+  expect(r.getStats().writeError).toBeUndefined();
+  const result = await r.stop('bounded');
+  expect(result?.error).toBeUndefined();
+  expect(result?.shutdownTruncated).toBe(false);
+  expect(result!.droppedEvents).toBeGreaterThan(0);
 });
