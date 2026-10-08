@@ -72,7 +72,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
             : isMuse
               ? 'Install the Muse Code plugin. Requires Muse Code 1.4.1 or later with plugins enabled, and Node.js 22 or later.'
               : isCodex
-              ? 'Install the Codex plugin and recording profile. Requires Codex CLI 0.160.0 or later, and Node.js 22 or later.'
+              ? 'Install the native Codex plugin. Requires Codex CLI 0.160.0 or later, and Node.js 22 or later.'
               : 'Install the Claude Code plugin. Requires Claude Code 2.1.289 or later with mods enabled, and Node.js 22 or later.',
           isPi
             ? command('pi install git:github.com/dreveman/agentprof')
@@ -81,11 +81,16 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                   command('claude plugin marketplace add dreveman/agentprof'),
                   command('claude plugin install agentprof@agentprof'),
                 )
+              : isCodex
+              ? m('.ap-home__commands',
+                  command('codex plugin marketplace add dreveman/agentprof'),
+                  command('codex plugin add agentprof@agentprof'),
+                )
               : m(
                 '.ap-home__commands',
-                command('npm install -g github:dreveman/agentprof'),
-                command(`agentprof-${recorder} install`),
-                isMuse ? command('muse plugins approve agentprof') : undefined,
+                command('muse plugins marketplace add agentprof dreveman/agentprof'),
+                command('muse plugins install agentprof@agentprof'),
+                command('muse plugins approve agentprof'),
               ),
         ),
         step(
@@ -96,7 +101,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
             : isMuse
               ? 'Start Muse normally, type tracing start, then run your task.'
               : isCodex
-              ? 'Start Codex with the recording profile. Review the recording hooks in /hooks, then type tracing start.'
+              ? 'Start Codex normally. Review the plugin hooks in /hooks, then type tracing start.'
               : 'Start Claude normally. Use the recording button or /tracing start, then run your task.',
           isPi
             ? [
@@ -124,7 +129,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                   ),
                 ]
               : [
-                command(isMuse ? 'muse' : 'codex --no-daemon -p agentprof'),
+                command(isMuse ? 'muse' : 'codex'),
                 m(
                   'p.ap-home__record-note',
                   `Type tracing stop to save, or exit ${isMuse ? 'Muse' : 'Codex'} to finish the recording. `,

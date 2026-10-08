@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations} from './convert.ts';
-import {fixture, log, at, rootSession} from './fixture.ts';
+import {fixture, log, at, rootSession, childSession} from './fixture.ts';
 import {tagControlScripts} from './plugin-observations.ts';
 import {omitContent} from '../agent-tracing/content.ts';
 import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
@@ -22,6 +22,60 @@ function query(rows: ReturnType<typeof fixture>, sql: string): string {
     return result.stdout;
   } finally {rmSync(path, {recursive: true, force: true});}
 }
+test('hook-only Codex import uses transcript usage without inventing native timing', () => {
+  const rows = fixture().filter(row => !row.source.startsWith('/v1/') && row.source !== 'cli');
+  rows[0]!.data.recorder = 'codex-plugin-1'; rows[0]!.data.sessionId = rootSession;
+  const hook = (time: number, session: string, hook_event_name: string, data = {}) =>
+    ({source: 'codex.hook', timestamp: at(time), data: {session_id: session, hook_event_name, ...data}});
+  rows.push(hook(1, rootSession, 'SessionStart', {model: 'fixture-model'}));
+  rows.push(hook(10, rootSession, 'UserPromptSubmit', {prompt: 'Check the recorded fixture.', turn_id: 'turn-main'}));
+  rows.push(hook(100, rootSession, 'PreToolUse', {tool_name: 'Bash', tool_use_id: 'call1', tool_input: {command: 'echo hi'}}));
+  rows.push(hook(180, rootSession, 'PostToolUse', {tool_name: 'Bash', tool_use_id: 'call1', tool_response: {exit_code: 0}}));
+  rows.push(hook(250, rootSession, 'SubagentStart', {agent_id: childSession, agent_type: 'auditor'}));
+  rows.push(hook(260, childSession, 'UserPromptSubmit', {prompt: 'Check the sum', turn_id: 'turn-child', parent_session: rootSession}));
+  rows.push(hook(900, rootSession, 'Stop', {turn_id: 'turn-main'}));
+  const result = convertObservations(rows);
+  expect(result.summary).toMatchObject({sessions: 2, responses: 3, tools: 1, scripts: 0,
+    unmeasuredResponses: 3, inputTokens: 260, outputTokens: 14});
+  const path = mkdtempSync(join(tmpdir(), 'codex-hook-query-'));
+  try {
+    writeFileSync(join(path, 'hook.pftrace'), result.trace);
+    writeFileSync(join(path, 'query.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\nSELECT
+      (SELECT COUNT(*) FROM agentprof_messages)=3,
+      (SELECT COUNT(*) FROM agentprof_messages WHERE message_ns IS NULL)=3,
+      (SELECT SUM(input_tokens) FROM agentprof_messages)=260,
+      (SELECT COUNT(*) FROM agentprof_tool_calls WHERE kind='tool-execution')=1,
+      (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`);
+    const imported = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
+      [join(path, 'hook.pftrace'), '-q', join(path, 'query.sql')], {encoding: 'utf8'});
+    expect(imported.status, imported.stderr).toBe(0);
+    expect(imported.stdout.trim().split('\n').at(-1)).toBe('1,1,1,1,1');
+  } finally {rmSync(path, {recursive: true, force: true});}
+});
+
+test('hook-only compaction usage is not a normal response and empty token samples are ignored', () => {
+  const rows = fixture().filter(row => !row.source.startsWith('/v1/') && row.source !== 'cli' && row.source !== 'session_metadata');
+  rows[0]!.data.recorder = 'codex-plugin-1'; rows[0]!.data.sessionId = rootSession;
+  for (const [time, event] of [[10, 'UserPromptSubmit'], [100, 'PreCompact'], [200, 'PostCompact']] as const)
+    rows.push({source: 'codex.hook', timestamp: at(time), data: {session_id: rootSession,
+      hook_event_name: event, ...(event === 'UserPromptSubmit' ? {prompt: 'Work', turn_id: 'turn1'} : {})}});
+  for (const [time, usage] of [[150, {input_tokens: 70, output_tokens: 0}], [250, {}]] as const)
+    rows.push({source: 'session_metadata', timestamp: at(999), data: {session_id: rootSession,
+      record: {type: 'event_msg', timestamp: new Date(Number(BigInt(at(time)) / 1_000_000n)).toISOString(),
+        payload: {type: 'token_count', info: {last_token_usage: usage}}}}});
+  expect(convertObservations(rows).summary).toMatchObject({responses: 0, compactions: 1,
+    inputTokens: 70, outputTokens: 0, unmeasuredResponses: 1});
+});
+
+test('native-plugin recovery does not double-count an unmatched transcript sample', () => {
+  const rows = fixture(); rows[0]!.data.recorder = 'codex-plugin-1';
+  const sample = rows.find(row => row.source === 'session_metadata' &&
+    (row.data.record as any)?.payload?.info?.last_token_usage?.input_tokens === 100)!;
+  (sample.data.record as any).timestamp = new Date(Number(BigInt(at(1300)) / 1_000_000n)).toISOString();
+  rows.find(row => row.source === 'process_end')!.timestamp = at(2000);
+  expect(convertObservations(rows).summary).toMatchObject({responses: 3, inputTokens: 260, outputTokens: 14});
+});
+
 test('disabled content never parses unsanitized native argument strings', () => {
   const rows = fixture(), secret = '{"private":"disabled-input"}';
   rows[0]!.data.capture_contents = false;

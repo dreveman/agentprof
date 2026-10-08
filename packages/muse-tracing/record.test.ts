@@ -172,6 +172,23 @@ linuxTest('Muse replaces a watcher whose PID was reused by another process', asy
   }
 });
 
+test('environment opt-in starts a native plugin recording without a configure command', async () => {
+  const {temporary, data} = await setup();
+  const child = '33333333-3333-4333-8333-333333333333';
+  const previous = process.env.AGENTPROF_MUSE_AUTO_START;
+  try {
+    process.env.AGENTPROF_MUSE_AUTO_START = '1';
+    const started = await hook(data, {hook_event_name: 'SessionStart', session_id: child, cwd: temporary,
+      source: 'startup', model: 'test', model_provider: 'meta'}, process.pid);
+    expect(started.systemMessage).toContain('Agent Profiler recording:');
+    expect((await readJson(statePath(data, child))).capture).toBeDefined();
+  } finally {
+    if (previous === undefined) delete process.env.AGENTPROF_MUSE_AUTO_START;
+    else process.env.AGENTPROF_MUSE_AUTO_START = previous;
+    await rm(temporary, {recursive: true, force: true});
+  }
+});
+
 test('automatic recording does not create separate recordings for subagents or forks', async () => {
   const {temporary, data} = await setup(), child = '22222222-2222-4222-8222-222222222222';
   try {

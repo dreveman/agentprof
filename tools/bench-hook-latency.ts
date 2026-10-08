@@ -2,13 +2,11 @@
 // Synthetic local per-hook process cost (not a production latency SLA).
 // Run on Node 22+: bun tools/bench-hook-latency.ts [rounds]
 import {spawn} from 'node:child_process';
-import {createServer} from 'node:http';
-import {mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {performance} from 'node:perf_hooks';
-import {randomUUID, createHash} from 'node:crypto';
-import {configure, readConnection} from '../packages/codex-tracing/plugin-config.ts';
+import {randomUUID} from 'node:crypto';
 import {processStartMarker} from '../packages/agent-tracing/process-identity.ts';
 
 const rounds = Number(process.argv[2] ?? 20);
@@ -41,25 +39,13 @@ async function measure(name: string, args: string[], input: string, env = proces
   for (let i = 0; i < rounds; i++) samples.push(await run(args, input, env));
   console.log(JSON.stringify({name, rounds, medianMs: percentile(samples, .5), p95Ms: percentile(samples, .95)}));
 }
-let server: ReturnType<typeof createServer> | undefined;
 try {
   const state = join(root, 'codex/agentprof');
-  mkdirSync(join(root, 'codex'), {recursive: true});
-  await configure(state, join(root, 'codex'), codex);
-  const connection = readConnection(state);
-  let hookRequests = 0, healthRequests = 0;
-  server = createServer((request, response) => {
-    if (request.url === '/hook') hookRequests++;
-    if (request.url === '/health') healthRequests++;
-    response.writeHead(200, {'content-type': 'application/json',
-      'x-agentprof-generation': connection.generation!,
-      'x-agentprof-build': createHash('sha256').update(readFileSync(codex)).digest('hex')}); response.end('{}');
-  });
-  await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+  mkdirSync(state, {recursive: true, mode: 0o700});
   await measure('bare Node process', ['-e', `process.stdin.resume(); process.stdin.on('end',()=>process.stdout.write('{}'))`], '{}');
   await measure('Codex warm hook', [codex, 'hook', '--state', state],
     JSON.stringify({hook_event_name: 'SessionStart', session_id: id, cwd: root}));
-  console.log(JSON.stringify({codexRequests: {hook: hookRequests, health: healthRequests}}));
+  await run([codex, 'hook', '--state', state], JSON.stringify({hook_event_name: 'SessionEnd', session_id: id, cwd: root}));
   const data = join(root, 'muse/plugins/data/agentprof');
   mkdirSync(data, {recursive: true});
   const env = {...process.env, MUSE_PLUGIN_DATA_DIR: data};
@@ -78,6 +64,11 @@ try {
   await measure('Muse recording PreLLMCall', [muse, 'hook'],
     JSON.stringify({hook_event_name: 'PreLLMCall', session_id: id, model: 'fixture-model'}), env);
 } finally {
-  if (server) await new Promise<void>(done => server!.close(() => done()));
+  const owner = join(root, 'codex/agentprof/receiver-owner.json');
+  if (existsSync(owner)) {
+    const pid = JSON.parse(readFileSync(owner, 'utf8')).pid;
+    for (let attempt = 0; attempt < 100 && existsSync(owner); attempt++) await Bun.sleep(50);
+    if (existsSync(owner)) try {process.kill(pid, 'SIGTERM');} catch {}
+  }
   rmSync(root, {recursive: true, force: true});
 }

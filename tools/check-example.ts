@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { Recorder } from "../packages/pi-tracing/extensions/pi-tracing/tracer.ts";
 import { defaultConfig } from "../packages/pi-tracing/extensions/pi-tracing/config.ts";
@@ -209,6 +210,7 @@ console.log('PASS session activity series: measured model/tool union across the 
 // counters reset or a configuration field is missing. Keep files for the UI test.
 const comparisonDir = resolve('artifacts/examples/comparison');
 await mkdir(comparisonDir, {recursive: true});
+const comparisonCopies: {source: string; target: string}[] = [];
 for (const [i, label] of ['code-mode', 'classic', 'unknown'].entries()) {
   const config = defaultConfig();
   config.sampleHz = 0;
@@ -233,7 +235,11 @@ for (const [i, label] of ['code-mode', 'classic', 'unknown'].entries()) {
   if (!manifest) throw new Error('Capture did not complete');
   const file = resolve(comparisonDir, `${label}.pftrace`);
   await copyFile(manifest.path, file);
+  comparisonCopies.push({source: manifest.path, target: file});
 }
+// Ensure the named copies still exist after all synthetic recorders have
+// finished; an overlapping fixture cleanup can remove an earlier copy.
+for (const {source, target} of comparisonCopies) if (!existsSync(target)) await copyFile(source, target);
 const mergedPath = resolve(comparisonDir, 'comparison.tar');
 const tar = spawnSync('tar', ['-cf', mergedPath, '-C', comparisonDir, 'code-mode.pftrace', 'classic.pftrace', 'unknown.pftrace']);
 if (tar.status !== 0) throw new Error(String(tar.stderr));

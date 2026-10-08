@@ -251,7 +251,7 @@ export async function hook(data: string, payload: Record<string, any>, pid = pro
     return {decision: 'block', reason: message, systemMessage: message};
   }
   if (event === 'SessionStart' && payload.source !== 'fork' && !(await readJson(statePath(data, id)))?.parentSession &&
-      (await readJson(join(data, 'config.json')))?.auto_start) {
+      (process.env.AGENTPROF_MUSE_AUTO_START === '1' || (await readJson(join(data, 'config.json')))?.auto_start)) {
     const result = await control(data, id, 'start');
     if (result.state === 'recording') await onWatcherNeeded?.();
     return {systemMessage: `Agent Profiler recording: ${result.output_path}`};

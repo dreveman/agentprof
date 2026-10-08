@@ -7,17 +7,17 @@ the same lifecycle. Traces remain ordinary Perfetto protobuf recordings.
 Category prefixes identify the recording harness: Pi writes `pi.*`, and the
 Claude Code writes `claude.metadata` and `claude.activity`.
 Codex writes `codex.metadata` and `codex.activity` using the same capture schema.
-The interactive plugin combines native telemetry with scoped lifecycle hooks.
-Recording boundaries remain fixed while late native exports drain. Hooks supply
-prompt boundaries, compaction spans and child relationships. Hook-only tool
-intervals are labeled `timing = hook-dispatch`; native execution intervals take
-precedence. Codex supplies the parent session ID on subagent hooks, so their
-separate `agent_id` identifies the child. Recording controls are excluded from
-tool activity. Interrupted work is marked incomplete.
-Its input tokens include cached input; cache fields must not be added again.
-Codex context samples are request input, and its effective context window is
-read from the captured session metadata. Native startup prewarming is separate
-from normal responses and session token totals. See the
+The interactive plugin records scoped lifecycle hooks and transcript usage,
+without a native OTLP exporter. Hooks supply prompt boundaries, tool dispatch
+intervals, compaction spans and child relationships. Tool intervals are labeled
+`timing = hook-dispatch`, including hook/permission delays. Codex supplies the
+parent session ID on subagent hooks, so their separate `agent_id` identifies
+the child. Recording controls are excluded from tool activity. Interrupted
+work is marked incomplete. Transcript completions carry reported token counts
+but no measured model-request duration or TTFT. Its input tokens include
+cached input; cache fields must not be added again. The effective context
+window comes from captured session metadata. The separate exec recorder can
+still capture native telemetry and prewarming. See the
 [Codex recording guide](../packages/codex-tracing/README.md) for timing boundaries.
 All four use the same version-1 capture markers and event kinds. Readers also
 recognize `agentprof.*` categories from earlier Claude Code prototype recordings.
@@ -219,13 +219,14 @@ config/category or this shared switch opts out. Claude also accepts plugin
 lengths (when observed), operation names/IDs, token usage, timing and model
 metadata remain. File output paths and session identifiers remain in capture
 metadata; Pi workflow IDs and source-key lists can still identify work.
-Claude's direct/legacy and Codex collectors omit content before their retained
-raw journals; older journals are not rewritten. Muse omits content from the
-published trace and parsed state but its native export temporarily contains
-raw content, and Muse's own session journal is outside Agent Profiler's
-control. Codex's own session log is similarly unaffected. In content-on mode,
-Claude/Codex raw journals may contain more than the bounded final trace; Codex
-raw telemetry can include tool output. Assistant response text and tool-result
+Claude's direct/legacy and Codex plugin collectors omit content before their
+retained raw journals; older journals are not rewritten. Muse omits content
+from the published trace and parsed state but its native export temporarily
+contains raw content, and Muse's own session journal is outside Agent
+Profiler's control. Codex's own session log is similarly unaffected. In
+content-on mode, Claude/Codex raw journals may contain more than the bounded
+final trace; the separate Codex exec recorder can include native tool output.
+Assistant response text and tool-result
 bodies are not intentionally stored in final traces, but Muse reminder prompts
 can quote the main conversation, including tool results.
 
@@ -233,7 +234,7 @@ can quote the main conversation, including tool results.
 | --- | --- | --- | --- |
 | Pi | Task prompt text; tool input, including commands, edit paths/text and scripts | Prompt length; tool names/IDs; disabled argument values are not serialized for sizes/keys | Private part/spool contains no prompt or argument values |
 | Claude | Main and subagent prompts; tool inputs/descriptions | Prompt length; tool name/IDs, timing and usage | Direct checkpoint/journal and legacy hook/OTLP journal omit values; response/tool-result bodies are not collected intentionally |
-| Codex | Main/child prompts; native or hook tool input/script source | Prompt length when a hook supplies it; tool names/IDs, timing, usage and outcomes | Hook/OTLP journal omits prompt, argument and output values; Codex's own session logs are unaffected |
+| Codex | Main/child prompts and hook tool input | Prompt length when a hook supplies it; tool names/IDs, dispatch timing, transcript usage and outcomes | Plugin hook journal omits prompt and argument values; Codex's own session logs are unaffected |
 | Muse | Main and reminder prompts (which may quote conversation/tool results); tool inputs | Prompt length; tool name/ID, timing and usage; raw string argument length when supplied (no parsed keys or object size) | Parsed plugin state omits values; temporary native export and Muse's own journal still contain them |
 
 In every mode, the requested output path, process/machine identity, session and

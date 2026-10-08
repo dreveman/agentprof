@@ -4,7 +4,8 @@
     "tracing": {
       "type": "stdio",
       "command": "node",
-      "args": ["${PLUGIN_ROOT}/runtime/codex-tracing.mjs", "mcp", "--plugin-data", "${PLUGIN_DATA}"]
+      "args": ["runtime/codex-tracing.mjs", "mcp", "--plugin-data", "."],
+      "cwd": "."
     }
   }
 }

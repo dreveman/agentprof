@@ -22,6 +22,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const {spans, logs} = readOtel(rows);
   const plugin = processStart.data.recorder === 'codex-plugin-1';
+  const nativeTelemetry = rows.some(row => row.source === '/v1/logs' || row.source === '/v1/traces');
   const extra = plugin ? addHooks(rows, spans, logs, first, last, captureContents) : [];
   const ordered = [...spans.values()].sort((a, b) => compareTime(a.start, b.start));
   logs.sort((a, b) => compareTime(a.at, b.at));
@@ -55,7 +56,8 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     let s = sessions.get(id);
     if (!s) {
       s = {id, start: id === rootSession ? first : last, end: id === rootSession ? last : first,
-        attrs: {harness: 'codex', recorder_version: plugin ? 'codex-plugin-1' : 'codex-prototype-1', timing: 'native-otel',
+        attrs: {harness: 'codex', recorder_version: plugin ? 'codex-plugin-1' : 'codex-prototype-1',
+          timing: plugin && !nativeTelemetry ? 'hooks-and-transcript' : 'native-otel',
           ...(!processEnd || processEnd.data.dropped !== 0 || processEnd.data.incomplete || rows.some(r => r.source === 'recovery') ? {incomplete: true} : {})}};
       sessions.set(id, s);
     }
@@ -199,6 +201,36 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     responses.push(slice);
     add(id, `${log.key}:turn`, 'Turns', 'turn', start, end, {kind: 'turn', ...(request ? {} : {incomplete: true})});
     edge(ownerPrompt(slice), slice);
+  }
+  if (plugin && !nativeTelemetry) for (const [id, samples] of tokenMetadata) for (const sample of samples) {
+    if (!sessions.has(id) ||
+        (integer(sample.usage.input_tokens) === undefined && integer(sample.usage.output_tokens) === undefined)) continue;
+    // The transcript reports completion usage, not when the model request
+    // began or when its first bytes arrived. Never invent those durations.
+    const configuration = configurations.get(id)?.findLast(value => value.at <= sample.at);
+    const session = getSession(id);
+    const compact = extra.some(slice => slice.session === id && slice.attrs.kind === 'compaction' &&
+      slice.start <= sample.at && slice.end !== undefined && slice.end >= sample.at);
+    const attrs: Attrs = {kind: compact ? 'compaction-response' : 'assistant-message',
+      timing: 'transcript-completion', incomplete: true,
+      model: configuration?.model || string(session.attrs.model),
+      ...(session.attrs.provider ? {provider: session.attrs.provider!} : {}),
+      ...(configuration?.effort || session.attrs.effort ? {effort: configuration?.effort || session.attrs.effort!} : {})};
+    for (const [source, target] of [['input_tokens', 'input_tokens'], ['output_tokens', 'output_tokens'],
+      ['cached_input_tokens', 'cache_read_tokens'], ['reasoning_output_tokens', 'reasoning_tokens']] as const) {
+      const value = integer(sample.usage[source]); if (value !== undefined) attrs[target] = value;
+    }
+    if (sample.limit) attrs.context_window_tokens = sample.limit;
+    if (attrs.input_tokens !== undefined) attrs.context_tokens = attrs.input_tokens;
+    const response = add(id, `transcript:${sample.at}:${responses.length + compactionResponses.length}`,
+      compact ? 'Compaction responses' : 'Responses', 'response', sample.at, sample.at, attrs);
+    unmeasuredResponses++;
+    if (compact) compactionResponses.push(response);
+    else {
+      responses.push(response);
+      add(id, `${response.id}:turn`, 'Turns', 'turn', sample.at, sample.at, {kind: 'turn', incomplete: true});
+      edge(ownerPrompt(response), response);
+    }
   }
   for (const request of requests.filter(s => !usedRequests.has(s))) {
     const id = spanSession(request); if (!id) continue;
