@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-05",
+  "recordedAt": "2026-10-08",
   "harnessVersion": "2.1.289",
   "recorder": "native-plugin",
   "description": "Fix interval union duration and peak concurrency, add four regression tests, and run all tests.",
   "bundledFile": "coding.pftrace",
-  "sha256": "6ec17875bd644347c7b266a15deae99bf4c2a8c55aa180999ffff4841d1e27c7",
+  "sha256": "2d26f0d309c845637ab0816371dacca2e392e6648e84a3bb31e1972645918862",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "redactions": [
     "Scratch workspace paths replaced with /workspace/intervals; measurements and session identity are unchanged."
@@ -15,36 +15,37 @@
     "oracleCases": 500
   },
   "recording": {
-    "sessionId": "23f3e374-4393-4d77-a184-7789fe0a310e",
+    "sessionId": "27bf59a7-adec-48ad-964d-00ab0504a0cd",
     "harness": "claude-code",
     "provider": "anthropic",
     "model": "claude-haiku-4-5-20251001",
     "effort": "Not recorded",
     "inputTokens": 48,
-    "outputTokens": 2090,
+    "outputTokens": 2023,
     "responses": 9,
     "turns": 9,
     "tools": 9,
     "contextWindowTokens": 200000,
-    "peakContext": 17488,
+    "peakContext": 17126,
     "incomplete": 0,
-    "startNs": "1791229487491783446",
-    "endNs": "1791229508791826616",
+    "startNs": "1791420014210711939",
+    "endNs": "1791420036402298419",
     "scripts": 0,
     "nestedTools": 0,
     "flows": 28
   },
   "resultSha256": {
-    "intervals.mjs": "ff55ffcbf99fdfe94869bdb0f42b34ac5264585a0f3555941377d1101f5df3a8",
+    "intervals.mjs": "e29c8aa78cbc10d26ba67939cbf27ad5ef499d89fa9d7aeafce091dcc64eb59e",
     "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
-    "additional.test.mjs": "8561d1d8bca948df6b70a9808571516ce96e5e30a07f63d22ad5eb188fbaa2ee"
+    "additional.test.mjs": "8a0a368428ea2048f16549f4c6c967838bd427fd5f2904e07ffc0c656950e337"
   },
-  "source": "Live Claude Code task recorded with the native plugin; paired with Pi codemode in comparison trial 5.",
-  "contextData": "Native context breakdowns sampled by the recording plugin, with partial item attribution from session messages. Category estimates remain independent of reported usage.",
+  "source": "Claude Code task recorded with the native recording plugin.",
+  "contextData": "Native context breakdowns sampled during this run, with partial message attribution. Category estimates remain independent of reported usage.",
   "originalResultSha256": {
-    "intervals.mjs": "d8782ab1e66c44c737e02deb00d6de11fd3fc225c83aeeadb0ffc1064092d6da",
-    "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b",
-    "additional.test.mjs": "a25ca570a0d40715439a5c6962993616d7663a160bd8bb72241a9db736308771"
+    "intervals.mjs": "e29c8aa78cbc10d26ba67939cbf27ad5ef499d89fa9d7aeafce091dcc64eb59e",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "8a0a368428ea2048f16549f4c6c967838bd427fd5f2904e07ffc0c656950e337"
   },
-  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
+  "sourceLicenseNote": "Distributed result files have Apache-2.0 headers; original captured source hashes are retained in originalResultSha256.",
+  "originalCaptureSha256": "7221e5ccf61ce744456c9652b904931045fdd1005563554821422d311db2397b"
 }

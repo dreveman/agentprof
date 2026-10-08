@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-05",
+  "recordedAt": "2026-10-08",
   "harnessVersion": "1.4.1-R4503.1",
   "recorder": "native-plugin",
   "description": "Fix interval union duration and peak concurrency, add four regression tests, and run all tests.",
   "bundledFile": "coding.pftrace",
-  "sha256": "8e7ea011ac9282b64b3a1869c99f0ba1bbee77eb7d15423ee338f8fba5c4ade4",
+  "sha256": "0721f224288ceae9e2251cd02be3c28a02e82c66fc8b7f3c40870b6e941b7738",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "redactions": [
     "Scratch workspace paths replaced with /workspace/intervals and home paths with /user. Measured times and native session identities are unchanged."
@@ -16,70 +16,37 @@
   },
   "recordings": [
     {
-      "id": "01a10be3-c81c-76a0-bf04-3834f7e25c94",
+      "id": "01a118ed-4323-7d22-99bb-a288070a1572",
       "harness": "muse",
       "provider": "meta",
       "model": "muse-spark-1.3-contributor",
-      "effort": "low",
+      "effort": "Not recorded,low",
+      "inputTokens": 229820,
+      "outputTokens": 1378,
       "responses": 8,
-      "tools": 8,
       "turns": 8,
-      "inputTokens": 230875,
-      "outputTokens": 1560,
+      "tools": 8,
       "contextWindowTokens": 1007997,
-      "peakContext": 31919,
+      "peakContext": 31733,
       "incomplete": 0,
-      "startNs": "1791200846474000000",
-      "endNs": "1791200945975619000"
-    },
-    {
-      "id": "77eb18de-9735-4738-b2f3-ebabe33079be",
-      "harness": "muse",
-      "provider": "meta",
-      "model": "muse-spark-1.3-contributor",
-      "effort": "high",
-      "responses": 1,
-      "tools": 1,
-      "turns": 1,
-      "inputTokens": 8289,
-      "outputTokens": 637,
-      "contextWindowTokens": 1007997,
-      "peakContext": 8289,
-      "incomplete": 0,
-      "startNs": "1791200931646070000",
-      "endNs": "1791200943738216000"
-    },
-    {
-      "id": "8760f1c0-5bb2-414e-b176-5d157150a889",
-      "harness": "muse",
-      "provider": "meta",
-      "model": "muse-spark-1.3-contributor",
-      "effort": "low",
-      "responses": 1,
-      "tools": 1,
-      "turns": 1,
-      "inputTokens": 6702,
-      "outputTokens": 393,
-      "contextWindowTokens": 1007997,
-      "peakContext": 6702,
-      "incomplete": 0,
-      "startNs": "1791200934384451000",
-      "endNs": "1791200942833150000"
+      "startNs": "1791419572728000000",
+      "endNs": "1791419701718000000"
     }
   ],
-  "flows": 34,
-  "unavailableChildren": 7,
+  "flows": 27,
+  "unavailableChildren": 10,
   "resultSha256": {
-    "intervals.mjs": "bb3aa92f147068f6170d65e25c5fbaf73b185eadd2e4f3d998466c953fd0fd08",
+    "intervals.mjs": "ef8c4ec383012be68eb3a9b4d1130aff3a1785f461276250e5c5d26ff0834bd8",
     "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
-    "additional.test.mjs": "104f980b638eaf99887ce2690ed8ff924840cf08b9ba6ad139986b6e514cebf2"
+    "additional.test.mjs": "04f27a1c7b0898491b4bb16491ef76dcbb8c7024b2adbe10bfb3a4425c0ba54f"
   },
-  "source": "One live Muse Code task with the native plugin and automatic start. Re-exported after verifying shutdown handling and relative child-log links; original recording clocks and boundaries are preserved.",
-  "contextData": "Re-exported from the original native session exports. Category counts use request-lane bytes/4 with partial transcript attribution; measured timings and usage are unchanged.",
+  "source": "Coding task recorded with the native recording plugin, with automatic start and save on exit.",
+  "contextData": "Native outgoing-request lane byte estimates and partial item attribution captured during this run. Reported timings and token usage are independent.",
   "originalResultSha256": {
-    "intervals.mjs": "1374cfec5f16727792e3e93cc9e3ff6c7aa9db6c1bf8dbe8bd490dbfdab05e70",
-    "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b",
-    "additional.test.mjs": "2a886a72f690c76388a821368fda4864749b923f1ecb4e3ddf300e79916e1104"
+    "intervals.mjs": "ef8c4ec383012be68eb3a9b4d1130aff3a1785f461276250e5c5d26ff0834bd8",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "04f27a1c7b0898491b4bb16491ef76dcbb8c7024b2adbe10bfb3a4425c0ba54f"
   },
-  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
+  "sourceLicenseNote": "Distributed result files have Apache-2.0 headers; original captured source hashes are retained in originalResultSha256.",
+  "originalCaptureSha256": "0721f224288ceae9e2251cd02be3c28a02e82c66fc8b7f3c40870b6e941b7738"
 }

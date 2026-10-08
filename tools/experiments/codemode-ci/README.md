@@ -4,9 +4,6 @@ This explores when scripting tools can reduce model turns and output, using
 real Pi sessions against a **synthetic, deterministic CI API replay**. It is not
 a measurement of a production CI service or a general coding benchmark.
 
-[Results from three paired runs](RESULTS.md) show an 11.8× median wall-time
-speedup with all answers correct.
-
 The task audits 192 failed test cases. Four paginated list requests identify
 the cases; one history request per case returns its four preceding results.
 The agent classifies new, persistent, and intermittent failures by owner and

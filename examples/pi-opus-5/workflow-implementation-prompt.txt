@@ -1,23 +1,12 @@
-Work ONLY in the current scratch directory: /home/example/github/agentprof/examples/artifacts/live-pi/opus-5-workflow-a3d7f647
+Work only in /workspace/intervals. You own exactly one file: intervals.mjs. Do NOT create or edit any other file (do not touch intervals.test.mjs or additional.test.mjs; another worker owns tests).
 
-You own exactly ONE file: intervals.mjs. Do NOT create, edit, or delete any other file (in particular do not touch intervals.test.mjs or additional.test.mjs — another worker owns tests; they may appear/change while you work, that is fine).
+Fix the exported function summarizeIntervals(intervals) in intervals.mjs. Input: an array of finite half-open [start, end) intervals in milliseconds, each with end >= start. Requirements:
+- activeMs = total duration of the UNION of the intervals (overlaps counted once; zero-length intervals contribute 0; touching intervals like [0,5] and [5,9] give 9).
+- peakConcurrency = maximum number of simultaneously active NONEMPTY intervals at any instant (zero-length intervals never count; intervals that merely touch at an endpoint, e.g. [0,5] and [5,9], are NOT simultaneous because of half-open semantics -> 1).
+- Must not mutate the input array or the inner arrays (inputs may be frozen). Sort a copy, never in place.
+- Empty input -> {activeMs: 0, peakConcurrency: 0}.
+- Handle fractional values, duplicates, nesting, unsorted input, many identical starts/ends efficiently (sweep-line / sorted events, O(n log n)).
+- Keep it clean ES module syntax, keep the existing SPDX header comment.
 
-Task: Fix the exported function `summarizeIntervals(intervals)` in intervals.mjs.
-
-Contract:
-- Input: an array of finite half-open intervals [start, end) in milliseconds, each with end >= start. Values may be fractional. The array may be empty, unsorted, contain nested/overlapping/duplicated intervals, zero-length intervals, and touching endpoints.
-- Returns an object {activeMs, peakConcurrency}:
-  - activeMs: total duration of the UNION of the intervals (overlaps counted once). Zero-length intervals contribute 0.
-  - peakConcurrency: the maximum number of simultaneously active NONEMPTY intervals at any instant. Zero-length intervals (start === end) never count. Because intervals are half-open, an interval ending at t and one starting at t are NOT simultaneous (e.g. [[0,5],[5,9]] => peakConcurrency 1). Empty input => 0.
-- Must NOT mutate the input array or any inner interval array (they may be frozen). Do not sort in place — copy first.
-
-Current buggy implementation just sums lengths and uses intervals.length.
-
-Implementation guidance: a sweep-line over start/end events works well. Sort a copy of events; process all end events at a given coordinate before start events at the same coordinate so touching intervals don't count as concurrent. Track union by accumulating covered time while the active count > 0. Watch out for floating point: prefer accumulating exact differences of coordinates (e.g. sum of merged-segment lengths) so [[0.5,2.5],[1.5,3]] yields exactly 2.5.
-
-Keep the code clean, small, ESM, with a brief comment. Keep the existing named export `summarizeIntervals`.
-
-Verify with: `node --test` in the directory (existing tests in intervals.test.mjs must pass; additional tests from the other worker may also appear — if one of them fails, check whether the spec above says your behavior is right; only change intervals.mjs, never the tests). Also sanity check that passing a frozen input does not throw.
-
-Report briefly what you changed and the test result.
+Verify with: cd to the directory and run `node --test intervals.test.mjs` (existing tests must pass). Report a short summary of your change.
 Work only in the current scratch directory. Keep your final report concise.

@@ -34,6 +34,7 @@ test('installed recording controls render, start, stop and preserve native tool 
   on('tool.register', (_, e) => ({value: {tool: `mcp__agentprof__${e.name}`}}));
   on('session.start', (_, e) => ({cwd: e.cwd}));
   on('tool.call', () => ({result: 'original result'}));
+  on('turn.complete', (_, e) => ({text: e.answer}));
   on('turn.step', async function* (_, e) {
     yield {kind: 'text', index: 0, text: 'unchanged response'};
     return {turnId: e.turnId, index: e.index, answer: 'unchanged response', toolUses: [], stopReason: 'end_turn', usage: {model: 'claude-haiku-4-5', input_tokens: 100, output_tokens: 3,
@@ -50,9 +51,9 @@ test('installed recording controls render, start, stop and preserve native tool 
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
   expect(chunks).toEqual([{kind: 'text', index: 0, text: 'unchanged response'}]);
-  await $.turn.complete({turnId: 'turn-1', isAborted: false});
+  await $.turn.complete({turnId: 'turn-1', isAborted: false, answer: 'unchanged response'});
   for await (const _ of $.turn.step({turnId: 'turn-2', index: 0, model: 'claude-haiku-4-5', messageCount: 1})) {}
-  await $.turn.complete({turnId: 'turn-2', isAborted: false});
+  await $.turn.complete({turnId: 'turn-2', isAborted: false, answer: 'unchanged response'});
   const stopped = await $.tool.call({tool: 'mcp__agentprof__tracing_stop'});
   const status = JSON.parse(stopped.result as string);
   expect(status.published).toBe(true);

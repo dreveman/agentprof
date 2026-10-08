@@ -6,9 +6,8 @@ to list failures and retrieve their histories, then classifies failures by
 owner and reports the five slowest new failures. Both [answers](answers.json)
 match the independent [expected result](expected.json).
 
-This is round 1 of three paired trials recorded on 2026-10-02 with Pi 1.0.0 and
-`anthropic/claude-opus-5` at high effort. It was selected for its middle paired
-wall-time speedup. This offline fixture preserves that pair's original sessions.
+Recorded on 2026-10-02 with Pi 1.0.0 and `anthropic/claude-opus-5` at high
+effort. This offline fixture preserves both sessions.
 
 Context categories were reconstructed at each request from the original saved
 messages, system sections and tool definitions. They are marked as partial
@@ -28,11 +27,8 @@ transcript observations. Original timing, usage, tool calls and answers are unch
 Both variants have the same CI tools and bash for local calculations, with up
 to 16 requests in flight. Codemode exposes those tools through JavaScript
 scripts with persistent state. Tool results are complete and no artificial
-delays or failures are injected. All six answers across the three trials were
-correct; the median wall-time speedup was 11.8×. See the
-[full results](../../tools/experiments/codemode-ci/RESULTS.md) for every pair and
-the limits of this per-record API workload. Provider latency and cache state
-were not controlled.
+delays or failures are injected. Both answers are correct. Provider latency
+and cache state were not controlled.
 
 The trace bytes are unchanged from the original recordings. They include the
 prompt, original tool arguments, JavaScript source and line counts, usage,

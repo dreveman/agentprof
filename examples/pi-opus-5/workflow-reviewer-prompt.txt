@@ -1,20 +1,8 @@
-Work ONLY in the current scratch directory: /home/example/github/agentprof/examples/artifacts/live-pi/opus-5-workflow-a3d7f647
+Review-only task in /workspace/intervals. Do NOT modify any files — read and run commands only; report findings instead of fixing.
 
-You are a REVIEWER. Do NOT modify any file (no edit/write). Use read and bash (read-only commands) only.
+Read intervals.mjs, intervals.test.mjs, and additional.test.mjs. Run `node --test` in that directory and report the result.
 
-Review these files: intervals.mjs, intervals.test.mjs, additional.test.mjs.
+The spec: summarizeIntervals(intervals) takes finite half-open [start,end) ms intervals with end >= start; returns {activeMs: union duration, peakConcurrency: max simultaneous NONEMPTY intervals}; zero-length intervals contribute nothing and never count toward concurrency; touching intervals ([0,5],[5,9]) are not simultaneous; input must not be mutated (may be frozen).
 
-Contract that intervals.mjs must satisfy:
-- summarizeIntervals(intervals) takes an array of finite half-open [start, end) intervals in ms, end >= start, possibly fractional, unsorted, nested, overlapping, duplicated, zero-length.
-- Returns {activeMs, peakConcurrency}: activeMs = union duration (overlaps counted once); peakConcurrency = max number of simultaneously active NONEMPTY intervals (zero-length intervals never count; half-open means an interval ending at t and one starting at t are NOT concurrent). Empty input => {activeMs: 0, peakConcurrency: 0}.
-- Must not mutate the input array or inner arrays (may be frozen), and must not reorder them.
-
-Do this:
-1. Read all three files carefully.
-2. Run `node --test` and report the results.
-3. Independently audit correctness of the implementation: look for bugs in sorting comparators, event tie-breaking (ends before starts at equal coordinates), handling of zero-length intervals, floating-point accumulation, mutation of inputs (including whether it sorts the caller's array or inner arrays), empty input, negative coordinates, and duplicated intervals.
-4. Audit the tests: are any EXPECTED VALUES WRONG relative to the contract above? Are the brute-force/randomized reference implementations in additional.test.mjs actually correct (e.g. does the ms-bucket reference handle fractional or negative coordinates, off-by-one at bucket boundaries)? Are there gaps in coverage?
-5. Write your own throwaway ad-hoc checks by running `node -e '...'` one-liners (this does not modify files) to probe edge cases: frozen/deeply-frozen input, very large arrays, intervals with equal start and end at the same coordinate as other boundaries, unsorted input order preservation, huge and tiny fractional values, many duplicates, a case with peak in the middle.
-
-Report a concise list of any correctness issues found (with concrete failing inputs and expected vs actual), or state clearly that you found none. Do not fix anything.
+Check carefully for: incorrect union accumulation, off-by-one/tie-breaking bugs at equal timestamps, mishandling of zero-length or duplicate intervals, any mutation of the input (including sorting in place or reusing inner arrays), floating point accumulation concerns, performance, and any WRONG expected values in either test file (verify expectations by hand/by independent brute-force calculation, e.g. a small script in /tmp that does a unit-grid or event-based reference implementation and random differential testing against intervals.mjs). Report any correctness issues with concrete examples, or confirm correctness.
 Work only in the current scratch directory. Keep your final report concise.
