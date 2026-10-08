@@ -67,14 +67,17 @@ For Codex, install the [recording plugin](packages/codex-tracing/README.md):
 ```sh
 npm install -g github:dreveman/agentprof
 agentprof-codex install
-codex --no-daemon -p agentprof
+codex -p agentprof
 ```
 
-Review the recording hooks in `/hooks`, then type `tracing start`. Type
+The installed profile has no native telemetry exporter or fixed TCP port.
+Plugin recording is tested on Linux and uses a private Unix socket; Windows is
+not supported yet. Review the recording hooks in `/hooks`, then type `tracing start`. Type
 `tracing stop` to begin saving, or exit Codex. Stop returns `saving` promptly;
 use `tracing status` to confirm publication or see an error. Agent tools can also
-start, stop and report recording status. Subagents share the same trace, with native model
-timing, token usage, context limits, and scripts and their nested tools.
+start, stop and report recording status. Subagents share the same trace,
+with transcript-reported token usage/context and hook-observed tools. Native
+model duration, TTFT and nested script spans are unavailable in this mode.
 
 For Muse Code, install the [native recording plugin](packages/muse-tracing/README.md):
 

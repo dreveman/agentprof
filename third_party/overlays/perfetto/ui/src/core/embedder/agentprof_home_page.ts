@@ -124,7 +124,7 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                   ),
                 ]
               : [
-                command(isMuse ? 'muse' : 'codex --no-daemon -p agentprof'),
+                command(isMuse ? 'muse' : 'codex -p agentprof'),
                 m(
                   'p.ap-home__record-note',
                   `Type tracing stop to save, or exit ${isMuse ? 'Muse' : 'Codex'} to finish the recording. `,

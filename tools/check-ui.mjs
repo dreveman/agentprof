@@ -176,7 +176,7 @@ try {
   await recordingAgent.getByRole('button', {name: 'Codex', exact: true}).click();
   await recordStep.getByRole('link', {name: 'Codex recording guide'}).waitFor();
   assert.match(await recordStep.innerText(), /Start Codex with the recording profile/);
-  assert.equal(await recordStep.locator('code').first().innerText(), 'codex --no-daemon -p agentprof');
+  assert.equal(await recordStep.locator('code').first().innerText(), 'codex -p agentprof');
   assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Codex example']);
   await page.setViewportSize({width: 390, height: 1000});
   assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);

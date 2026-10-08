@@ -19,8 +19,9 @@ try {
   const base = await readFile(join(home, 'config.toml'), 'utf8');
   const profile = (await readFile(join(home, 'agentprof.config.toml'), 'utf8'))
     .replace('[plugins."agentprof@agentprof"]\nenabled = true\n\n', '');
-  // app-server has no CLI profile flag. Load the generated profile in this
-  // disposable test home; the user's configuration is never touched.
+  assert.ok(!profile.includes('[otel]'), 'The installed profile must not contain a persistent exporter');
+  // app-server does not support --profile. Load the hook-only installed profile
+  // in this disposable home to check native discovery without a model request.
   await writeFile(join(home, 'config.toml'), `${base}\n${profile}`, {mode: 0o600});
   host = spawn('codex', ['app-server', '--stdio'], {env, stdio: ['pipe', 'pipe', 'pipe']});
   const pending = new Map();
@@ -32,7 +33,9 @@ try {
     pending.delete(message.id); clearTimeout(request.timer);
     message.error ? request.reject(new Error(JSON.stringify(message.error))) : request.resolve(message.result);
   });
-  host.stderr.resume();
+  let hostError = '';
+  host.stderr.on('data', data => {hostError += data;});
+  host.on('exit', (code, signal) => {if (code !== 0) console.error(`Host exited ${code ?? signal}: ${hostError}`);});
   const call = (method, params = {}) => new Promise((resolve, reject) => {
     const id = ++serial;
     const timer = setTimeout(() => {pending.delete(id); reject(new Error(`Timed out: ${method}`));}, 20000);
@@ -59,16 +62,12 @@ try {
   console.log('PASS Codex plugin installation, profile hooks and native tool discovery without model credentials');
 } finally {
   if (host) {
-    host.stdin.end();
-    const timeout = setTimeout(() => host.kill('SIGKILL'), 3000);
-    await new Promise(resolve => host.once('exit', resolve));
-    clearTimeout(timeout);
+    if (host.exitCode === null && host.signalCode === null) {
+      host.stdin.end();
+      const timeout = setTimeout(() => host.kill('SIGKILL'), 3000);
+      await new Promise(resolve => host.once('exit', resolve));
+      clearTimeout(timeout);
+    }
   }
-  // The receiver now reserves the profile port between sessions; dispose the
-  // disposable test home's detached receiver before removing its state.
-  try {
-    const owner = JSON.parse(await readFile(join(home, 'agentprof/receiver-owner.json'), 'utf8'));
-    if (Number.isInteger(owner.pid) && owner.pid > 0) process.kill(owner.pid, 'SIGTERM');
-  } catch {}
   await rm(home, {recursive: true, force: true});
 }

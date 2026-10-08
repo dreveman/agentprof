@@ -2,11 +2,11 @@
 import {createServer} from 'node:http';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {writeFileSync, readFileSync, existsSync, mkdirSync} from 'node:fs';
-import {join} from 'node:path';
+import {writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync, chmodSync, rmdirSync} from 'node:fs';
+import {join, dirname} from 'node:path';
 import {gunzipSync} from 'node:zlib';
 import {setTimeout as delay} from 'node:timers/promises';
-import {readConnection} from './plugin-config.ts';
+import {readConnection, type Connection} from './plugin-config.ts';
 import {Journal, publish, now} from './plugin-journal.ts';
 import {readKnownSession} from './metadata.ts';
 import {tagControlScripts} from './plugin-observations.ts';
@@ -361,15 +361,17 @@ export class Collector {
   }
 }
 
-export async function serve(state: string) {
-  const connection = readConnection(state), collector = new Collector(state);
+export async function serve(state: string, runConnection?: Connection,
+                            persist: (path: string, text: string, options: {flag?: string; mode?: number}) => void = writeFileSync) {
+  const connection = runConnection ?? readConnection(state), collector = new Collector(state, runConnection?.socket ? 500 : 7000);
   const build = createHash('sha256').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex');
-  let timer: ReturnType<typeof setInterval> | undefined;
+  let timer: ReturnType<typeof setInterval> | undefined, lastActivity = Date.now();
   const server = createServer(async (request, response) => {
     const reply = (status: number, data: unknown) => {response.writeHead(status, {'content-type': 'application/json',
       ...(connection.generation ? {'x-agentprof-generation': connection.generation} : {}),
       'x-agentprof-build': build}); response.end(JSON.stringify(data));};
     if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${connection.token}`) return reply(403, {error: 'Forbidden'});
+    lastActivity = Date.now();
     try {
       let bytes = 0; const chunks: Buffer[] = [];
       for await (const chunk of request) {
@@ -383,12 +385,13 @@ export async function serve(state: string) {
       if (request.url === '/health') return reply(200, {ready: true, generation: connection.generation,
         build, active_captures: collector.captures.size});
       if (request.url === '/shutdown') {
+        if (runConnection) return reply(409, {error: 'The plugin receiver exits when its Codex sessions end.'});
         if (collector.captures.size) return reply(409, {error: 'Recording is still active.'});
         reply(200, {stopping: true});
         setTimeout(() => {if (timer) clearInterval(timer); server.close();}, 0);
         return;
       }
-      if (request.url === '/v1/logs' || request.url === '/v1/traces') {collector.ingest(data); return reply(200, {});}
+      if ((request.url === '/v1/logs' || request.url === '/v1/traces') && !runConnection?.socket) {collector.ingest(data); return reply(200, {});}
       if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true,
         data.capture_contents !== false, string(data.process_start_marker) || undefined));
       const id = string(data.session_id);
@@ -399,10 +402,44 @@ export async function serve(state: string) {
     } catch (error) {reply(400, {error: String(error)});}
   });
   server.requestTimeout = 12000;
-  await new Promise<void>((done, reject) => {server.once('error', reject); server.listen(connection.port, '127.0.0.1', done);});
-  writeFileSync(join(state, 'receiver-owner.json'), JSON.stringify({pid: process.pid,
-    marker: processStartMarker(process.pid), generation: connection.generation}), {mode: 0o600});
-  // Keep the profile's fixed OTLP port reserved between sessions. Releasing it
-  // after idle would let an unrelated process occupy it before the next hook.
-  timer = setInterval(() => {collector.tick();}, 1000);
+  await new Promise<void>((done, reject) => {server.once('error', reject);
+    if (connection.socket) server.listen(connection.socket, done);
+    else server.listen(connection.port!, '127.0.0.1', done);
+  });
+  let published = false;
+  try {
+    if (runConnection) {
+      if (connection.socket) chmodSync(connection.socket, 0o600);
+      persist(join(state, 'connection.json'), JSON.stringify({...connection, run: true}), {flag: 'wx', mode: 0o600});
+      published = true;
+    }
+    persist(join(state, 'receiver-owner.json'), JSON.stringify({pid: process.pid,
+      marker: processStartMarker(process.pid), generation: connection.generation}), {mode: 0o600});
+    timer = setInterval(() => {
+      collector.tick();
+      if (runConnection?.socket && !collector.captures.size && !collector.sessions.size &&
+          Date.now() - lastActivity > 2500) void shutdown();
+    }, 1000);
+  } catch (error) {
+    await new Promise<void>(done => server.close(() => done()));
+    if (published) try {unlinkSync(join(state, 'connection.json'));} catch {}
+    throw error;
+  }
+  async function shutdown() {
+    if (timer) clearInterval(timer);
+    if (server.listening) await new Promise<void>((done, reject) => {server.close(error =>
+      error && (error as NodeJS.ErrnoException).code !== 'ERR_SERVER_NOT_RUNNING' ? reject(error) : done());});
+    if (connection.socket) {
+      try {unlinkSync(connection.socket);} catch {}
+      try {rmdirSync(dirname(connection.socket));} catch {}
+    }
+    try {
+      const current = readConnection(state);
+      if (current.generation === connection.generation) {
+        unlinkSync(join(state, 'connection.json'));
+        unlinkSync(join(state, 'receiver-owner.json'));
+      }
+    } catch {}
+  }
+  return {server, collector, close: shutdown};
 }

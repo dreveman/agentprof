@@ -23,8 +23,9 @@ receiver state, machine load and the host's hook scheduling can change these
 numbers. Repeat on a representative machine before claiming an end-user win.
 
 Both harnesses currently expose command hooks, so every event still starts a
-Node process. Codex's authenticated receiver now stays resident to reserve its
-fixed OTLP port, but the hook transport itself is not persistent. Removing the
+Node process. Codex's on-demand plugin recorder uses a private Unix socket
+only while sessions are active; its installed profile has no native OTLP
+endpoint. Removing the
 remaining process startup needs either a supported persistent hook transport
 from the host or a dedicated lightweight native client; neither is supplied by
 the checked-in integration. The measured overhead justifies investigating that
