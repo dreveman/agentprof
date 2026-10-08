@@ -179,6 +179,9 @@ try {
   assert.match(await recordStep.innerText(), /Start Codex normally/);
   assert.equal(await recordStep.locator('code').first().innerText(), 'codex');
   assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Codex example']);
+  await recordingAgent.getByRole('button', {name: 'Muse Code', exact: true}).click();
+  await page.getByText('muse plugins install agentprof@agentprof', {exact: true}).waitFor();
+  assert.equal(await recordStep.locator('code').first().innerText(), 'muse');
   await page.setViewportSize({width: 390, height: 1000});
   assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();

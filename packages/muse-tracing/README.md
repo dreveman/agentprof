@@ -4,8 +4,8 @@ Record your normal Muse Code session into one `.pftrace` file for Agent Profiler
 Requires Muse Code 1.4.1 or later with native plugins available, and Node.js 22+.
 
 ```sh
-npm install -g github:dreveman/agentprof
-agentprof-muse install
+muse plugins marketplace add agentprof dreveman/agentprof
+muse plugins install agentprof@agentprof
 muse plugins approve agentprof
 muse
 ```
@@ -14,9 +14,11 @@ The approval enables the plugin's local recording hooks and tools. If Muse
 reports that plugins are unavailable, this integration requires a Muse build
 and account configuration that enables native plugins.
 
-From a checkout, use `node packages/muse-tracing/runtime/muse-tracing.mjs install`.
-The committed runtime needs no build step. `install --project` limits activation
-to the current Muse project. Installation preserves your existing Muse settings.
+Marketplace installation needs no global npm package or Agent Profiler
+installer. From a checkout, `muse plugins install ./packages/muse-tracing
+--scope user` installs the same native bundle; `--scope project` limits a
+local-path installation to the current Muse project. Approve its capabilities
+before recording. Installation preserves your existing Muse settings.
 
 ## Recording
 
@@ -41,18 +43,17 @@ The agent can call `tracing_start`, `tracing_stop`, and `tracing_status` through
 the plugin's MCP server. Start accepts an optional `output_path`. Muse supplies
 the current session ID to the server; tools cannot select a different session.
 
-To record automatically in new sessions where the plugin is enabled:
-
-```sh
-agentprof-muse configure --auto-start
-```
-
-Restore manual recording with `agentprof-muse configure --manual`. For
-metadata-only new captures use `agentprof-muse configure --no-content` or set
-`AGENTPROF_CAPTURE_CONTENTS=0` before launching Muse. To opt back in, use
-`agentprof-muse configure --capture-content` and remove the environment
-opt-out. This setting is stored with each recording for deterministic recovery.
-Muse's native
+To record automatically in new sessions where the plugin is enabled, set
+`AGENTPROF_MUSE_AUTO_START=1` before launching ordinary `muse`. Unset it for
+manual recording unless you previously saved a persistent auto-start setting;
+in that case run `agentprof-muse configure --manual` as well. For metadata-only
+new captures set
+`AGENTPROF_CAPTURE_CONTENTS=0` before launching Muse. These settings need no
+additional installation. The optional global npm CLI (`npm install -g github:dreveman/agentprof`) still
+supports `agentprof-muse configure --auto-start|--manual|--no-content|--capture-content`
+for persistent choices, but is not required for marketplace installation or
+recording. Content policy is stored with each recording for deterministic
+recovery. Muse's native
 plugin API does not expose custom keybindings; use the typed controls or tools.
 Session logging must remain enabled (do not pass `--no-session-log`).
 
@@ -114,13 +115,18 @@ paths ensure the watcher exists. Each host command hook still launches Node;
 see the [synthetic hook latency benchmark](../../docs/hook-latency.md).
 Muse's own journal holds the events;
 the process watcher exits when recording ends. If shutdown or export fails, keep that
-journal and retry:
+journal and retry. Use `tracing stop` or `tracing_status` inside Muse when
+available. Out of process, the optional global CLI supports:
 
 ```sh
 agentprof-muse stop --session SESSION_ID
 ```
 
-After an abnormal process exit, `agentprof-muse recover --session SESSION_ID`
+For a marketplace-only installation, invoke the installed
+`runtime/muse-tracing.mjs` with Node instead; `muse plugins inspect agentprof
+--json` reports its `installed.cache_path`. After an abnormal process exit,
+`agentprof-muse recover --session SESSION_ID` (or that runtime's `recover`
+command)
 marks the recording incomplete. An interrupted export retains its original stop
 boundary and status reports `pending` until it is saved. The process watcher can
 recover after Muse is killed, but cannot save during a host shutdown or if the
@@ -129,6 +135,8 @@ sessions can be recorded manually.
 
 ```sh
 npm run build:muse
+node tools/check-muse-marketplace.mjs --update # after any package change
+npm run check
 npm run check:muse-plugin
 npm test
 ```

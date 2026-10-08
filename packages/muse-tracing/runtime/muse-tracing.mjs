@@ -1554,7 +1554,7 @@ async function hook(data, payload, pid = process.ppid, onWatcherNeeded) {
     const message = `Agent Profiler: ${result.state}${result.output_path ? ` — ${result.output_path}` : ""}`;
     return { decision: "block", reason: message, systemMessage: message };
   }
-  if (event === "SessionStart" && payload.source !== "fork" && !(await readJson(statePath(data, id)))?.parentSession && (await readJson(join(data, "config.json")))?.auto_start) {
+  if (event === "SessionStart" && payload.source !== "fork" && !(await readJson(statePath(data, id)))?.parentSession && (process.env.AGENTPROF_MUSE_AUTO_START === "1" || (await readJson(join(data, "config.json")))?.auto_start)) {
     const result = await control(data, id, "start");
     if (result.state === "recording")
       await onWatcherNeeded?.();

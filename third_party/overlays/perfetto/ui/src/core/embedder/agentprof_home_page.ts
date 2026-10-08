@@ -88,9 +88,9 @@ export class AgentprofHomePage implements m.ClassComponent<{app: App}> {
                 )
               : m(
                 '.ap-home__commands',
-                command('npm install -g github:dreveman/agentprof'),
-                command(`agentprof-${recorder} install`),
-                isMuse ? command('muse plugins approve agentprof') : undefined,
+                command('muse plugins marketplace add agentprof dreveman/agentprof'),
+                command('muse plugins install agentprof@agentprof'),
+                command('muse plugins approve agentprof'),
               ),
         ),
         step(

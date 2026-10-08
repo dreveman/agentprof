@@ -83,8 +83,8 @@ model duration, TTFT and nested script spans are unavailable in this mode.
 For Muse Code, install the [native recording plugin](packages/muse-tracing/README.md):
 
 ```sh
-npm install -g github:dreveman/agentprof
-agentprof-muse install
+muse plugins marketplace add agentprof dreveman/agentprof
+muse plugins install agentprof@agentprof
 muse plugins approve agentprof
 muse
 ```

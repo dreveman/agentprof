@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "source": "local",
+  "plugins": [
+    {
+      "name": "agentprof",
+      "version": "0.2.0",
+      "install": {
+        "transport": "local-path",
+        "source": "./packages/muse-tracing"
+      },
+      "integrity": {
+        "digest": "sha256:ebc6f2137067c2c6c3dd3b5cc4ff86dca53be3614885e81940093db2e1366ebb"
+      },
+      "availability": {
+        "status": "available"
+      }
+    }
+  ]
+}
