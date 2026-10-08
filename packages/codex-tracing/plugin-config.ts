@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import {chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync} from 'node:fs';
+import {chmodSync, existsSync, mkdtempSync, readFileSync, statSync} from 'node:fs';
 import {dirname, join, resolve, basename} from 'node:path';
 import {homedir} from 'node:os';
-import {createHash, randomBytes} from 'node:crypto';
 
 export interface Connection {port?: number; socket?: string; token: string; generation?: string; run?: true}
 
@@ -27,14 +26,14 @@ export function privateSocketDirectory(socket: string, generation: string): stri
 }
 export function stateDirectory(pluginData?: string): string {
   if (pluginData) {
-    // The host supplies PLUGIN_DATA even when it filters CODEX_HOME out of the
-    // MCP environment. Find this Codex home's per-run session registry.
+    // Plugin hooks supply PLUGIN_DATA. Legacy MCP processes locate the same
+    // Codex home from their plugin root (the MCP config uses cwd=".").
     let directory = resolve(pluginData);
     while (dirname(directory) !== directory) {
       if (basename(directory) === 'plugins') return join(dirname(directory), 'agentprof');
       directory = dirname(directory);
     }
-    throw new Error('Cannot locate Codex home from PLUGIN_DATA.');
+    throw new Error('Cannot locate Codex home from plugin data or root.');
   }
   return join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'agentprof');
 }
@@ -50,52 +49,4 @@ export function readConnection(state: string): Connection {
       (value.run !== undefined && value.run !== true))
     throw new Error('Invalid Agent Profiler connection configuration.');
   return value;
-}
-
-export const hookEvents = ['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
-  'PreCompact', 'PostCompact', 'SubagentStart', 'SubagentStop', 'Stop', 'Interrupt'];
-
-// Both the installed profile and anonymous run profile share the same hooks.
-// Only the latter adds a private OTLP exporter while its socket is owned.
-function hookProfile(state: string, runtime: string, autoStart: boolean) {
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  const hookCommand = `${quote(process.execPath)} ${quote(runtime)} hook --state ${quote(state)}`;
-  const windowsCommand = `"${process.execPath}" "${runtime}" hook --state "${state}"`;
-  return '# Agent Profiler hooks (no persistent telemetry endpoint)\n' +
-    '[features]\nhooks = true\n\n[plugins."agentprof@agentprof"]\nenabled = true\n\n' + hookEvents.map(event =>
-      `[[hooks.${event}]]\n[[hooks.${event}.hooks]]\ntype = "command"\n` +
-      `command = ${JSON.stringify(hookCommand + (autoStart && event === 'SessionStart' ? ' --auto-start' : ''))}\n` +
-      `commandWindows = ${JSON.stringify(windowsCommand + (autoStart && event === 'SessionStart' ? ' --auto-start' : ''))}\n` +
-      `timeout = ${['SessionEnd', 'Interrupt'].includes(event) ? 3 : 15}\n`).join('\n');
-}
-
-export function writeInstalledProfile(state: string, codexHome: string, runtime: string, autoStart = false) {
-  mkdirSync(state, {recursive: true, mode: 0o700});
-  const path = join(codexHome, 'agentprof.config.toml'), marker = join(state, 'profile.sha256');
-  const profile = hookProfile(state, runtime, autoStart);
-  if (existsSync(path) && readFileSync(path, 'utf8') !== profile) {
-    const hash = createHash('sha256').update(readFileSync(path)).digest('hex');
-    if (!existsSync(marker) || readFileSync(marker, 'utf8') !== hash)
-      throw new Error(`Profile already exists with different settings: ${path}`);
-  }
-  const hash = createHash('sha256').update(profile).digest('hex');
-  if (existsSync(path) && readFileSync(path, 'utf8') === profile &&
-      existsSync(marker) && readFileSync(marker, 'utf8') === hash) return path;
-  const nonce = randomBytes(8).toString('hex');
-  const pending = join(state, 'profile-pending.sha256');
-  const temporary = join(codexHome, `.agentprof-profile-${nonce}.tmp`);
-  const temporaryMarker = join(state, `profile-${nonce}.tmp`);
-  try {
-    writeFileSync(temporary, profile, {flag: 'wx', mode: 0o600});
-    writeFileSync(temporaryMarker, hash, {flag: 'wx', mode: 0o600});
-    // If interrupted between the two renames, the pending hash proves the
-    // hook-only profile is ours so a later install can recover the marker.
-    writeFileSync(pending, hash, {mode: 0o600});
-    renameSync(temporary, path);
-    renameSync(temporaryMarker, marker);
-    unlinkSync(pending);
-  } finally {
-    for (const file of [temporary, temporaryMarker]) if (existsSync(file)) unlinkSync(file);
-  }
-  return path;
 }

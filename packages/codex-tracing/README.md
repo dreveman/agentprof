@@ -2,18 +2,21 @@
 
 Record interactive Codex sessions into a Perfetto trace that opens directly in
 Agent Profiler's Overview. The plugin provides agent tools, typed recording
-controls, automatic recording and save on exit. Tested with Codex CLI 0.160.0
-on Linux; requires Node.js 22 or later. The Unix-socket implementation is
-expected to work on macOS but is not yet validated there; Windows fails closed.
+controls, automatic recording and save on exit. Requires Codex CLI 0.160.0 or
+compatible hooks and Node.js 22 or later. Native hook/MCP discovery was
+validated without model credentials on Linux with Codex CLI 0.159.3; a real
+0.160.0 run remains to be checked on the user's Codex host. The Unix-socket
+implementation is expected to work on macOS but is not yet validated there;
+Windows fails closed.
 
 ## Install and record
 
 With Codex already installed and signed in:
 
 ```sh
-npm install -g github:dreveman/agentprof
-agentprof-codex install
-codex -p agentprof
+codex plugin marketplace add dreveman/agentprof
+codex plugin add agentprof@agentprof
+codex
 ```
 
 In Codex, open `/hooks` once to review and trust the recording hooks. Then type:
@@ -40,59 +43,52 @@ The agent can use `tracing_start` (optional `output_path`), `tracing_stop` and
 not guess between concurrent conversations. A recording includes its subagents
 in the same file; unrelated sessions remain separate.
 
-To record automatically on startup instead:
-
-```sh
-agentprof-codex install --auto-start
-codex -p agentprof
-```
-
-Re-run `agentprof-codex install` without `--auto-start` to return to manual
-start, then launch with the usual Codex command and `-p agentprof` to enable
-the plugin. The installer never edits your base configuration and refuses to
-replace an edited Agent Profiler profile. Starting and
-stopping repeatedly creates separate recordings. Resuming a session can start
+To record automatically on startup instead, set
+`AGENTPROF_CODEX_AUTO_START=1` in the environment before launching the normal
+`codex` command. Clear it to return to manual start. Starting and stopping
+repeatedly creates separate recordings. Resuming a session can start
 a new recording with the same native session ID; capture IDs distinguish them.
 
-For a local checkout, installation needs no global npm package:
+For a local checkout, install its marketplace from the repository root:
 
 ```sh
-node packages/codex-tracing/runtime/codex-tracing.mjs install
-codex -p agentprof
+codex plugin marketplace add "$PWD"
+codex plugin add agentprof@agentprof
+codex
 ```
 
-## How the profile works
+## How the plugin works
 
-The installer registers the Codex plugin and writes an owned
-`$CODEX_HOME/agentprof.config.toml` (normally under `~/.codex`) containing
-hooks but **no native telemetry exporter**. Codex layers this profile on top
-of the normal model, authentication and permission settings. Launch it with
-`codex -p agentprof`; there is no Agent Profiler wrapper or change to the
-ordinary Codex executable.
-
-Codex 0.160.0 loads the plugin's MCP tools but does not discover its bundled
-hooks in our native installation test. The generated profile therefore declares
-the hooks explicitly, pointing to the installed plugin. Hooks remain subject to
-Codex's normal trust review.
+The Codex-native plugin packages its hook declarations in `hooks/hooks.json`
+and its MCP server in `mcp.json`. Marketplace installation makes both
+available without a generated profile, wrapper, or change to your existing
+model, authentication and permission settings. Hooks remain subject to Codex's
+normal trust review. **Do not** configure a persistent native OTLP exporter for
+the plugin: it has no static TCP port.
 
 The first hook starts a short-lived local recorder on a Unix socket in a
-private `0700` temporary directory. Hook processes and MCP tools connect only after checking
+private `0700` temporary directory. Hook processes and MCP tools connect only
+after checking
 the recorder's process identity. There is **no TCP port in the profile** and
 Codex never exports native telemetry to an endpoint that might be unbound.
 The recorder closes the socket and exits shortly after the last session and
 recording finish. An interrupted or failed publication retains the private
-journal for `agentprof-codex recover`.
+journal for recovery with the installed plugin runtime.
 
 **Upgrading an older fixed-port profile:** First finish recordings and close
 *all* Codex processes started with the old profile. Shut down the old receiver
 only after no such process can export to it; inspect the specific
 `codex-tracing.mjs serve` process rather than killing unrelated receivers.
-Then run `agentprof-codex install --migrate`. Migration checks ownership of the
-old profile and refuses to remove it while its port is still bound. It replaces
-only an unedited generated profile, and does not launch another persistent
-receiver. If the old profile was edited, remove its OTLP settings manually
-after closing old Codex processes. Do not use `codex -p agentprof` to record
-after migration without enabling the plugin profile; use `codex -p agentprof`.
+Before installing the native plugin, update the old npm package (if needed to
+obtain the migration command), then run `agentprof-codex migrate
+--confirm-closed`. Migration checks ownership and refuses to remove the old
+profile while its port or receiver is still active. It deletes only an
+unedited generated profile; if it was edited, remove its OTLP settings and
+hook declarations manually after closing old Codex processes. Installing the
+native plugin without removing the old profile would run hooks twice. Remove
+the old installed plugin if present, upgrade its marketplace, and then install
+the new native plugin (version 0.3.0) using Codex's plugin commands. Restart
+Codex afterward and launch ordinary `codex`.
 Session PID/start-time checks detect process reuse on Linux; platforms
 without that marker retain the PID fallback. See the [hook latency benchmark](../../docs/hook-latency.md)
 for the remaining per-event Node process cost. Exit also initiates asynchronous
@@ -165,10 +161,17 @@ JSONL records and an interrupted final fragment, counts them as
 retaining later valid observations. A missing process identity still prevents
 publication:
 
+The native plugin install does not add a global `agentprof-codex` executable.
+Use the `installedPath` returned by `codex plugin add agentprof@agentprof
+--json` (or locate the installed plugin in your Codex plugin cache):
+
 ```sh
-agentprof-codex recover agent.pftrace.capture recovered.pftrace
+INSTALLED_PLUGIN=/path/from/installedPath
+node "$INSTALLED_PLUGIN/runtime/codex-tracing.mjs" recover \
+  agent.pftrace.capture recovered.pftrace
 ```
 
+An older global npm installation can still use `agentprof-codex recover`.
 The development converter also accepts the journal:
 
 ```sh
@@ -206,10 +209,10 @@ The journal is bounded to 128 MiB; discarded observations mark the capture
 incomplete. Force-killing Codex can lose its final hook or transcript records.
 Replay preserves observations received before shutdown.
 
-To remove the integration, finish active sessions, then run
-`codex plugin remove agentprof@agentprof` and remove the owned
-`agentprof.config.toml` hook-only profile. No receiver remains running between
-runs. Other Codex profiles and settings are unaffected.
+To remove the integration, finish active sessions and run
+`codex plugin remove agentprof@agentprof`. New installations have no generated
+profile to remove. The short-lived recorder exits automatically, and other
+Codex settings remain unaffected.
 
 ## Development
 

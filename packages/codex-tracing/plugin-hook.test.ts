@@ -36,11 +36,11 @@ async function saved(path: string) {
   throw new Error(`Trace was not saved: ${path}`);
 }
 
-test('installation migrates an owned fixed exporter only after the old listener is gone', async () => {
+test('one-time migration removes an owned fixed exporter only after its old listener is gone', async () => {
   const home = mkdtempSync(join(tmpdir(), 'codex-plugin-migrate-'));
   let blocker: ReturnType<typeof createServer> | undefined;
   try {
-    const state = join(home, 'agentprof'), bin = join(home, 'bin'); mkdirSync(state); mkdirSync(bin);
+    const state = join(home, 'agentprof'); mkdirSync(state);
     const lease = createServer();
     await new Promise<void>(done => lease.listen(0, '127.0.0.1', done));
     const address = lease.address(); if (!address || typeof address === 'string') throw new Error('Missing port');
@@ -51,17 +51,14 @@ test('installation migrates an owned fixed exporter only after the old listener 
     const old = `[otel]\nexporter = {otlp-http={endpoint="http://127.0.0.1:${port}/v1/logs"}}\n`;
     writeFileSync(profile, old, {mode: 0o600});
     writeFileSync(join(state, 'profile.sha256'), createHash('sha256').update(old).digest('hex'));
-    writeFileSync(join(bin, 'codex'), `#!/bin/sh\nif [ "$2" = add ]; then echo '${JSON.stringify({installedPath: resolve(import.meta.dir)})}'; fi\n`, {mode: 0o755});
-    const env = {...process.env, PATH: `${bin}:${process.env.PATH}`};
     blocker = createServer();
     await new Promise<void>((done, reject) => {blocker!.once('error', reject); blocker!.listen(port, '127.0.0.1', done);});
-    const blocked = await command(home, ['install', '--state', state, '--migrate'], '', env);
+    const blocked = await command(home, ['migrate', '--state', state, '--confirm-closed']);
     expect(blocked.code).toBe(1); expect(readFileSync(profile, 'utf8')).toBe(old);
     await new Promise<void>(done => blocker!.close(() => done())); blocker = undefined;
-    const installed = await command(home, ['install', '--state', state, '--migrate'], '', env);
-    expect(installed.code, installed.error).toBe(0);
-    expect(readFileSync(profile, 'utf8')).not.toContain('[otel]');
-    expect(readFileSync(profile, 'utf8')).toContain('[[hooks.SessionStart]]');
+    const migrated = await command(home, ['migrate', '--state', state, '--confirm-closed']);
+    expect(migrated.code, migrated.error).toBe(0);
+    expect(existsSync(profile)).toBe(false);
     expect(existsSync(join(state, 'connection.json'))).toBe(false);
   } finally {
     if (blocker) await new Promise<void>(done => blocker!.close(() => done()));
@@ -69,24 +66,23 @@ test('installation migrates an owned fixed exporter only after the old listener 
   }
 }, 10000);
 
-test('install refuses a different runtime while its old plugin receiver is live', async () => {
+test('migration refuses an active plugin receiver and retains the old profile', async () => {
   const home = mkdtempSync(join(tmpdir(), 'codex-plugin-upgrade-'));
   try {
     await hook(home, {hook_event_name: 'SessionStart', source: 'startup'});
     const state = join(home, 'agentprof'), before = readConnection(state);
-    const altered = join(home, 'next-build.mjs');
-    writeFileSync(altered, readFileSync(runtime, 'utf8') + '\n// simulated next build\n');
-    const bin = join(home, 'bin'); mkdirSync(bin);
-    const invoked = join(home, 'installer-invoked');
-    writeFileSync(join(bin, 'codex'), `#!/bin/sh\necho invoked > '${invoked}'\n`, {mode: 0o755});
-    const upgrade = spawn('node', [altered, 'install', '--state', state], {cwd: home,
-      env: {...process.env, PATH: `${bin}:${process.env.PATH}`}, stdio: ['ignore', 'pipe', 'pipe']});
-    let error = ''; upgrade.stderr!.on('data', data => {error += data;});
-    const code = await new Promise<number | null>(done => upgrade.once('exit', done));
-    expect(code).toBe(1); expect(error).toContain('earlier plugin build');
-    expect(existsSync(invoked)).toBe(false);
+    const profile = join(home, 'agentprof.config.toml'), old = '[features]\nhooks = true\n';
+    writeFileSync(profile, old, {mode: 0o600});
+    writeFileSync(join(state, 'profile.sha256'), createHash('sha256').update(old).digest('hex'));
+    const blocked = await command(home, ['migrate', '--state', state, '--confirm-closed']);
+    expect(blocked.code).toBe(1); expect(blocked.error).toContain('receiver is still active');
+    expect(readFileSync(profile, 'utf8')).toBe(old);
     expect(readConnection(state).generation).toBe(before.generation);
     await hook(home, {hook_event_name: 'SessionEnd'});
+    for (let attempt = 0; attempt < 500 && existsSync(join(state, 'connection.json')); attempt++) await Bun.sleep(10);
+    const migrated = await command(home, ['migrate', '--state', state, '--confirm-closed']);
+    expect(migrated.code, migrated.error).toBe(0);
+    expect(existsSync(profile)).toBe(false);
   } finally {rmSync(home, {recursive: true, force: true});}
 }, 12000);
 
@@ -136,7 +132,8 @@ test('a long Codex home still gets a bounded private recorder socket', async () 
 test('automatic recording starts on the ordinary SessionStart hook', async () => {
   const home = mkdtempSync(join(tmpdir(), 'codex-plugin-auto-'));
   try {
-    const started = await hook(home, {hook_event_name: 'SessionStart', source: 'startup'}, process.env, true);
+    const started = await hook(home, {hook_event_name: 'SessionStart', source: 'startup'},
+      {...process.env, AGENTPROF_CODEX_AUTO_START: '1'});
     expect(started.systemMessage).toContain('recording to');
     const path = started.systemMessage.split('recording to ')[1];
     await hook(home, {hook_event_name: 'SessionEnd'});

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 3}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "PreCompact": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "PostCompact": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "SubagentStart": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "SubagentStop": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 15}]}],
+    "Interrupt": [{"hooks": [{"type": "command", "command": "node \"${PLUGIN_ROOT}/runtime/codex-tracing.mjs\" hook --plugin-data \"${PLUGIN_DATA}\"", "timeout": 3}]}]
+  }
+}

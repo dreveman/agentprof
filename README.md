@@ -65,14 +65,15 @@ recording, recovery and the optional print-mode OpenTelemetry launcher.
 For Codex, install the [recording plugin](packages/codex-tracing/README.md):
 
 ```sh
-npm install -g github:dreveman/agentprof
-agentprof-codex install
-codex -p agentprof
+codex plugin marketplace add dreveman/agentprof
+codex plugin add agentprof@agentprof
+codex
 ```
 
-The installed profile has no native telemetry exporter or fixed TCP port.
-Plugin recording is tested on Linux and uses a private Unix socket; Windows is
-not supported yet. Review the recording hooks in `/hooks`, then type `tracing start`. Type
+The native Codex plugin bundles its hooks and MCP tools; it needs no Agent
+Profiler installer, profile, wrapper, native telemetry exporter or fixed TCP
+port. Plugin recording is tested on Linux and uses a private Unix socket;
+Windows is not supported yet. Review the recording hooks in `/hooks`, then type `tracing start`. Type
 `tracing stop` to begin saving, or exit Codex. Stop returns `saving` promptly;
 use `tracing status` to confirm publication or see an error. Agent tools can also
 start, stop and report recording status. Subagents share the same trace,

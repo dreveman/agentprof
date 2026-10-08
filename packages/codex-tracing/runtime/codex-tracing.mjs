@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 // packages/codex-tracing/plugin.ts
-import { spawn as spawn2, spawnSync } from "node:child_process";
-import { createHash as createHash5, randomBytes as randomBytes2 } from "node:crypto";
-import { existsSync as existsSync5, mkdirSync as mkdirSync5, openSync as openSync2, closeSync as closeSync2, readFileSync as readFileSync8, renameSync as renameSync3, rmdirSync as rmdirSync2, rmSync as rmSync2, unlinkSync as unlinkSync4 } from "node:fs";
+import { spawn as spawn2 } from "node:child_process";
+import { createHash as createHash4, randomBytes } from "node:crypto";
+import { existsSync as existsSync5, mkdirSync as mkdirSync4, openSync as openSync2, closeSync as closeSync2, readFileSync as readFileSync8, renameSync as renameSync2, rmdirSync as rmdirSync2, rmSync as rmSync2, unlinkSync as unlinkSync3 } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
 import { createInterface as createInterface2 } from "node:readline";
@@ -12,10 +12,9 @@ import { fileURLToPath as fileURLToPath2 } from "node:url";
 import { setTimeout as delay3 } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-config.ts
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve, basename } from "node:path";
 import { homedir } from "node:os";
-import { createHash, randomBytes } from "node:crypto";
 function privateSocketPath(generation) {
   if (!/^[0-9a-f]{32}$/.test(generation))
     throw new Error("Invalid receiver generation.");
@@ -42,7 +41,7 @@ function stateDirectory(pluginData) {
         return join(dirname(directory), "agentprof");
       directory = dirname(directory);
     }
-    throw new Error("Cannot locate Codex home from PLUGIN_DATA.");
+    throw new Error("Cannot locate Codex home from plugin data or root.");
   }
   return join(process.env.CODEX_HOME ?? join(homedir(), ".codex"), "agentprof");
 }
@@ -54,81 +53,18 @@ function readConnection(state) {
     throw new Error("Invalid Agent Profiler connection configuration.");
   return value;
 }
-var hookEvents = [
-  "SessionStart",
-  "SessionEnd",
-  "UserPromptSubmit",
-  "PreToolUse",
-  "PostToolUse",
-  "PreCompact",
-  "PostCompact",
-  "SubagentStart",
-  "SubagentStop",
-  "Stop",
-  "Interrupt"
-];
-function hookProfile(state, runtime, autoStart) {
-  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
-  const hookCommand = `${quote(process.execPath)} ${quote(runtime)} hook --state ${quote(state)}`;
-  const windowsCommand = `"${process.execPath}" "${runtime}" hook --state "${state}"`;
-  return `# Agent Profiler hooks (no persistent telemetry endpoint)
-` + `[features]
-hooks = true
-
-[plugins."agentprof@agentprof"]
-enabled = true
-
-` + hookEvents.map((event) => `[[hooks.${event}]]
-[[hooks.${event}.hooks]]
-type = "command"
-` + `command = ${JSON.stringify(hookCommand + (autoStart && event === "SessionStart" ? " --auto-start" : ""))}
-` + `commandWindows = ${JSON.stringify(windowsCommand + (autoStart && event === "SessionStart" ? " --auto-start" : ""))}
-` + `timeout = ${["SessionEnd", "Interrupt"].includes(event) ? 3 : 15}
-`).join(`
-`);
-}
-function writeInstalledProfile(state, codexHome, runtime, autoStart = false) {
-  mkdirSync(state, { recursive: true, mode: 448 });
-  const path = join(codexHome, "agentprof.config.toml"), marker = join(state, "profile.sha256");
-  const profile = hookProfile(state, runtime, autoStart);
-  if (existsSync(path) && readFileSync(path, "utf8") !== profile) {
-    const hash = createHash("sha256").update(readFileSync(path)).digest("hex");
-    if (!existsSync(marker) || readFileSync(marker, "utf8") !== hash)
-      throw new Error(`Profile already exists with different settings: ${path}`);
-  }
-  const hash = createHash("sha256").update(profile).digest("hex");
-  if (existsSync(path) && readFileSync(path, "utf8") === profile && existsSync(marker) && readFileSync(marker, "utf8") === hash)
-    return path;
-  const nonce = randomBytes(8).toString("hex");
-  const pending = join(state, "profile-pending.sha256");
-  const temporary = join(codexHome, `.agentprof-profile-${nonce}.tmp`);
-  const temporaryMarker = join(state, `profile-${nonce}.tmp`);
-  try {
-    writeFileSync(temporary, profile, { flag: "wx", mode: 384 });
-    writeFileSync(temporaryMarker, hash, { flag: "wx", mode: 384 });
-    writeFileSync(pending, hash, { mode: 384 });
-    renameSync(temporary, path);
-    renameSync(temporaryMarker, marker);
-    unlinkSync(pending);
-  } finally {
-    for (const file of [temporary, temporaryMarker])
-      if (existsSync(file))
-        unlinkSync(file);
-  }
-  return path;
-}
 
 // packages/codex-tracing/plugin-collector.ts
 import { createServer } from "node:http";
-import { createHash as createHash3 } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { writeFileSync as writeFileSync3, readFileSync as readFileSync6, existsSync as existsSync3, mkdirSync as mkdirSync3, unlinkSync as unlinkSync3, chmodSync as chmodSync2, rmdirSync } from "node:fs";
+import { writeFileSync as writeFileSync2, readFileSync as readFileSync6, existsSync as existsSync3, mkdirSync as mkdirSync2, unlinkSync as unlinkSync2, chmodSync as chmodSync2, rmdirSync } from "node:fs";
 import { join as join3, dirname as dirname3 } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { setTimeout as delay } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-journal.ts
-import { mkdirSync as mkdirSync2, openSync, writeSync, fsyncSync, closeSync, readFileSync as readFileSync4, writeFileSync as writeFileSync2, existsSync as existsSync2, linkSync, unlinkSync as unlinkSync2 } from "node:fs";
+import { mkdirSync, openSync, writeSync, fsyncSync, closeSync, readFileSync as readFileSync4, writeFileSync, existsSync as existsSync2, linkSync, unlinkSync } from "node:fs";
 import { dirname as dirname2, join as join2, resolve as resolve2, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -869,7 +805,7 @@ function writeTrace(options) {
 }
 
 // packages/codex-tracing/otel.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash } from "node:crypto";
 var object = (v) => v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
 var array = (v) => Array.isArray(v) ? v : [];
 var string = (v) => typeof v === "string" ? v : "";
@@ -938,7 +874,7 @@ function readOtel(rows) {
           const at = ns(l.timeUnixNano) || isoTime(attrs["event.timestamp"]);
           if (at === undefined)
             continue;
-          const key = createHash2("sha256").update(JSON.stringify([at.toString(), l.traceId, l.spanId, Object.entries(attrs).sort()])).digest("hex");
+          const key = createHash("sha256").update(JSON.stringify([at.toString(), l.traceId, l.spanId, Object.entries(attrs).sort()])).digest("hex");
           logs.set(key, { key, trace: string(l.traceId), span: `${l.traceId}:${l.spanId}`, at, attrs });
         }
       }
@@ -1654,8 +1590,8 @@ class Journal {
     this.directory = `${this.output}.capture`;
     if (existsSync2(this.output))
       throw new Error(`Output already exists: ${this.output}`);
-    mkdirSync2(dirname2(this.output), { recursive: true });
-    mkdirSync2(this.directory, { mode: 448 });
+    mkdirSync(dirname2(this.output), { recursive: true });
+    mkdirSync(this.directory, { mode: 448 });
     this.fd = openSync(join2(this.directory, "observations.jsonl"), "wx", 384);
     this.add({ source: "process_start", timestamp: this.start, data: {
       pid,
@@ -1726,14 +1662,14 @@ function publish(directory, output) {
     throw new Error(`Output already exists: ${target}`);
   const result = convertObservations(rows);
   const temporary = join2(directory, `recording-${randomUUID()}.tmp`);
-  writeFileSync2(temporary, result.trace, { flag: "wx", mode: 384 });
+  writeFileSync(temporary, result.trace, { flag: "wx", mode: 384 });
   try {
     linkSync(temporary, target);
   } finally {
-    unlinkSync2(temporary);
+    unlinkSync(temporary);
   }
   const summary = { output: target, ...result.summary, corruptRecords };
-  writeFileSync2(join2(directory, "summary.json"), JSON.stringify(summary, null, 2) + `
+  writeFileSync(join2(directory, "summary.json"), JSON.stringify(summary, null, 2) + `
 `, { mode: 384 });
   return summary;
 }
@@ -1916,10 +1852,10 @@ class Collector {
     this.drainMs = drainMs;
     this.captureContents = captureContents;
     this.identity = identity;
-    mkdirSync3(state, { recursive: true, mode: 448 });
+    mkdirSync2(state, { recursive: true, mode: 448 });
   }
   recordState(id, value) {
-    writeFileSync3(join3(this.state, `${id}.json`), JSON.stringify(value), { mode: 384 });
+    writeFileSync2(join3(this.state, `${id}.json`), JSON.stringify(value), { mode: 384 });
   }
   rememberTerminal(id, result) {
     this.terminalResults.set(id, result);
@@ -2080,7 +2016,7 @@ class Collector {
           this.rememberTerminal(id, result);
         }
         try {
-          writeFileSync3(join3(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
+          writeFileSync2(join3(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
         } catch {}
         return result;
       } finally {
@@ -2357,9 +2293,9 @@ class Collector {
         this.sessions.delete(id);
   }
 }
-async function serve(state, runConnection, persist = writeFileSync3) {
+async function serve(state, runConnection, persist = writeFileSync2) {
   const connection = runConnection ?? readConnection(state), collector = new Collector(state, runConnection?.socket ? 500 : 7000);
-  const build = createHash3("sha256").update(readFileSync6(fileURLToPath(import.meta.url))).digest("hex");
+  const build = createHash2("sha256").update(readFileSync6(fileURLToPath(import.meta.url))).digest("hex");
   let timer, lastActivity = Date.now();
   const server = createServer(async (request, response) => {
     const reply = (status, data) => {
@@ -2456,7 +2392,7 @@ async function serve(state, runConnection, persist = writeFileSync3) {
     await new Promise((done) => server.close(() => done()));
     if (published)
       try {
-        unlinkSync3(join3(state, "connection.json"));
+        unlinkSync2(join3(state, "connection.json"));
       } catch {}
     throw error;
   }
@@ -2469,7 +2405,7 @@ async function serve(state, runConnection, persist = writeFileSync3) {
       });
     if (connection.socket) {
       try {
-        unlinkSync3(connection.socket);
+        unlinkSync2(connection.socket);
       } catch {}
       try {
         rmdirSync(dirname3(connection.socket));
@@ -2478,8 +2414,8 @@ async function serve(state, runConnection, persist = writeFileSync3) {
     try {
       const current = readConnection(state);
       if (current.generation === connection.generation) {
-        unlinkSync3(join3(state, "connection.json"));
-        unlinkSync3(join3(state, "receiver-owner.json"));
+        unlinkSync2(join3(state, "connection.json"));
+        unlinkSync2(join3(state, "receiver-owner.json"));
       }
     } catch {}
   }
@@ -2487,9 +2423,9 @@ async function serve(state, runConnection, persist = writeFileSync3) {
 }
 
 // packages/agent-tracing/lease.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync4, readFileSync as readFileSync7, realpathSync, renameSync as renameSync2, rmSync, statSync as statSync2, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync7, realpathSync, renameSync, rmSync, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { join as join4, win32 } from "node:path";
-import { randomUUID as randomUUID2, createHash as createHash4 } from "node:crypto";
+import { randomUUID as randomUUID2, createHash as createHash3 } from "node:crypto";
 import { setTimeout as delay2 } from "node:timers/promises";
 import { spawn } from "node:child_process";
 function reaperCommand(path, timeoutMs, platform = process.platform) {
@@ -2501,7 +2437,7 @@ function reaperCommand(path, timeoutMs, platform = process.platform) {
       parent = realpathSync.native(parent);
     } catch {}
     const canonical = win32.join(parent, win32.basename(path)).toLowerCase();
-    const name = `Global\\agentprof_${createHash4("sha256").update(canonical).digest("hex").slice(0, 32)}`;
+    const name = `Global\\agentprof_${createHash3("sha256").update(canonical).digest("hex").slice(0, 32)}`;
     const powershell = `$m = [System.Threading.Mutex]::new($false, '${name}'); ` + `$locked = $false; try {$locked = $m.WaitOne(${timeoutMs})} ` + `catch [System.Threading.AbandonedMutexException] {$locked = $true}; ` + `if (!$locked) {exit 2}; [Console]::Out.WriteLine('READY'); ` + `[Console]::In.ReadToEnd() | Out-Null; $m.ReleaseMutex(); $m.Dispose()`;
     return ["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", powershell]];
   }
@@ -2546,9 +2482,9 @@ async function acquireDirectoryLease(path, timeoutMs = 5000) {
   const nonce = randomUUID2(), deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      mkdirSync4(path, { mode: 448 });
+      mkdirSync3(path, { mode: 448 });
       try {
-        writeFileSync4(join4(path, "owner.json"), JSON.stringify({
+        writeFileSync3(join4(path, "owner.json"), JSON.stringify({
           pid: process.pid,
           marker: processStartMarker(process.pid),
           nonce
@@ -2564,12 +2500,12 @@ async function acquireDirectoryLease(path, timeoutMs = 5000) {
           if (current.dev !== owner.dev || current.ino !== owner.ino || stored.nonce !== nonce)
             return;
           const quarantine = `${path}.release-${nonce}`;
-          renameSync2(path, quarantine);
+          renameSync(path, quarantine);
           const moved = statSync2(quarantine);
           if (moved.dev === owner.dev && moved.ino === owner.ino)
             rmSync(quarantine, { recursive: true, force: true });
           else if (!existsSync4(path))
-            renameSync2(quarantine, path);
+            renameSync(quarantine, path);
         } catch {}
       };
     } catch (error) {
@@ -2597,7 +2533,7 @@ async function acquireDirectoryLease(path, timeoutMs = 5000) {
             }
             if (stillStale && current.dev === before.dev && current.ino === before.ino && current.mtimeMs === before.mtimeMs) {
               const quarantine = `${path}.stale-${nonce}`;
-              renameSync2(path, quarantine);
+              renameSync(path, quarantine);
               rmSync(quarantine, { recursive: true, force: true });
             }
           } finally {
@@ -2617,7 +2553,7 @@ async function acquireDirectoryLease(path, timeoutMs = 5000) {
 
 // packages/codex-tracing/plugin.ts
 var script = fileURLToPath2(import.meta.url);
-var buildId = createHash5("sha256").update(readFileSync8(script)).digest("hex");
+var buildId = createHash4("sha256").update(readFileSync8(script)).digest("hex");
 var captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 var args = process.argv.slice(2);
 var command = args.shift();
@@ -2697,7 +2633,7 @@ async function ensureReceiver() {
   const current = ownerConnection();
   if (current)
     return current;
-  mkdirSync5(state, { recursive: true, mode: 448 });
+  mkdirSync4(state, { recursive: true, mode: 448 });
   const release = await acquireDirectoryLease(join5(state, "receiver-lifecycle.lock"), 1e4);
   try {
     const live = ownerConnection();
@@ -2707,16 +2643,16 @@ async function ensureReceiver() {
       const previous = readConnection(state);
       if (previous.socket) {
         try {
-          unlinkSync4(previous.socket);
+          unlinkSync3(previous.socket);
         } catch {}
         try {
           rmdirSync2(dirname4(previous.socket));
         } catch {}
       }
-      unlinkSync4(join5(state, "connection.json"));
+      unlinkSync3(join5(state, "connection.json"));
     }
     try {
-      unlinkSync4(join5(state, "receiver-owner.json"));
+      unlinkSync3(join5(state, "receiver-owner.json"));
     } catch {}
     const log = openSync2(join5(state, "receiver.log"), "a", 384);
     let child;
@@ -2815,10 +2751,10 @@ try {
   if (process.platform === "win32" && ["install", "serve", "hook", "mcp", "start", "stop", "status"].includes(command ?? ""))
     throw new Error("The Codex plugin recorder requires a private Unix socket; Windows is not supported yet.");
   if (command === "serve") {
-    mkdirSync5(state, { recursive: true, mode: 448 });
-    const generation = randomBytes2(16).toString("hex"), socket = privateSocketPath(generation);
+    mkdirSync4(state, { recursive: true, mode: 448 });
+    const generation = randomBytes(16).toString("hex"), socket = privateSocketPath(generation);
     try {
-      await serve(state, { socket, token: randomBytes2(32).toString("hex"), generation, run: true });
+      await serve(state, { socket, token: randomBytes(32).toString("hex"), generation, run: true });
     } catch (error) {
       rmSync2(dirname4(socket), { recursive: true, force: true });
       throw error;
@@ -2833,65 +2769,57 @@ try {
         pid: process.ppid,
         timestamp,
         process_start_marker: processStartMarker(process.ppid),
-        auto_start: args.includes("--auto-start")
+        auto_start: args.includes("--auto-start") || process.env.AGENTPROF_CODEX_AUTO_START === "1"
       })));
     } catch (error) {
-      const message = `Agent Profiler: ${String(error)}. Enable the profile with codex -p agentprof and review /hooks.`;
+      const message = `Agent Profiler: ${String(error)}. Install the native Agent Profiler plugin and review /hooks.`;
       const control = hook.hook_event_name === "UserPromptSubmit" && /^tracing (start|stop|status)(?:\s|$)/.test(string(hook.prompt).trim());
       console.log(JSON.stringify(control ? { decision: "block", reason: message } : { systemMessage: message }));
     }
-  } else if (command === "install") {
-    mkdirSync5(state, { recursive: true, mode: 448 });
+  } else if (command === "migrate") {
+    if (args.some((arg) => arg !== "--confirm-closed"))
+      throw new Error("Usage: agentprof-codex migrate --confirm-closed (after closing every old Codex session)");
+    mkdirSync4(state, { recursive: true, mode: 448 });
     const release = await acquireDirectoryLease(join5(state, "install.lock"), 1e4);
-    let legacyRelease;
+    let receiverRelease;
     try {
-      legacyRelease = await acquireDirectoryLease(join5(state, "receiver-lifecycle.lock"), 30000);
-      if (args.some((arg) => !["--migrate", "--auto-start"].includes(arg)))
-        throw new Error("Usage: agentprof-codex install [--migrate] [--auto-start]");
+      receiverRelease = await acquireDirectoryLease(join5(state, "receiver-lifecycle.lock"), 30000);
       const profile = join5(dirname4(state), "agentprof.config.toml");
-      const marker = join5(state, "profile.sha256"), pending = join5(state, "profile-pending.sha256");
-      if (existsSync5(profile)) {
-        const hash = createHash5("sha256").update(readFileSync8(profile)).digest("hex");
+      if (!existsSync5(profile))
+        console.log("No generated Agent Profiler profile to migrate.");
+      else {
+        if (!args.includes("--confirm-closed"))
+          throw new Error("Close all Codex sessions using the old profile before migrating.");
+        const marker = join5(state, "profile.sha256"), pending = join5(state, "profile-pending.sha256");
+        const hash = createHash4("sha256").update(readFileSync8(profile)).digest("hex");
         if (existsSync5(pending) && readFileSync8(pending, "utf8") === hash && !readFileSync8(profile, "utf8").includes("[otel]"))
-          renameSync3(pending, marker);
+          renameSync2(pending, marker);
         if (!existsSync5(marker) || hash !== readFileSync8(marker, "utf8"))
-          throw new Error("The Agent Profiler profile was edited. Nothing was changed; resolve it manually before installing.");
+          throw new Error("The old profile was edited; nothing was changed. Remove its hook declarations manually.");
+        const connectionFile = join5(state, "connection.json");
+        const previous = existsSync5(connectionFile) ? readConnection(state) : undefined;
+        if (previous?.run && ownerConnection())
+          throw new Error("An old plugin receiver is still active. Close its Codex sessions and retry migration.");
+        const legacyPort = previous && !previous.run ? previous.port : undefined;
+        if (legacyPort && await portBound(legacyPort))
+          throw new Error("The old fixed-port receiver is still running; stop it only after every old Codex session exits.");
+        if (legacyPort && await portBound(legacyPort))
+          throw new Error("The old receiver restarted; profile was retained.");
+        unlinkSync3(profile);
+        unlinkSync3(marker);
+        if (existsSync5(pending))
+          unlinkSync3(pending);
+        if (legacyPort && existsSync5(connectionFile))
+          unlinkSync3(connectionFile);
+        console.log("Removed the owned generated hook profile. The native Codex plugin supplies hooks and MCP tools.");
       }
-      const previous = existsSync5(join5(state, "connection.json")) ? readConnection(state) : undefined;
-      if (previous?.run && ownerConnection())
-        try {
-          await request("/health", {}, previous);
-        } catch (error) {
-          if (String(error).includes("does not match this installed runtime"))
-            throw new Error("A receiver from an earlier plugin build is still active. Close its Codex sessions before reinstalling.");
-          throw error;
-        }
-      const legacyPort = previous && !previous.run ? previous.port : undefined;
-      if (existsSync5(profile) && readFileSync8(profile, "utf8").includes("[otel]") && !args.includes("--migrate"))
-        throw new Error("An old fixed-endpoint profile exists. Close old Codex sessions, stop its receiver, then rerun install --migrate.");
-      if (legacyPort && await portBound(legacyPort))
-        throw new Error("The old receiver still owns its port. Close old Codex sessions and stop it before migrating.");
-      const root = resolve3(dirname4(script), "../../..");
-      const market = spawnSync("codex", ["plugin", "marketplace", "add", root], { stdio: "inherit" });
-      if (market.status !== 0)
-        throw new Error(`Codex marketplace installation failed: ${market.error ?? market.status}`);
-      const installed = spawnSync("codex", ["plugin", "add", "agentprof@agentprof", "--json"], { encoding: "utf8" });
-      if (installed.status !== 0)
-        throw new Error(`Codex plugin installation failed: ${installed.stderr || installed.error || installed.status}`);
-      const runtime = join5(string(object(JSON.parse(installed.stdout)).installedPath), "runtime/codex-tracing.mjs");
-      if (legacyPort && await portBound(legacyPort))
-        throw new Error("The old receiver restarted during installation; close old sessions and retry.");
-      const hooks = writeInstalledProfile(state, dirname4(state), runtime, args.includes("--auto-start"));
-      if (legacyPort && await portBound(legacyPort))
-        throw new Error("Old receiver restarted during migration; its connection was retained.");
-      if (previous && !previous.run)
-        unlinkSync4(join5(state, "connection.json"));
-      console.log(`Plugin installed: ${hooks}. Start Codex normally with: codex -p agentprof`);
     } finally {
-      legacyRelease?.();
+      receiverRelease?.();
       release();
     }
-  } else if (command === "recover" && args[0])
+  } else if (command === "install")
+    throw new Error("Install through Codex’s marketplace instead: codex plugin marketplace add dreveman/agentprof && codex plugin add agentprof@agentprof. Existing generated profiles: agentprof-codex migrate --confirm-closed.");
+  else if (command === "recover" && args[0])
     console.log(JSON.stringify(publish(resolve3(args[0]), args[1])));
   else if (["start", "stop", "status"].includes(command ?? "")) {
     const id = option("--session");
@@ -2899,7 +2827,7 @@ try {
       throw new Error("Provide --session SESSION_ID, or use the recording tools inside Codex.");
     console.log(JSON.stringify(await requestWithReceiver(`/${command}`, { session_id: id, output_path: args[0] })));
   } else {
-    console.log("Usage: agentprof-codex install [--migrate] [--auto-start] | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]");
+    console.log("Usage: agentprof-codex migrate --confirm-closed | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]");
     if (command && command !== "--help")
       process.exitCode = 2;
   }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Codex plugin entry point. Hooks and MCP tools communicate with an on-demand
 // Unix-socket recorder; no installed profile exports native telemetry.
-import {spawn, spawnSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {createHash, randomBytes} from 'node:crypto';
 import {existsSync, mkdirSync, openSync, closeSync, readFileSync, renameSync, rmdirSync, rmSync, unlinkSync} from 'node:fs';
 import {request as httpRequest} from 'node:http';
@@ -10,7 +10,7 @@ import {createInterface} from 'node:readline';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {setTimeout as delay} from 'node:timers/promises';
-import {privateSocketPath, readConnection, stateDirectory, writeInstalledProfile, type Connection} from './plugin-config.ts';
+import {privateSocketPath, readConnection, stateDirectory, type Connection} from './plugin-config.ts';
 import {serve} from './plugin-collector.ts';
 import {publish, now} from './plugin-journal.ts';
 import {object, string} from './otel.ts';
@@ -170,60 +170,54 @@ try {
     const timestamp = now(), hook = object(JSON.parse(readFileSync(0, 'utf8')));
     try {
       console.log(JSON.stringify(await requestWithReceiver('/hook', {hook, pid: process.ppid, timestamp,
-        process_start_marker: processStartMarker(process.ppid), auto_start: args.includes('--auto-start')})));
+        process_start_marker: processStartMarker(process.ppid),
+        auto_start: args.includes('--auto-start') || process.env.AGENTPROF_CODEX_AUTO_START === '1'})));
     } catch (error) {
-      const message = `Agent Profiler: ${String(error)}. Enable the profile with codex -p agentprof and review /hooks.`;
+      const message = `Agent Profiler: ${String(error)}. Install the native Agent Profiler plugin and review /hooks.`;
       const control = hook.hook_event_name === 'UserPromptSubmit' && /^tracing (start|stop|status)(?:\s|$)/.test(string(hook.prompt).trim());
       console.log(JSON.stringify(control ? {decision: 'block', reason: message} : {systemMessage: message}));
     }
-  } else if (command === 'install') {
+  } else if (command === 'migrate') {
+    if (args.some(arg => arg !== '--confirm-closed'))
+      throw new Error('Usage: agentprof-codex migrate --confirm-closed (after closing every old Codex session)');
     mkdirSync(state, {recursive: true, mode: 0o700});
     const release = await acquireDirectoryLease(join(state, 'install.lock'), 10000);
-    let legacyRelease: (() => void) | undefined;
+    let receiverRelease: (() => void) | undefined;
     try {
-      legacyRelease = await acquireDirectoryLease(join(state, 'receiver-lifecycle.lock'), 30000);
-      if (args.some(arg => !['--migrate', '--auto-start'].includes(arg)))
-        throw new Error('Usage: agentprof-codex install [--migrate] [--auto-start]');
+      receiverRelease = await acquireDirectoryLease(join(state, 'receiver-lifecycle.lock'), 30000);
       const profile = join(dirname(state), 'agentprof.config.toml');
-      const marker = join(state, 'profile.sha256'), pending = join(state, 'profile-pending.sha256');
-      if (existsSync(profile)) {
+      if (!existsSync(profile)) console.log('No generated Agent Profiler profile to migrate.');
+      else {
+        if (!args.includes('--confirm-closed'))
+          throw new Error('Close all Codex sessions using the old profile before migrating.');
+        const marker = join(state, 'profile.sha256'), pending = join(state, 'profile-pending.sha256');
         const hash = createHash('sha256').update(readFileSync(profile)).digest('hex');
         if (existsSync(pending) && readFileSync(pending, 'utf8') === hash &&
             !readFileSync(profile, 'utf8').includes('[otel]')) renameSync(pending, marker);
         if (!existsSync(marker) || hash !== readFileSync(marker, 'utf8'))
-          throw new Error('The Agent Profiler profile was edited. Nothing was changed; resolve it manually before installing.');
+          throw new Error('The old profile was edited; nothing was changed. Remove its hook declarations manually.');
+        const connectionFile = join(state, 'connection.json');
+        const previous = existsSync(connectionFile) ? readConnection(state) : undefined;
+        if (previous?.run && ownerConnection())
+          throw new Error('An old plugin receiver is still active. Close its Codex sessions and retry migration.');
+        const legacyPort = previous && !previous.run ? previous.port : undefined;
+        if (legacyPort && await portBound(legacyPort))
+          throw new Error('The old fixed-port receiver is still running; stop it only after every old Codex session exits.');
+        if (legacyPort && await portBound(legacyPort)) throw new Error('The old receiver restarted; profile was retained.');
+        unlinkSync(profile); unlinkSync(marker);
+        if (existsSync(pending)) unlinkSync(pending);
+        if (legacyPort && existsSync(connectionFile)) unlinkSync(connectionFile);
+        console.log('Removed the owned generated hook profile. The native Codex plugin supplies hooks and MCP tools.');
       }
-      const previous = existsSync(join(state, 'connection.json')) ? readConnection(state) : undefined;
-      if (previous?.run && ownerConnection()) try {await request('/health', {}, previous);}
-      catch (error) {
-        if (String(error).includes('does not match this installed runtime'))
-          throw new Error('A receiver from an earlier plugin build is still active. Close its Codex sessions before reinstalling.');
-        throw error;
-      }
-      const legacyPort = previous && !previous.run ? previous.port : undefined;
-      if (existsSync(profile) && readFileSync(profile, 'utf8').includes('[otel]') && !args.includes('--migrate'))
-        throw new Error('An old fixed-endpoint profile exists. Close old Codex sessions, stop its receiver, then rerun install --migrate.');
-      if (legacyPort && await portBound(legacyPort))
-        throw new Error('The old receiver still owns its port. Close old Codex sessions and stop it before migrating.');
-      const root = resolve(dirname(script), '../../..');
-      const market = spawnSync('codex', ['plugin', 'marketplace', 'add', root], {stdio: 'inherit'});
-      if (market.status !== 0) throw new Error(`Codex marketplace installation failed: ${market.error ?? market.status}`);
-      const installed = spawnSync('codex', ['plugin', 'add', 'agentprof@agentprof', '--json'], {encoding: 'utf8'});
-      if (installed.status !== 0) throw new Error(`Codex plugin installation failed: ${installed.stderr || installed.error || installed.status}`);
-      const runtime = join(string(object(JSON.parse(installed.stdout)).installedPath), 'runtime/codex-tracing.mjs');
-      if (legacyPort && await portBound(legacyPort)) throw new Error('The old receiver restarted during installation; close old sessions and retry.');
-      const hooks = writeInstalledProfile(state, dirname(state), runtime, args.includes('--auto-start'));
-      if (legacyPort && await portBound(legacyPort)) throw new Error('Old receiver restarted during migration; its connection was retained.');
-      if (previous && !previous.run) unlinkSync(join(state, 'connection.json'));
-      console.log(`Plugin installed: ${hooks}. Start Codex normally with: codex -p agentprof`);
-    } finally {legacyRelease?.(); release();}
-  } else if (command === 'recover' && args[0]) console.log(JSON.stringify(publish(resolve(args[0]), args[1])));
+    } finally {receiverRelease?.(); release();}
+  } else if (command === 'install') throw new Error('Install through Codex’s marketplace instead: codex plugin marketplace add dreveman/agentprof && codex plugin add agentprof@agentprof. Existing generated profiles: agentprof-codex migrate --confirm-closed.');
+  else if (command === 'recover' && args[0]) console.log(JSON.stringify(publish(resolve(args[0]), args[1])));
   else if (['start', 'stop', 'status'].includes(command ?? '')) {
     const id = option('--session');
     if (!id) throw new Error('Provide --session SESSION_ID, or use the recording tools inside Codex.');
     console.log(JSON.stringify(await requestWithReceiver(`/${command}`, {session_id: id, output_path: args[0]})));
   } else {
-    console.log('Usage: agentprof-codex install [--migrate] [--auto-start] | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]');
+    console.log('Usage: agentprof-codex migrate --confirm-closed | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]');
     if (command && command !== '--help') process.exitCode = 2;
   }
 } catch (error) {console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1;}

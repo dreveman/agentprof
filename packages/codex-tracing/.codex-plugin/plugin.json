@@ -1,0 +1,7 @@
+{
+  "name": "agentprof",
+  "version": "0.3.0",
+  "description": "Record Codex sessions for Agent Profiler",
+  "mcpServers": "./mcp.json",
+  "hooks": "./hooks/hooks.json"
+}

@@ -174,9 +174,10 @@ try {
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-claude-dark.png'});
   await action('Dark mode');
   await recordingAgent.getByRole('button', {name: 'Codex', exact: true}).click();
+  await page.getByText('codex plugin add agentprof@agentprof', {exact: true}).waitFor();
   await recordStep.getByRole('link', {name: 'Codex recording guide'}).waitFor();
-  assert.match(await recordStep.innerText(), /Start Codex with the recording profile/);
-  assert.equal(await recordStep.locator('code').first().innerText(), 'codex -p agentprof');
+  assert.match(await recordStep.innerText(), /Start Codex normally/);
+  assert.equal(await recordStep.locator('code').first().innerText(), 'codex');
   assert.deepEqual(await page.locator('.ap-home__example-title').allTextContents(), ['Open Codex example']);
   await page.setViewportSize({width: 390, height: 1000});
   assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);
