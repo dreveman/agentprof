@@ -7,8 +7,6 @@
   "seed": 62813,
   "promptFile": "prompt.txt",
   "snapshotFile": "snapshot.json",
-  "selectedRound": 1,
-  "selection": "Median paired wall-time speedup",
   "pairedRounds": 3,
   "snapshotSha256": "094d8ce367338c145ead8910b89b137e26f8665ae4ea07795593684c3a625667",
   "promptSha256": "069836ac636401db186f3640f6393e6fef1d692948943d71f7c13237200f8dfe",

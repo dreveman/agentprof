@@ -1,35 +1,16 @@
-Work ONLY in the current scratch directory: /home/example/github/agentprof/examples/artifacts/live-pi/opus-5-workflow-a3d7f647
+Work only in /workspace/intervals. You own exactly one file: additional.test.mjs (create it). Do NOT edit intervals.mjs or intervals.test.mjs — another worker is fixing the implementation concurrently, so your tests may fail for now; that is fine and expected. Write the tests against the correct specification, not against current behavior.
 
-You own exactly ONE file: additional.test.mjs (create it). Do NOT create, edit, or delete any other file. In particular do NOT edit intervals.mjs (another worker is fixing it concurrently) and do NOT edit intervals.test.mjs.
+Specification of summarizeIntervals(intervals) exported from ./intervals.mjs: input is an array of finite half-open [start, end) intervals in ms with end >= start. It returns {activeMs, peakConcurrency} where activeMs is the duration of the union of the intervals (overlaps counted once) and peakConcurrency is the maximum number of simultaneously active NONEMPTY intervals (zero-length intervals never count; half-open semantics mean [0,5] and [5,9] are never simultaneous -> peakConcurrency 1, activeMs 9). Empty input -> {activeMs: 0, peakConcurrency: 0}. The function must not mutate the input.
 
-Read intervals.mjs and intervals.test.mjs for context first (read only).
+Create additional.test.mjs using node:test and node:assert/strict (same style as the existing intervals.test.mjs: `import test from 'node:test'`). Add boundary/regression cases including at minimum:
+- several intervals with identical starts; several with identical ends
+- exactly duplicated intervals (e.g. three copies of [1,4]) -> activeMs 3, peakConcurrency 3
+- zero-length intervals alone, and zero-length intervals at the boundary of / inside other intervals (must not raise peakConcurrency)
+- chains of touching intervals [0,1],[1,2],[2,3] -> activeMs 3, peakConcurrency 1
+- nested and unsorted intervals, disjoint intervals with gaps
+- negative and fractional coordinates
+- non-mutation: pass deeply frozen arrays AND separately assert a deep-equal snapshot of a plain input array is unchanged after the call (including original element order)
+- a larger generated case (e.g. staircase of ~1000 intervals) with an independently computed expected result
 
-Task: write additional boundary/regression tests in additional.test.mjs using node:test + node:assert/strict, importing {summarizeIntervals} from './intervals.mjs'.
-
-The contract the implementation must satisfy:
-- Input: array of finite half-open [start, end) intervals in ms, end >= start, possibly fractional, unsorted, nested, overlapping, duplicated, zero-length.
-- Returns {activeMs, peakConcurrency}.
-  - activeMs = duration of the union (overlaps counted once).
-  - peakConcurrency = max number of simultaneously active NONEMPTY intervals. Zero-length intervals never count toward concurrency and add 0 to activeMs. Half-open semantics: an interval ending at t and another starting at t are NOT concurrent, so [[0,5],[5,9]] => {activeMs: 9, peakConcurrency: 1}.
-  - Empty input => {activeMs: 0, peakConcurrency: 0}.
-- Must not mutate the input array or the inner arrays, and must not reorder them.
-
-Cover at least these cases (do not merely duplicate the existing tests in intervals.test.mjs):
-1. Many intervals starting at the same instant (simultaneous starts), e.g. [[0,4],[0,6],[0,2]].
-2. Many intervals ending at the same instant (simultaneous ends).
-3. Identical duplicated intervals, e.g. [[1,4],[1,4],[1,4]] => activeMs 3, peakConcurrency 3.
-4. Zero-length intervals at a point where other intervals are active, and a zero-length interval duplicated / at a boundary — they must not raise peakConcurrency and must not add duration.
-5. Chained touching intervals [[0,1],[1,2],[2,3]] => activeMs 3, peakConcurrency 1.
-6. Peak occurring in the middle, not at the start, with staggered intervals; also a case where the peak count is higher than the count at any single interval's start-sorted prefix naive guess.
-7. Nested intervals and a fully-contained interval.
-8. Negative and mixed-sign coordinates, e.g. [[-5,-1],[-3,2]].
-9. Fractional coordinates where floating-point error is a risk — assert exact expected values (e.g. [[0.1,0.2],[0.2,0.3]] union should be asserted robustly; if exact equality is unreasonable due to IEEE754, use assert.ok(Math.abs(a-b) < 1e-9) with a clear comment, but prefer exact where the math is exact).
-10. Non-mutation: deep-freeze the input and its inner arrays, call the function, and assert the input array contents/order are unchanged afterwards (compare to a separately built expected copy).
-11. A larger randomized/brute-force cross-check: generate ~200 random small integer intervals cases and compare against a simple O(range) millisecond-bucket reference implementation defined locally inside the test file (mark each ms bucket covered by [start,end) and count coverage depth) — this validates both activeMs and peakConcurrency independently. Keep the coordinate range small (e.g. 0..30) and use a deterministic seeded PRNG so failures reproduce.
-
-Double-check every expected value by hand against the contract before writing it — an incorrect expectation is worse than a missing test.
-
-Note: the implementation is being fixed concurrently, so `node --test` may currently fail on intervals.mjs. That is expected; you do not need it to pass. DO run `node --test additional.test.mjs` at least once to confirm your file has no syntax/import errors and that failures (if any) are due to the known-buggy implementation, not your test code. Verify your brute-force reference itself is correct by reasoning about it.
-
-Report briefly what cases you added and the current status.
+Double-check every expected value by hand so the tests are correct. Run `node --test additional.test.mjs` to make sure the file at least loads and runs (assertion failures are acceptable until the implementation is fixed). Report what you covered.
 Work only in the current scratch directory. Keep your final report concise.

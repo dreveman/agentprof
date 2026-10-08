@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Read the documented export envelope, retaining only profiling measurements.
 import {estimateContextTokens} from '../pi-tracing/extensions/pi-tracing/context.ts';
+import {toolArgumentAnnotations} from '../pi-tracing/extensions/pi-tracing/annotations.ts';
 export const object = (v: unknown): Record<string, any> => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, any> : {};
 export const string = (v: unknown): string => typeof v === 'string' ? v : '';
+export const controlPrompt = (text: string) => /^(?:\/)?tracing (?:start(?:[ \t]+[^\r\n]+)?|stop|status)$/.test(text.trim());
 export const integer = (v: unknown): number | undefined => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
 export const validSession = (id: string): boolean => /^[a-f0-9]{8}-[a-f0-9-]{27}$/i.test(id);
 export interface NativeRecord {id: string; at: string; family: string; run: string; task: string; kind: string; data: Record<string, any>}
@@ -29,7 +31,7 @@ const fields: Record<string, readonly string[]> = {
   task_stream_linked: ['task_id', 'display'],
 };
 
-export function readExport(raw: unknown, id: string): NativeSession {
+export function readExport(raw: unknown, id: string, captureContents = true): NativeSession {
   const doc = object(raw);
   if (doc.export_schema_version !== 1 || !Array.isArray(doc.events)) throw new Error('Unsupported Muse session export. Expected export_schema_version 1.');
   if (!doc.sessions?.some((s: any) => s.session_id === id && !s.is_copied_context)) throw new Error(`Export does not contain session ${id}`);
@@ -48,7 +50,22 @@ export function readExport(raw: unknown, id: string): NativeSession {
     // another workspace or copy inherited history into a child capture.
     const child = validSession(string(inner.child_session_id)) ? string(inner.child_session_id) : '';
     if (!keys && !child) return;
-    const data = Object.fromEntries((keys ?? []).filter(k => inner[k] !== undefined).map(k => [k, inner[k]]));
+    const data = Object.fromEntries((keys ?? [])
+      .filter(k => inner[k] !== undefined && (captureContents || k !== 'tool_calls'))
+      .map(k => [k, inner[k]]));
+    if (kind === 'started' && family === 'run' && !captureContents) {
+      const prompt = string(inner.prompt);
+      data.prompt_length = prompt.length;
+      data.control_prompt = controlPrompt(prompt);
+      delete data.prompt;
+    }
+    if (!captureContents) {
+      delete data.reason; delete data.error;
+      if (kind === 'tool_batch_effect' && data.outcome) data.outcome = {kind: string(data.outcome.kind)};
+    }
+    if (kind === 'assistant_tool_calls_committed' && !captureContents) data.tool_calls = (inner.tool_calls ?? []).map((call: any) =>
+      ({call_id: string(call.call_id), name: string(call.name),
+        ...(typeof call.args === 'string' ? {args_chars: call.args.length} : {})}));
     if (kind === 'assistant_message_committed') {
       const chars = string(inner.text).length; data.context_chars = chars; data.context_tokens = estimateContextTokens(chars);
     }
@@ -63,7 +80,7 @@ export function readExport(raw: unknown, id: string): NativeSession {
       data.omitted_groups = integer(b.omitted_aggregate_group_count) ?? 0;
     }
     if (kind === 'tool_result_batch_committed') data.results = (inner.results ?? []).map((result: any) => {
-      let outcome = {}; try {outcome = object(JSON.parse(result.text));} catch {}
+      let outcome = {}; if (captureContents) try {outcome = object(JSON.parse(result.text));} catch {}
       const value = object(outcome);
       const chars = string(result.text).length;
       return {call_id: string(result.tool_call_id), context_chars: chars, context_tokens: estimateContextTokens(chars),

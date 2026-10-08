@@ -17,11 +17,12 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   const processStart = rows.find(r => r.source === 'process_start');
   const pid = integer(processStart?.data.pid), capture = string(processStart?.data.captureId);
   if (!pid || !capture || !processStart) throw new Error('Missing recorded Codex process identity');
+  const captureContents = processStart.data.capture_contents !== false;
   const first = BigInt(processStart.timestamp), processEnd = rows.findLast(r => r.source === 'process_end');
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const {spans, logs} = readOtel(rows);
   const plugin = processStart.data.recorder === 'codex-plugin-1';
-  const extra = plugin ? addHooks(rows, spans, logs, first, last) : [];
+  const extra = plugin ? addHooks(rows, spans, logs, first, last, captureContents) : [];
   const ordered = [...spans.values()].sort((a, b) => compareTime(a.start, b.start));
   logs.sort((a, b) => compareTime(a.at, b.at));
   const cli = rows.filter(r => r.source === 'cli').map(r => r.data);
@@ -141,14 +142,16 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const input = add(id, `${turn.key}:input`, 'Inputs', 'prompt-input', start, undefined, {source: id === rootSession ? 'user' : 'agent'});
     const prompt = add(id, turn.key, 'Session', 'prompt', start, turn.end, {kind: 'prompt',
       turn_id: string(turn.attrs['turn.id']), ...(turn.attrs['capture.incomplete'] ? {incomplete: true} : {}),
-      ...promptAnnotations(log?.attrs.prompt === '[REDACTED]' ? undefined : log?.attrs.prompt, true)});
+      ...promptAnnotations(log?.attrs.prompt === '[REDACTED]' ? undefined : log?.attrs.prompt, captureContents),
+      ...(integer(log?.attrs.prompt_length) !== undefined ? {length: integer(log?.attrs.prompt_length)!} : {})});
     edge(input, prompt); prompts.push(prompt); if (!inputs.has(id)) inputs.set(id, input);
   }
   for (const log of logs.filter(l => l.attrs['event.name'] === 'codex.user_prompt' && !usedPrompts.has(l))) {
     const id = string(log.attrs['conversation.id']); if (!sessions.has(id)) continue;
     const input = add(id, `${log.key}:input`, 'Inputs', 'prompt-input', log.at, undefined, {source: 'user'});
     const prompt = add(id, log.key, 'Session', 'prompt', log.at, getSession(id).end,
-      {kind: 'prompt', incomplete: true, ...promptAnnotations(log.attrs.prompt, true)});
+      {kind: 'prompt', incomplete: true, ...promptAnnotations(log.attrs.prompt, captureContents),
+        ...(integer(log.attrs.prompt_length) !== undefined ? {length: integer(log.attrs.prompt_length)!} : {})});
     edge(input, prompt); prompts.push(prompt); inputs.set(id, input);
   }
   const ownerPrompt = (slice: Slice) => prompts.find(p => p.session === slice.session && p.start <= slice.start && p.end! >= slice.start);
@@ -214,12 +217,15 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const native = ordered.find(s => s.name === 'code_mode.handler.execute' && s.attrs.call_id === call && spanSession(s) === id);
     const start = native?.start ?? log.at - ms(duration), end = native?.end ?? log.at;
     const source = string(log.attrs.arguments);
-    if (native && isControlScript(source)) continue;
+    if (native && (log.attrs['agentprof.control_script'] === true ||
+      (captureContents && isControlScript(source)))) continue;
     let args: unknown;
-    try {args = JSON.parse(source);} catch {args = {code: source};}
-    const annotation = toolArgumentAnnotations(args, true);
+    if (captureContents && source) {
+      try {args = JSON.parse(source);} catch {args = {code: source};}
+    }
+    const annotation = captureContents && source ? toolArgumentAnnotations(args, true) : {};
     if (annotation.truncated !== undefined) {annotation.args_truncated = annotation.truncated; delete annotation.truncated;}
-    const output = string(log.attrs.output);
+    const output = captureContents ? string(log.attrs.output) : '';
     const exit = ['exec_command', 'write_stdin', 'shell', 'shell_command'].includes(name)
       ? output.match(/(?:Process exited with code |"exit_code"\s*:\s*)(-?\d+)/) : null;
     const denied = logs.some(l => l.attrs['event.name'] === 'codex.sandbox_outcome' &&
@@ -229,10 +235,10 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
       timing: native ? 'native-span' : 'native-tool-duration',
       ...(failed ? {is_error: true} : native?.attrs.outcome === 'completed' ? {is_error: false} : exit ? {is_error: Number(exit[1]) !== 0} : {}),
       ...(exit ? {exit_code: Number(exit[1])} : {}),
-      ...(native ? scriptAnnotations('JavaScript', source) : {})};
+      ...(native ? scriptAnnotations('JavaScript', captureContents ? source : undefined) : {})};
     if (native?.attrs['capture.incomplete']) attrs.incomplete = true;
-    const intent = object(args).description ?? object(args).justification;
-    if (typeof intent === 'string' && intent) attrs.intent = intent;
+    const intent = captureContents ? object(args).description ?? object(args).justification : undefined;
+    if (captureContents && typeof intent === 'string' && intent) attrs.intent = intent;
     const slice = add(id, log.key, 'Tools', name, start, end, attrs);
     if (plugin && start < first) {slice.start = first; slice.attrs.incomplete = true;}
     if (native) {
@@ -257,7 +263,8 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   // that Rust task IDs or agent sessions are operating-system threads.
   for (const session of sessions.values()) {
     const parent = string(session.attrs.parent_session); if (!parent) continue;
-    const launch = toolSlices.find(({slice, log}) => slice.session === parent && slice.name.endsWith('spawn_agent') && string(log.attrs.output).includes(session.id))?.slice;
+    const launch = captureContents ? toolSlices.find(({slice, log}) => slice.session === parent &&
+      slice.name.endsWith('spawn_agent') && string(log.attrs.output).includes(session.id))?.slice : undefined;
     if (launch) {launch.attrs.delegation = true; launch.attrs.child_session = session.id; edge(launch, inputs.get(session.id));}
   }
   for (const session of sessions.values()) {

@@ -51,7 +51,7 @@ export default function (pi: ExtensionAPI) {
       let proc: ChildProcess;
       try {
         proc = spawn('pi', args, {cwd: ctx.cwd, env: {...process.env,
-          PI_SUBAGENT_TYPE: params.type, DEVMATE_PARENT_SESSION_ID: parentSessionId,
+          PI_SUBAGENT_TYPE: params.type, PI_TRACING_PARENT_SESSION_ID: parentSessionId,
           PI_TRACING_CAPTURE_CONTENTS: '0', PI_TRACING_CHILD_WAIT_MS: '0'},
           stdio: ['ignore', output, error]});
       } finally {

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import {test, expect} from 'bun:test';
+import {test, expect, spyOn} from 'bun:test';
 import {mkdtempSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations} from './convert.ts';
 import {fixture, log, at, rootSession} from './fixture.ts';
+import {tagControlScripts} from './plugin-observations.ts';
+import {omitContent} from '../agent-tracing/content.ts';
 import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
 
@@ -20,6 +22,42 @@ function query(rows: ReturnType<typeof fixture>, sql: string): string {
     return result.stdout;
   } finally {rmSync(path, {recursive: true, force: true});}
 }
+test('disabled content never parses unsanitized native argument strings', () => {
+  const rows = fixture(), secret = '{"private":"disabled-input"}';
+  rows[0]!.data.capture_contents = false;
+  for (const row of rows.filter(r => r.source === '/v1/logs')) for (const resource of (row.data as any).resourceLogs)
+    for (const scope of resource.scopeLogs) for (const log of scope.logRecords)
+      for (const attr of log.attributes) if (attr.key === 'arguments') attr.value.stringValue = secret;
+  let inspected = 0;
+  const parse = JSON.parse, spy = spyOn(JSON, 'parse').mockImplementation((input: string, reviver?: (this: any, key: string, value: any) => any) => {
+    if (input === secret) {inspected++; throw new Error('disabled argument was parsed');}
+    return parse(input, reviver);
+  });
+  try {
+    const trace = Buffer.from(convertObservations(rows).trace);
+    expect(inspected).toBe(0);
+    expect(trace.includes('disabled-input')).toBe(false);
+    expect(trace.includes('fixture-model')).toBe(true);
+  } finally {spy.mockRestore();}
+});
+
+test('content-off code-mode controls remain excluded without retaining or parsing their source', () => {
+  const rows = fixture(); rows[0]!.data.capture_contents = false;
+  for (const row of rows.filter(r => r.source === '/v1/logs')) {
+    for (const resource of (row.data as any).resourceLogs) for (const scope of resource.scopeLogs)
+      for (const log of scope.logRecords) {
+        const call = log.attributes.find((a: any) => a.key === 'call_id')?.value.stringValue;
+        if (call === 'script-call') log.attributes.find((a: any) => a.key === 'arguments').value.stringValue = 'tools.tracing_status()';
+      }
+    tagControlScripts(row.data);
+    row.data = omitContent(row.data) as Record<string, unknown>;
+  }
+  expect(JSON.stringify(rows)).not.toContain('tracing_status()');
+  const result = convertObservations(rows);
+  expect(result.summary.scripts).toBe(0);
+  expect(Buffer.from(result.trace).includes('tracing_status()')).toBe(false);
+});
+
 test('late/repeated telemetry preserves native durations, usage, nested scripts and logical children', () => {
   const rows = fixture(), result = convertObservations(rows);
   expect(result.summary).toMatchObject({sessions: 2, responses: 3, scripts: 1, tools: 2, nestedTools: 1,

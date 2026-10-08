@@ -1,8 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Observe the normal session without changing prompts, streams or tool results.
 let capture, session, segment = 0, awaitingSession = false, legacy = false, transition = 'idle', ending = false, initialized = false;
+let captureContents = true; // AGENTPROF_CAPTURE_CONTENTS=0 opts out across harnesses.
 let controls = Promise.resolve(), checkpoints = Promise.resolve();
 let countScope, countedItems = new Map();
+// Attribute only new work observed by hooks after the one capture-start
+// baseline. Never re-read and diff the whole transcript on each model step.
+let contextChanges = [];
+const observe = (s, item) => {
+  if (s.capture?.active && s.capture === capture && s.session === session && s.segment === segment && !awaitingSession)
+    contextChanges.push(item);
+};
+const measuredContext = reading => {
+  const value = {...reading, item_changes: contextChanges, removed_items: []};
+  contextChanges = [];
+  return value;
+};
 const controlTools = new Map(), prompts = new Map(), toolScopes = new Map(), agents = new Map();
 const epoch = Date.now(), monotonic = performance.now();
 const encoder = new TextEncoder();
@@ -31,7 +44,7 @@ const readContext = async ($, includeMessages = false) => {
         items.push({id: `result:${result.tool_use_id}`, category: 'results', chars, tokens: Math.ceil(chars / 4),
           source_id: result.tool_use_id, source_kind: 'tool', label: 'Tool result'});
       }
-      for (const call of message.toolUses ?? []) {
+      for (const call of captureContents ? message.toolUses ?? [] : []) {
         const chars = JSON.stringify(call.input ?? {}).length + (call.tool ?? '').length;
         items.push({id: `call:${call.tool_use_id}`, category: 'assistant', chars, tokens: Math.ceil(chars / 4),
           source_id: call.tool_use_id, source_kind: 'tool', label: 'Tool arguments'});
@@ -55,15 +68,19 @@ const readContext = async ($, includeMessages = false) => {
 const scope = agentId => ({capture, session, segment, agent_id: agentId});
 const record = (scope, event, phase, id, data = {}, timestamp = now()) => {
   const c = scope?.capture;
-  if (!c?.active || c.error || awaitingSession || scope.session !== session || scope.segment !== segment) return;
+  if (!c?.active || c.error || awaitingSession || scope.session !== session || scope.segment !== segment) return false;
   let line;
   try {
     const row = {source: 'claude.mod', timestamp,
       data: {event, phase, id, session_id: scope.session, segment: scope.segment, agent_id: scope.agent_id, ...data}};
+    if (!c.capture_contents) {
+      if (row.data.prompt !== undefined || row.data.arguments !== undefined) row.data.content_omitted = true;
+      delete row.data.prompt; delete row.data.arguments;
+    }
     const reading = row.data.context;
     if (reading?.items) {
       const identity = `${c.captureId}:${scope.session}:${scope.segment}`;
-      const reset = identity !== countScope;
+      const reset = reading.items_reset === true || identity !== countScope;
       const previous = reset ? new Map() : countedItems;
       const current = new Map(reading.items.map(item => [item.id, item]));
       const changed = [...current.values()].filter(item => JSON.stringify(previous.get(item.id)) !== JSON.stringify(item));
@@ -79,16 +96,17 @@ const record = (scope, event, phase, id, data = {}, timestamp = now()) => {
       row.data.content_omitted = true;
       line = JSON.stringify(row) + '\n';
     }
-  } catch {c.dropped++; return;}
+  } catch {c.dropped++; return false;}
   const size = encoder.encode(line).length;
   // Leave room for the final loss count even after reaching the recording cap.
-  if (event !== 'session' && c.totalBytes + size > 64 * 1024 * 1024) {c.dropped++; return;}
+  if (event !== 'session' && c.totalBytes + size > 64 * 1024 * 1024) {c.dropped++; return false;}
   c.rows.push(line); c.queuedBytes += size; c.totalBytes += size; c.published = false;
   if (['response', 'tool', 'compaction'].includes(event)) {
     const key = `${scope.agent_id ?? ''}:${event}:${id}`;
     if (phase === 'begin') c.open[key] = {event, id, agent_id: scope.agent_id, session: scope.session, segment: scope.segment};
     if (phase === 'end') delete c.open[key];
   }
+  return true;
 };
 const fail = ($, c, error) => {
   if (c.error) return;
@@ -103,7 +121,7 @@ const checkpoint = ($) => {
     const {timer, pending, ...saved} = capture ?? {};
     await $.state.set({plugin: 'agentprof', key: 'recorder'}, {
       session, segment, awaitingSession, capture: capture ? saved : null,
-      prompts: [...prompts], agents: [...agents],
+      prompts: [...prompts], agents: [...agents], contextChanges: [...contextChanges],
     });
   }).catch(error => {if (capture) fail($, capture, error);});
   return checkpoints;
@@ -161,10 +179,11 @@ const startRecording = async ($, path) => {
     const result = await $.process.run(['node', `${$.plugin.root}/runtime/direct-writer.mjs`, 'init', ...(path === undefined ? [] : [path])],
       {cwd: await $.session.cwd()});
     if (result.exitCode !== 0) throw new Error(result.stderr.trim());
-    const c = {...JSON.parse(result.stdout), active: true, published: false, provider, version, started: now(),
+    const c = {...JSON.parse(result.stdout), active: true, published: false, provider, version, started: now(), capture_contents: captureContents,
       rows: [], batches: [], open: {}, queuedBytes: 0, totalBytes: 0, dropped: 0, chunk: 0, pending: Promise.resolve()};
     capture = c; session = root; awaitingSession = false;
-    record(scope(), 'session', 'begin', session, {model, provider, version, context: reading});
+    contextChanges = [];
+    record(scope(), 'session', 'begin', session, {model, provider, version, capture_contents: captureContents, context: reading});
     // Agent-triggered starts happen within a prompt. Preserve its description,
     // but never pretend its full duration was recorded.
     for (const [id, prompt] of prompts) if (prompt.session === session)
@@ -232,16 +251,21 @@ export function register(on, options) {
   on('session.start', async ($, e, next) => {
     legacy = Boolean(await $.env.get('AGENTPROF_CAPTURE_ENDPOINT'));
     if (legacy) return next(e);
+    captureContents = options.capture_contents !== false && !['0', 'false'].includes(String(await $.env.get('AGENTPROF_CAPTURE_CONTENTS')).toLowerCase());
     session = await $.session.id();
     const {value} = await $.state.get({plugin: 'agentprof', key: 'recorder'});
     const held = value ? JSON.parse(JSON.stringify(value)) : undefined;
     const restored = held?.session === session;
+    if (restored && held.capture?.capture_contents === false) captureContents = false;
     if (restored) {
       segment = held.segment; awaitingSession = held.awaitingSession;
-      for (const [id, prompt] of held.prompts ?? []) prompts.set(id, prompt);
-      for (const [id, agent] of held.agents ?? []) agents.set(id, agent);
+      for (const [id, prompt] of held.prompts ?? []) prompts.set(id, captureContents ? prompt :
+        {...prompt, data: {...prompt.data, prompt: undefined, content_omitted: true}});
+      for (const [id, agent] of held.agents ?? []) agents.set(id, captureContents ? agent :
+        {...agent, data: {...agent.data, prompt: undefined, content_omitted: true}});
+      contextChanges = held.contextChanges ?? [];
       if (held.capture) {
-        capture = {...held.capture, pending: Promise.resolve()};
+        capture = {...held.capture, capture_contents: captureContents, pending: Promise.resolve()};
         // A worker reload cannot resume its old middleware callbacks. Keep the
         // observations, but bound those operations and mark their ends unknown.
         for (const op of Object.values(capture.open))
@@ -276,7 +300,6 @@ export function register(on, options) {
   on('command.run', {command: 'tracing'}, ($, e) => command($, e.args));
   on('ui.render', {component: 'AbovePrompt'}, async ($, e, next) => {
     if (legacy || options.show_controls === false || e.props.hasSurvey) return next(e);
-    await $.state.get({plugin: 'agentprof', key: 'recorder'});
     const {Box, Text, Button} = $.ui.resolve(e), current = status();
     const children = [Text({bold: true, children: ['Agent Profiler']}),
       Text({children: [current.recording ? '● Recording' : current.error ? 'Recording failed' : transition !== 'idle' ? transition : 'Idle']})];
@@ -300,57 +323,78 @@ export function register(on, options) {
     if (!initialized) return next(e);
     if (e.session_id !== session || awaitingSession) {
       session = e.session_id; segment++; awaitingSession = false; prompts.clear(); agents.clear(); toolScopes.clear();
+      contextChanges = [];
       if (capture?.active) {
         try {record(scope(), 'session', 'begin', session, {model: e.model, provider: capture.provider,
           version: capture.version, context: await readContext($)});}
         catch (error) {fail($, capture, error);}
       }
     }
-    await retain($);
+    if (capture?.active && !capture.error) await retain($);
     return next(e);
   });
   on('turn.start', async ($, e, next) => {
-    const data = {prompt: text(e.text), prompt_length: e.text.length};
+    const data = {prompt: captureContents ? text(e.text) : undefined, prompt_length: e.text.length,
+      ...(!captureContents ? {content_omitted: true} : {})};
     prompts.set(e.turnId, {session, data, agent_id: e.agentId});
+    if (!e.agentId) observe(scope(), {id: `turn:${e.turnId}`, category: 'prompts', chars: e.text.length,
+      tokens: Math.ceil(e.text.length / 4), label: 'User prompt', source_kind: 'prompt'});
     record(scope(e.agentId), 'prompt', 'begin', e.turnId, data);
     await retain($);
     return next(e);
   });
   on('turn.complete', async ($, e, next) => {
+    const s = scope(e.agentId), endedAt = now();
+    // Close and checkpoint the prompt together with its already-observed item
+    // deltas BEFORE waiting on the host's usage summary. A reload while that
+    // read is in flight must not leave an open prompt or move these deltas to
+    // the next turn.
+    if (!e.agentId && s.capture?.active)
+      record(s, 'context', 'sample', e.turnId, {context: measuredContext({})}, endedAt);
+    record(s, 'prompt', 'end', e.turnId, {aborted: e.isAborted}, endedAt);
     prompts.delete(e.turnId);
     if (e.agentId) agents.delete(e.agentId);
-    record(scope(e.agentId), 'prompt', 'end', e.turnId, {aborted: e.isAborted});
     await retain($);
+    if (!e.agentId && s.capture?.active) try {
+      record(s, 'context', 'summary', e.turnId, {context: await readContext($)});
+      // The timer/next turn persists this optional summary; the prompt and
+      // item deltas are already durable, so no extra checkpoint is required.
+    } catch {}
     return next(e);
   });
   on('turn.step', async function* ($, e, next) {
     const s = scope(e.agentId), c = s.capture;
     if (!c?.active || c.error) return yield* next(e);
     const id = `${e.turnId}:${e.index}`;
-    let firstContent, firstText, complete = false;
-    let inputContext;
-    if (!e.agentId) try {inputContext = await readContext($, true);} catch {}
+    let firstContent, firstText, complete = false, responseChars = 0;
     const start = performance.now();
-    record(s, 'response', 'begin', id, {turn_id: e.turnId, model: e.model, effort: e.effort, context: inputContext});
-    await retain($, c);
+    record(s, 'response', 'begin', id, {turn_id: e.turnId, model: e.model, effort: e.effort});
     const stream = next(e);
+    // Start the real request before the checkpoint RPC, but do not expose its
+    // first chunk until the BEGIN is durable for reload/recovery.
+    const first = stream.next().then(value => ({value}), error => ({error}));
+    await retain($, c);
     try {
+      let initial = true;
       while (true) {
-        const item = await stream.next();
+        const result = initial ? await first : {value: await stream.next()};
+        initial = false;
+        if ('error' in result) throw result.error;
+        const item = result.value;
         if (item.done) {
           complete = true;
+          if (!e.agentId && responseChars) observe(s, {id: `response:${id}`, category: 'assistant',
+            chars: responseChars, tokens: Math.ceil(responseChars / 4), label: 'Assistant history', source_kind: 'response'});
           record(s, 'response', 'end', id, {usage: usage(item.value?.usage),
             stop_reason: item.value?.stopReason, first_content_ms: firstContent, first_text_ms: firstText});
           // The session API describes the main conversation, never a child's window.
-          if (!e.agentId && c.active) {
-            try {record(s, 'context', 'sample', id, {model: await $.session.model(), context: await readContext($)});} catch {}
-          }
           await retain($, c);
           return item.value;
         }
         const kind = item.value.kind;
         if (['text', 'thinking', 'tool', 'input'].includes(kind)) firstContent ??= performance.now() - start;
         if (kind === 'text') firstText ??= performance.now() - start;
+        if (kind === 'text' && !e.agentId && typeof item.value.text === 'string') responseChars += item.value.text.length;
         yield item.value;
       }
     } finally {
@@ -368,20 +412,33 @@ export function register(on, options) {
       // Registered tools use Claude's MCP output shape: text or content blocks.
       return {result: JSON.stringify(result), ...(result.error ? {isError: true} : {})};
     }
-    const {tool, tool_use_id: id, agentId, ...args} = e, s = scope(agentId);
+    const {tool, tool_use_id: id, agentId} = e, s = scope(agentId);
+    const args = captureContents ? Object.fromEntries(Object.entries(e).filter(([key]) =>
+      !['tool', 'tool_use_id', 'agentId'].includes(key))) : undefined;
+    if (captureContents && !agentId && s.capture?.active) try {
+      const chars = JSON.stringify(args).length;
+      observe(s, {id: `call:${id}`, category: 'assistant', chars, tokens: Math.ceil(chars / 4),
+        source_id: id, source_kind: 'tool', label: 'Tool arguments'});
+    } catch { /* Unserializable tool inputs must not change tool execution. */ }
     const key = `${agentId ?? ''}:${id}`;
     toolScopes.set(key, s);
-    record(s, 'tool', 'begin', id, {tool, arguments: args});
-    await retain($, s.capture);
+    if (record(s, 'tool', 'begin', id, {tool, ...(captureContents ? {arguments: args} : {content_omitted: true})}))
+      await retain($, s.capture);
     let completed = false;
     try {
       const result = await next(e); completed = true;
-      record(s, 'tool', 'end', id, {is_error: result.isError === true || Boolean(result.deny), denied: Boolean(result.deny)});
+      if (captureContents && !agentId && s.capture?.active) try {
+        const output = result.result;
+        const chars = typeof output === 'string' ? output.length : JSON.stringify(output ?? '').length;
+        observe(s, {id: `result:${id}`, category: 'results', chars, tokens: Math.ceil(chars / 4),
+          source_id: id, source_kind: 'tool', label: 'Tool result'});
+      } catch { /* Results are never modified by profiling. */ }
+      if (record(s, 'tool', 'end', id, {is_error: result.isError === true || Boolean(result.deny), denied: Boolean(result.deny)}))
+        await retain($, s.capture);
       return result;
     } finally {
-      if (!completed) record(s, 'tool', 'end', id, {incomplete: true});
+      if (!completed && record(s, 'tool', 'end', id, {incomplete: true})) await retain($, s.capture);
       toolScopes.delete(key);
-      await retain($, s.capture);
     }
   });
   const execution = (e, failed) => {
@@ -396,7 +453,8 @@ export function register(on, options) {
     if (result.agentId && s.session === session && s.segment === segment) {
       const data = {agent_id: result.agentId,
       parent_agent_id: e.parentAgentId, call_id: e.tool_use_id, model: result.model,
-      role: e.subagentType, prompt: text(e.prompt), prompt_length: e.prompt.length};
+      role: e.subagentType, prompt: captureContents ? text(e.prompt) : undefined, prompt_length: e.prompt.length,
+      ...(!captureContents ? {content_omitted: true} : {})};
       agents.set(result.agentId, {session, data});
       if (capture !== s.capture && capture?.active)
         record(scope(), 'agent', 'begin', result.agentId, {...data, started_before_capture: true}, capture.started);
@@ -413,7 +471,12 @@ export function register(on, options) {
     try {
       const result = await next(e); completed = true;
       let compactContext, compactModel;
-      if (!e.agentId && !result.skip) try {compactContext = await readContext($, true); compactModel = await $.session.model();} catch {}
+      if (!e.agentId && !result.skip) {
+        try {compactContext = {...await readContext($, true), items_reset: true};}
+        catch {compactContext = {items: [], items_reset: true, items_unavailable: true};}
+        try {compactModel = await $.session.model();} catch {}
+        contextChanges = [];
+      }
       record(s, 'compaction', 'end', id, {context: compactContext, model: compactModel, success: !result.skip, skipped: Boolean(result.skip),
         pre_tokens: result.tokensBefore, post_tokens: result.tokensAfter, usage: usage(result.usage)});
       return result;
@@ -428,7 +491,8 @@ export function register(on, options) {
       try {record(s, 'context', 'sample', session, {model: await $.session.model(), context: context(e.context)});}
       catch (error) {fail($, s.capture, error);}
     }
-    await retain($);
+    // A measurement has no open operation to recover. The next turn
+    // checkpoint or one-second batch flush persists it without an RPC here.
     return next(e);
   });
   on('session.end', async ($, e, next) => {

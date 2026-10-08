@@ -30,6 +30,7 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
   if (!identity || !tokens(identity.data.pid) || !text(identity.data.captureId)) throw new Error('Missing Claude process identity');
   const capture = text(identity.data.captureId);
   const events = rows.filter(r => r.source === 'claude.mod').sort((a, b) => compareTime(BigInt(a.timestamp), BigInt(b.timestamp)));
+  const captureContents = !events.some(r => r.data.event === 'session' && r.data.capture_contents === false);
   if (!events.length) throw new Error('No direct Claude events captured');
   const last = BigInt(events.at(-1)!.timestamp);
   const agents = new Map<string, Data>();
@@ -112,7 +113,7 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     const promptEnd = close ? BigInt(close.timestamp) : d.event === 'agent' ? session.end : captureEnd(d);
     const input = add(r, 'Inputs', 'prompt-input', BigInt(r.timestamp), undefined, {source: d.agent_id ? 'agent' : 'user'}, ':input');
     const prompt = add(r, 'Session', 'prompt', BigInt(r.timestamp), promptEnd,
-      {kind: 'prompt', ...promptAnnotations(d.prompt, true), ...(tokens(d.prompt_length) !== undefined ? {length: tokens(d.prompt_length)!} : {}),
+      {kind: 'prompt', ...promptAnnotations(d.prompt, captureContents), ...(tokens(d.prompt_length) !== undefined ? {length: tokens(d.prompt_length)!} : {}),
         ...(d.content_omitted ? {content_omitted: true} : {}),
         ...(d.started_before_capture ? {started_before_capture: true, incomplete: true} : {}),
         ...(!close && (d.event !== 'agent' || session.attrs.incomplete) ? {incomplete: true} : {}), ...(close?.data.aborted ? {aborted: true} : {})});
@@ -153,13 +154,13 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     const measured = duration !== undefined && execution !== undefined && ms(duration) <= dispatchEnd - dispatchStart + ms(1);
     const end = measured ? BigInt(execution.timestamp) : dispatchEnd;
     const start = measured ? end - ms(duration) : dispatchStart;
-    const attrs: Attrs = {kind: 'tool-execution', call_id: text(d.id), ...toolArgumentAnnotations(d.arguments, true),
+    const attrs: Attrs = {kind: 'tool-execution', call_id: text(d.id), ...toolArgumentAnnotations(d.arguments, captureContents),
       timing: measured ? 'reported-execution-duration' : 'dispatch-only',
       ...(d.content_omitted ? {content_omitted: true} : {}),
       ...(!measured || !close || close.data.incomplete ? {incomplete: true} : {}),
       ...(close ? {is_error: Boolean(close.data.is_error)} : execution ? {is_error: Boolean(execution.data.is_error)} : {})};
-    const intent = object(d.arguments).description;
-    if (typeof intent === 'string') attrs.intent = intent;
+    const intent = captureContents ? object(d.arguments).description : undefined;
+    if (captureContents && typeof intent === 'string') attrs.intent = intent;
     const tool = add(r, 'Tools', text(d.tool) || 'tool', start, end, attrs); tools.set(`${scope(d)}:${d.id}`, tool);
     const dispatch = add(r, 'Tool dispatch', text(d.tool) || 'tool', dispatchStart, dispatchEnd,
       {kind: 'tool-dispatch', call_id: text(d.id), timing: 'including-permissions-and-hooks',
@@ -187,6 +188,20 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     const compact = add(r, 'Compaction', r.data.trigger === 'precompute' ? 'precompute' : 'compact', BigInt(r.timestamp), close ? BigInt(close.timestamp) : captureEnd(r.data), attrs);
     if (result.context && !r.data.agent_id) contextSamples.push({slice: compact, input: object(result.context),
       stage: 'post-compaction', at: compact.end!, model: text(result.model)});
+  }
+  const turnContexts = new Map<string, {delta?: Observation; summary?: Observation}>();
+  for (const r of events.filter(r => r.data.event === 'context')) {
+    const id = `${scope(r.data)}:${text(r.data.id)}`, pair = turnContexts.get(id) ?? {};
+    if (r.data.phase === 'summary') pair.summary = r;
+    else pair.delta = r;
+    turnContexts.set(id, pair);
+  }
+  for (const [id, {delta, summary}] of turnContexts) {
+    const prompt = prompts.get(id), input = {...object(summary?.data.context), ...object(delta?.data.context)};
+    if (!prompt || (!input.breakdown && !(Array.isArray(input.item_changes) && input.item_changes.length))) continue;
+    contextSamples.push({slice: prompt, input, stage: 'transcript-observed',
+      at: BigInt(delta?.timestamp ?? summary!.timestamp),
+      model: text(summary?.data.model) || text(sessions.get(prompt.session)?.attrs.model)});
   }
   for (const r of events.filter(r => r.data.event === 'session' && r.data.phase === 'begin' && object(r.data.context).breakdown)) {
     const session = sessions.get(scope(r.data))!;

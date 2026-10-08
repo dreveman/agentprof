@@ -21,15 +21,16 @@ In Codex, open `/hooks` once to review and trust the recording hooks. Then type:
 tracing start
 ```
 
-Run your task normally. Type `tracing stop` to save, or exit Codex. Use
-`tracing status` to see the state and absolute output path. A start can also
+Run your task normally. Type `tracing stop` to begin saving, or exit Codex.
+Stop returns **saving** immediately; use `tracing status` later to confirm
+**saved** or inspect an **error** and its retained journal. A start can also
 specify a new path: `tracing start recordings/my-task.pftrace`. Relative paths
 are resolved against that session's working directory. Existing traces and
 capture journals are never overwritten.
 
 These are plain typed controls, without a slash. They are handled before a
 model request. Codex currently labels the intercepted turn **Blocked by hook**;
-the message below it reports whether recording started or the file was saved.
+the message below it reports whether recording started or saving began.
 Codex 0.160.0 does not expose plugin toolbar buttons or custom recording
 keybindings.
 
@@ -71,12 +72,34 @@ hooks in our native installation test. The generated profile therefore declares
 the hooks explicitly, pointing to the installed plugin. Hooks remain subject to
 Codex's normal trust review.
 
-The receiver starts on demand and exits after its Codex sessions end and exports
-drain. It flushes private journals every second. It writes only sessions being
-recorded; unrecorded native telemetry is discarded. Stopping waits seven seconds
-for batched exports, while the recording's end timestamp remains fixed. Exit
-saves asynchronously after this drain. Recording controls are excluded from
-tool activity. No upstream Codex changes are required.
+Installation starts an authenticated local receiver and keeps it listening
+between sessions so the profile's fixed OTLP port cannot be reused while the
+receiver is healthy. The first cold hook also starts it if needed; concurrent
+launches share a fenced startup lock. A warm hook sends one request rather than
+a separate health probe. Private journals flush every second. Only recorded
+sessions are written; unrecorded native telemetry is discarded. Saving
+continues for approximately seven seconds to collect batched exports while
+the end timestamp stays fixed; `tracing status` reports the terminal result.
+
+If a crashed receiver's configured port is subsequently occupied, hooks fail
+open with an explicit diagnostic rather than connecting to an unrelated server.
+Re-running `agentprof-codex install` rebinds an **owned** profile to a new port
+and starts its receiver. Restart Codex afterward: already-running Codex
+processes still export native telemetry to the old port and cannot be silently
+repaired. Plugin updates restart an idle receiver when its build differs; an
+active recording must finish before the receiver can be replaced; stop/status
+and SessionEnd remain usable against newer versioned receivers during that interval.
+A receiver from versions without the safe shutdown protocol requires closing
+existing Codex sessions and retrying installation after it exits; the installer
+leaves the existing profile unchanged rather than half-upgrading it.
+A crashed startup lease is reclaimed after its grace period under a kernel
+lock (`flock` on Linux, `lockf` on macOS, a named mutex on Windows). If the
+platform helper is unavailable, stale recovery fails safely instead of
+risking concurrent receiver starts.
+Session PID/start-time checks detect process reuse on Linux; platforms
+without that marker retain the PID fallback. See the [hook latency benchmark](../../docs/hook-latency.md)
+for the remaining per-event Node process cost. Exit also initiates asynchronous
+saving. Recording controls are excluded from tool activity.
 
 ## Optional exec launcher
 
@@ -138,7 +161,11 @@ context limit comes from Codex's own session metadata, not the observed peak.
 
 Each recording creates `agent.pftrace.capture/observations.jsonl`, with captured
 native telemetry, hooks and narrowly selected session metadata. It can be
-converted again without running a model:
+converted again without running a model. Recovery skips malformed complete
+JSONL records and an interrupted final fragment, counts them as
+`corruptRecords` in `summary.json`, and marks the trace incomplete while
+retaining later valid observations. A missing process identity still prevents
+publication:
 
 ```sh
 agentprof-codex recover agent.pftrace.capture recovered.pftrace
@@ -151,8 +178,15 @@ The development converter also accepts the journal:
   agent.pftrace.capture/observations.jsonl recovered.pftrace
 ```
 
-Recordings contain prompts and tool arguments; the raw journal can also contain
-tool output. Both the trace and journal are private files when created.
+By default recordings contain bounded prompt text and tool arguments; the raw
+journal can also contain tool output. Set `AGENTPROF_CAPTURE_CONTENTS=0` before
+launching Codex (or the exec recorder) for a metadata-only new capture. This
+strips prompt and argument values and tool output **before** the persistent
+journal is written; recovery cannot restore them. Prompt lengths from hooks,
+tool names/IDs, timing, model, usage and outcome metadata remain. The recording
+path, session IDs and native process metadata remain. Codex's own session logs
+are managed by Codex and are not erased by this switch. Both the trace and
+journal are private files when created.
 
 Capture boundaries can cut through prompts, requests and tools; partial spans
 are marked incomplete. Hooks record compaction boundaries, and compaction
@@ -176,9 +210,11 @@ incomplete. Force-killing Codex can lose its unflushed native telemetry. Replay
 preserves measurements received before shutdown; it cannot reconstruct missing
 native spans.
 
-To remove the integration, run `codex plugin remove agentprof@agentprof` and
-remove the generated `agentprof.config.toml` profile. Other Codex profiles and
-settings are unaffected.
+To remove the integration, finish active recordings and run
+`agentprof-codex receiver-stop` to release the reserved port. Then run
+`codex plugin remove agentprof@agentprof` and remove the generated
+`agentprof.config.toml` profile. Other Codex profiles and settings are
+unaffected.
 
 ## Development
 

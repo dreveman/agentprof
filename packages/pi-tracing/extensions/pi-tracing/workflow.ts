@@ -26,6 +26,12 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+// Tool payloads are usually plain JSON, but metadata collection must never
+// invoke an accessor or toJSON supplied by an arbitrary tool implementation.
+function ownValue(value: Record<string, unknown>, key: string): unknown {
+  try {return Object.getOwnPropertyDescriptor(value, key)?.value;} catch {return undefined;}
+}
+
 export function randomCorrelationId(): string {
   const bytes = new Uint8Array(4);
   crypto.getRandomValues(bytes);
@@ -50,12 +56,12 @@ export interface ChildLaunchInfo {
   annotations: Record<string, string | number | boolean>;
 }
 
-function rigLaunchInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>): string {
-  const taskId = asBoundedString(args["task_id"], 64);
-  const rootId = asBoundedString(args["root_id"], 64);
-  const namespace = asBoundedString(args["namespace"], 64);
-  const expectedSession = asBoundedString(args["expected_session_id"], 64);
-  const mode = asBoundedString(args["mode"], 16);
+function workflowLaunchInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>): string {
+  const taskId = asBoundedString(ownValue(args, "task_id"), 64);
+  const rootId = asBoundedString(ownValue(args, "root_id"), 64);
+  const namespace = asBoundedString(ownValue(args, "namespace"), 64);
+  const expectedSession = asBoundedString(ownValue(args, "expected_session_id"), 64);
+  const mode = asBoundedString(ownValue(args, "mode"), 16);
   if (taskId !== undefined) annotations["task_id"] = taskId;
   if (rootId !== undefined) annotations["root_id"] = rootId;
   if (namespace !== undefined) annotations["namespace"] = namespace;
@@ -66,16 +72,16 @@ function rigLaunchInfo(args: Record<string, unknown>, annotations: Record<string
   return "launch";
 }
 
-function subagentInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>): string {
-  // bg-tasks/typed subagent args carry free-form task text: lengths only.
-  let taskBytes = 0;
-  try {
-    taskBytes = new TextEncoder().encode(JSON.stringify(args) ?? "").length;
-  } catch {
-    taskBytes = -1;
+function subagentInfo(args: Record<string, unknown>, annotations: Record<string, string | number | boolean>, captureContents: boolean): string {
+  // Only content-enabled captures calculate exact JSON size. Disabled captures
+  // must not stringify even when they retain the stable subagent type.
+  if (captureContents) {
+    let taskBytes = 0;
+    try {taskBytes = new TextEncoder().encode(JSON.stringify(args) ?? "").length;}
+    catch {taskBytes = -1;}
+    annotations["task_bytes"] = taskBytes;
   }
-  annotations["task_bytes"] = taskBytes;
-  const type = asBoundedString(args["type"], 64);
+  const type = asBoundedString(ownValue(args, "type"), 64);
   if (type !== undefined) annotations["subagent_type"] = type;
   return "delegate";
 }
@@ -83,17 +89,17 @@ function subagentInfo(args: Record<string, unknown>, annotations: Record<string,
 /** Describe one child-agent launch/delegate tool call. Returns null when the
  * tool is not a recognized child spawner (caller checks childTools first;
  * this only shapes known tools, unknown tools get a generic label). */
-export function describeChildLaunch(toolName: string, args: unknown): ChildLaunchInfo {
+export function describeChildLaunch(toolName: string, args: unknown, captureContents = true): ChildLaunchInfo {
   const annotations: Record<string, string | number | boolean> = {
     correlation: randomCorrelationId(),
     tool: toolName.slice(0, 64),
   };
   const record = asRecord(args);
   let label: string;
-  if (toolName === "rig_launch" && record !== null) {
-    label = rigLaunchInfo(record, annotations);
-  } else if (toolName === "subagent" && record !== null) {
-    label = subagentInfo(record, annotations);
+  if (toolName === "subagent" && record !== null) {
+    label = subagentInfo(record, annotations, captureContents);
+  } else if (record !== null) {
+    label = workflowLaunchInfo(record, annotations);
   } else {
     label = "launch";
   }
@@ -101,9 +107,29 @@ export function describeChildLaunch(toolName: string, args: unknown): ChildLaunc
 }
 
 /** Best-effort extraction of the child's session UUID from a launch tool's
- * result content (e.g. rig_launch's "Spawned detached Pi session <uuid>"). */
-export function extractChildSessionId(toolName: string, result: unknown): string | null {
+ * result content (e.g. "Spawned detached Pi session <uuid>"). */
+export function extractChildSessionId(toolName: string, result: unknown, captureContents = true): string | null {
   void toolName;
+  if (!captureContents) {
+    // Search known result wrappers without serializing arbitrarily large tool
+    // output. Correlation is best-effort when content is disabled.
+    const pending: unknown[] = [result], seen = new WeakSet<object>();
+    for (let visited = 0; pending.length && visited < 128; visited++) {
+      const value = pending.shift();
+      if (typeof value === 'string') {
+        const match = UUID_SCAN.exec(value.slice(0, 8192));
+        if (match) return match[0];
+      } else if (Array.isArray(value)) {
+        for (let i = 0; i < Math.min(value.length, 128); i++) try {pending.push(value[i]);} catch {}
+      } else if (value && typeof value === 'object' && !seen.has(value)) {
+        seen.add(value);
+        const record = value as Record<string, unknown>;
+        for (const key of ['child_session_id', 'childSession', 'session_id', 'sessionId', 'text', 'output', 'result', 'content'])
+          pending.push(ownValue(record, key));
+      }
+    }
+    return null;
+  }
   let text: string;
   try {
     text = JSON.stringify(result) ?? "";
@@ -119,7 +145,6 @@ export interface ChildRoleInfo {
   /** Stable role token for labels and track names (no free-form text). */
   role: string;
   parentSession?: string;
-  ownerPid?: number;
   subagentType?: string;
   sessionKeyBytes?: number;
 }
@@ -127,18 +152,10 @@ export interface ChildRoleInfo {
 /** Detect that this Pi process is itself a spawned child worker. Reads only
  * the standard orchestrator-provided variables; never model content. */
 export function detectChildRole(env: NodeJS.ProcessEnv): ChildRoleInfo | null {
-  if (env["WORKFLOW_RIG_PROCESS"] === "worker") {
-    const info: ChildRoleInfo = { role: "rig-worker" };
-    const parent = env["DEVMATE_PARENT_SESSION_ID"];
-    if (typeof parent === "string" && UUID_PATTERN.test(parent)) info.parentSession = parent;
-    const owner = env["WORKFLOW_RIG_OWNER_PID"];
-    if (typeof owner === "string" && /^[0-9]{1,10}$/.test(owner)) info.ownerPid = Number(owner);
-    return info;
-  }
   const subagentType = env["PI_SUBAGENT_TYPE"];
   if (typeof subagentType === "string" && subagentType !== "") {
     const info: ChildRoleInfo = { role: "subagent", subagentType: subagentType.slice(0, 64) };
-    const parent = env["DEVMATE_PARENT_SESSION_ID"];
+    const parent = env["PI_TRACING_PARENT_SESSION_ID"];
     if (typeof parent === "string" && UUID_PATTERN.test(parent)) info.parentSession = parent;
     const sessionKey = env["PI_SUBAGENT_SESSION_KEY"];
     if (typeof sessionKey === "string") {

@@ -51,7 +51,7 @@ try {
   assert.equal(data.unavailableChildren, manifest.unavailableChildren);
   assert.equal(data.errors, 0); assert.equal(data.flows, manifest.flows);
   assert.equal(data.missingArgs, 0); assert.equal(data.localPaths, 0);
-  assert.equal(data.units, 12); assert.equal(data.nonzeroEnds, 0);
+  assert.equal(data.units, manifest.recordings.length * 4); assert.equal(data.nonzeroEnds, 0);
   assert.equal(data.shellErrors, 1);
   assert.ok(data.categories.every((c: string) => c.startsWith('muse.')));
   console.log('PASS Muse example: measured work, child rollup, missing-child warning, typed shell outcomes, clocks and token counters');

@@ -7,13 +7,24 @@ type Attrs = Record<string, DebugAnnotationValue>;
 
 /** Script metadata remains useful when source capture is disabled or bounded. */
 export function scriptAnnotations(language: string, code: unknown): Attrs {
-  return {language, ...(typeof code === 'string' ? {
-    line_count: code.length === 0 ? 0 : code.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(code) ? 1 : 0),
-  } : {})};
+  if (typeof code !== 'string') return {language};
+  if (!code.length) return {language, line_count: 0};
+  // Count without allocating an array proportional to an uncaptured script.
+  let lines = 1;
+  for (let i = 0; i < code.length; i++) {
+    const char = code.charCodeAt(i);
+    if (char === 13) {lines++; if (code.charCodeAt(i + 1) === 10) i++;}
+    else if (char === 10) lines++;
+  }
+  if (/[\r\n]$/.test(code)) lines--;
+  return {language, line_count: lines};
 }
 
-/** Describe arguments without copying values unless content capture is enabled. */
-export function toolArgumentAnnotations(input: unknown, captureContents: boolean): Attrs {
+/** Full values, metadata-only (for content-on preflight), or no traversal at
+ * all when the recording policy disables content. A false boolean remains a
+ * convenient shorthand for disabled; it must not serialize the input. */
+export function toolArgumentAnnotations(input: unknown, mode: boolean | 'metadata' | 'disabled'): Attrs {
+  if (mode === false || mode === 'disabled') return {};
   const attrs: Attrs = {};
   let json: string | undefined;
   try { json = JSON.stringify(input); } catch { /* Invalid/circular input. */ }
@@ -27,7 +38,7 @@ export function toolArgumentAnnotations(input: unknown, captureContents: boolean
     attrs["keys"] = keys.slice(0, 12).map(key => key.slice(0, 200));
     if (keys.length > 12 || keys.some(key => key.length > 200)) attrs["keys_truncated"] = true;
   }
-  if (!captureContents) return attrs;
+  if (mode === 'metadata') return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
   let truncated = false;

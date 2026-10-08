@@ -19,20 +19,8 @@ assert.deepEqual(await readFile(bundled), bytes, 'Preserve the reviewed combined
 assert.equal(sha256(prompt), manifest.promptSha256);
 assert.equal(manifest.recordings.length, 2);
 assert.equal(new Set(manifest.recordings.map((r: any) => r.sessionId)).size, 2);
-for (const variant of ['pi-codemode', 'claude-code']) {
-  assert.deepEqual(manifest.recordings.filter((r: any) => r.variant === variant)
-    .map((r: any) => r.round), [manifest.selection.selectedRound]);
-}
-const candidates = manifest.selection.codemodeCandidates;
-assert.equal(candidates.length, manifest.selection.sourceRounds);
-const eligible = candidates.filter((r: any) => r.correct && r.captureAvailable && r.pairedClaudeCorrect);
-const selectedPi = manifest.recordings.find((r: any) => r.harness === 'pi');
-const selectedClaude = manifest.recordings.find((r: any) => r.harness === 'claude-code');
-assert.equal(selectedPi.processWallSeconds, Math.min(...eligible.map((r: any) => r.processWallSeconds)),
-  'Select the fastest correct captured Pi attempt with a correct partner');
-assert.equal(selectedPi.sourceBatch, selectedClaude.sourceBatch);
-assert.equal(selectedPi.sourceRound, selectedClaude.sourceRound);
-assert.ok(selectedPi.wallSeconds < selectedClaude.wallSeconds, 'The showcase retains its recorded Pi speed advantage');
+assert.deepEqual(new Set(manifest.recordings.map((r: any) => r.variant)),
+  new Set(['pi-codemode', 'claude-code']));
 
 const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
   CREATE PERFETTO TABLE runs AS ${Q.runs};

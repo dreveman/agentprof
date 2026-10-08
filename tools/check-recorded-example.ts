@@ -59,14 +59,16 @@ function validate(path: string, recordings: Recording[]) {
     AND (SELECT COUNT(*) FROM agentprof_slices WHERE session = ${quote(r.sessionId)}
       AND name = 'prompt' AND category = 'pi.agent,pi.prompt-data'
       AND EXTRACT_ARG(arg_set_id, 'debug.text') = ${quote(prompts.get(r.sessionId)!)}
-      AND EXTRACT_ARG(arg_set_id, 'debug.length') = ${prompts.get(r.sessionId)!.length}) = 1
+      AND EXTRACT_ARG(arg_set_id, 'debug.length') = ${r.promptLength ?? prompts.get(r.sessionId)!.length}) = 1
     AND (SELECT COUNT(*) FROM agentprof_slices WHERE session = ${quote(r.sessionId)}
       AND name = 'tool-preflight'
       AND EXTRACT_ARG(arg_set_id, 'debug.name') IS NOT NULL
-      AND EXTRACT_ARG(arg_set_id, 'debug.bytes') > 0
-      AND EXTRACT_ARG(arg_set_id, 'debug.keys[0]') IS NOT NULL) = ${r.toolCalls}`);
+      AND ${r.captureContents ? "EXTRACT_ARG(arg_set_id, 'debug.bytes') > 0 AND EXTRACT_ARG(arg_set_id, 'debug.keys[0]') IS NOT NULL"
+        : "EXTRACT_ARG(arg_set_id, 'debug.bytes') IS NULL AND EXTRACT_ARG(arg_set_id, 'debug.keys[0]') IS NULL"}) = ${r.toolCalls}`);
   const includedSessions = new Set(recordings.map(r => r.sessionId));
   for (const r of recordings) {
+    conditions.push(`EXISTS (SELECT 1 FROM agentprof_slices WHERE session = ${quote(r.sessionId)}
+      AND name = 'profile (1)' AND EXTRACT_ARG(arg_set_id, 'debug.tool_arguments') = ${r.captureContents ? 1 : 0})`);
     const role = r.parentSessionId ? `Subagent · ${r.role}` : 'Primary';
     conditions.push(`EXISTS (SELECT 1 FROM (${OVERVIEW_QUERIES.sessions})
       WHERE session = ${quote(r.sessionId)} AND role = ${quote(role)})`);
@@ -115,8 +117,9 @@ function validate(path: string, recordings: Recording[]) {
       AND subagents = ${includedChildren.length})`);
     if (includedChildren.length === 3) {
       conditions.push(`(SELECT peak_model_responses FROM overview_runs
-        WHERE session = ${quote(workflow.parentSessionId)}) = 3`);
-      conditions.push(`(SELECT peak_model_responses FROM (${OVERVIEW_QUERIES.headline})) = 3`);
+        WHERE session = ${quote(workflow.parentSessionId)}) = ${workflow.peakResponses}`);
+      conditions.push(`(SELECT peak_model_responses FROM (${OVERVIEW_QUERIES.headline})) = ${
+        recordings.length === family.length ? workflow.peakResponses : manifest.allRecordingsPeakResponses}`);
     }
   }
   const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
@@ -129,8 +132,6 @@ function validate(path: string, recordings: Recording[]) {
       AND (SELECT clock_errors FROM (${OVERVIEW_QUERIES.summary})) = 0
       AND (SELECT COUNT(*) FROM machine WHERE raw_id > 0) = 1
       AND (SELECT MAX(value) FROM (${OVERVIEW_QUERIES.health})) = 0
-      AND NOT EXISTS (SELECT 1 FROM slice WHERE name = 'profile (1)'
-        AND EXTRACT_ARG(arg_set_id, 'debug.tool_arguments') != 0)
       AND EXISTS (SELECT 1 FROM counter_track WHERE name = 'Resident memory')
       AND (SELECT COUNT(*) FROM counter_track WHERE name = 'Context size') = ${recordings.length}
       AND (SELECT COUNT(*) FROM counter_track WHERE name = 'Context window') = ${recordings.length}

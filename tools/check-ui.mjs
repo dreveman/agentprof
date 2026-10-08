@@ -211,17 +211,19 @@ try {
     await page.screenshot({path: `artifacts/screenshots/agentprof-${route}-context.png`});
     await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
     if (agent === 'Muse Code') {
-      await page.getByText('7 child sessions have no retained recording. Their model work and token usage are unavailable.', {exact: true}).waitFor();
+      const manifest = JSON.parse(await readFile('examples/muse-coding/recording.json', 'utf8'));
+      if (manifest.unavailableChildren > 0) await page.getByText(`${manifest.unavailableChildren} child sessions have no retained recording. Their model work and token usage are unavailable.`, {exact: true}).waitFor();
       const captures = await page.evaluate(async () => {
         const result = await window.app.trace.engine.query('SELECT COUNT(*) AS n FROM agentprof_capture_runs');
         return Number(result.iter({}).get('n'));
       });
-      assert.equal(captures, 3);
+      assert.equal(captures, manifest.recordings.length);
     }
     if (agent === 'Codex') {
       await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
       await page.locator('.ap-script-row').first().waitFor();
-      assert.equal(await page.locator('.ap-script-row').count(), 4);
+      const manifest = JSON.parse(await readFile('examples/codex-coding/recording.json', 'utf8'));
+      assert.equal(await page.locator('.ap-script-row').count(), manifest.recording.scripts);
       await page.getByRole('button', {name: 'Expand script', exact: true}).first().click();
       await page.locator('.ap-script-expanded tbody tr').first().waitFor();
       await page.locator('.ap-script-expanded .ap-table-link').first().click();
@@ -407,8 +409,8 @@ try {
   const runSummary = page.locator('.ap-card').filter({has: page.getByRole('heading', {name: 'What happened in this recording?', exact: true})});
   assert.deepEqual(await runSummary.locator('.ap-headline-label').allTextContents(),
     ['TOKENS/S', 'WALL WINDOW', 'MODEL BUSY', 'PEAK RESPONSES']);
-  assert.equal(await runSummary.locator('.ap-headline-metric').nth(3).locator('strong').textContent(), '3');
   const recorded = JSON.parse(await readFile('examples/pi-opus-5/recording.json', 'utf8'));
+  assert.equal(await runSummary.locator('.ap-headline-metric').nth(3).locator('strong').textContent(), String(recorded.workflow.peakResponses));
   const assertRecordedRuns = async recordings => {
     const childIds = recordings.some(r => r.sessionId === recorded.workflow.parentSessionId)
       ? new Set(recorded.workflow.children.map(c => c.sessionId)) : new Set();
@@ -485,6 +487,7 @@ try {
   const capturedRows = page.locator('.ap-session-table:not(.ap-session-table--subagents) > tbody > .ap-session-row');
   const capturedRecordings = recorded.recordings.filter(r => recorded.bundledFiles.includes(r.file));
   const parent = capturedRecordings.find(r => !r.parentSessionId);
+  await capturedRows.first().waitFor();
   assert.equal(await capturedRows.count(), 1);
   assert.equal(await page.locator('.ap-session-table:not(.ap-session-table--subagents) > thead th').last().textContent(), '');
   assert.equal(await capturedRows.first().getByRole('img', {name: 'Pi', exact: true}).count(), 1);
@@ -671,6 +674,7 @@ try {
   await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Sessions', {exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
   const comparisonRows = page.locator('.ap-session-table:not(.ap-session-table--subagents) > tbody > .ap-session-row');
+  await comparisonRows.first().waitFor();
   assert.equal(await comparisonRows.count(), 3);
   const classicRow = comparisonRows.filter({has: page.getByText('model-1', {exact: true})});
   assert.deepEqual(await classicRow.locator('.ap-model-name').allTextContents(), ['model-1', 'model-2']);

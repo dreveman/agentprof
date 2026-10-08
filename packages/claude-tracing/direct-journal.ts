@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import {mkdirSync, writeFileSync, readFileSync, readdirSync, renameSync, existsSync, linkSync, unlinkSync, statSync} from 'node:fs';
-import {resolve, dirname, join} from 'node:path';
+import {resolve, dirname, join, isAbsolute} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {captureClockReadings} from '../pi-tracing/extensions/pi-tracing/tracer.ts';
 import {currentMachineIdentity} from '../pi-tracing/extensions/pi-tracing/machine.ts';
 import {convertDirectObservations} from './direct.ts';
 import type {Observation} from '../agent-tracing/trace.ts';
+import {parseObservationJournal} from '../agent-tracing/journal.ts';
 
 export function initializeDirectCapture(path?: string, pid = process.ppid) {
   const captureId = randomUUID();
@@ -27,21 +28,31 @@ export function initializeDirectCapture(path?: string, pid = process.ppid) {
 }
 
 export function readDirectCapture(directory: string): Observation[] {
-  const rows: Observation[] = JSON.parse(readFileSync(join(directory, 'metadata.json'), 'utf8'));
+  const metadata: unknown = JSON.parse(readFileSync(join(directory, 'metadata.json'), 'utf8'));
+  if (!Array.isArray(metadata) || !metadata.every(row => row && typeof row === 'object' &&
+      typeof row.source === 'string' && typeof row.timestamp === 'string' && row.data &&
+      typeof row.data === 'object' && !Array.isArray(row.data))) throw new Error('Invalid Claude capture metadata');
+  const rows: Observation[] = metadata;
   for (const file of readdirSync(directory).filter(p => /^events-\d+\.jsonl$/.test(p)).sort()) {
-    const text = readFileSync(join(directory, file), 'utf8');
-    const lines = text.split('\n');
-    const tail = lines.pop();
-    for (const line of lines) if (line) rows.push(JSON.parse(line));
-    if (tail) rows.push({source: 'recovery', timestamp: rows.at(-1)!.timestamp, data: {incomplete_chunk: file}});
+    const {rows: valid, corruptRecords} = parseObservationJournal(readFileSync(join(directory, file), 'utf8'));
+    rows.push(...valid);
+    if (corruptRecords) rows.push({source: 'recovery', timestamp: rows.at(-1)!.timestamp,
+      data: {incomplete_chunk: file, corrupt_records: corruptRecords}});
   }
   return rows;
 }
 
 export function finishDirectCapture(directory: string): {output: string} & Record<string, unknown> {
-  const rows = readDirectCapture(directory), identity = rows.find(r => r.source === 'process_start')!;
-  const output = String(identity.data.output), captureId = String(identity.data.captureId);
+  const rows = readDirectCapture(directory), identity = rows.find(r => r.source === 'process_start');
+  const expected = resolve(directory);
+  if (!expected.endsWith('.pftrace.capture') || !identity || typeof identity.data.output !== 'string' ||
+      !isAbsolute(identity.data.output) || resolve(identity.data.output) !== expected.slice(0, -'.capture'.length) ||
+      typeof identity.data.directory !== 'string' || resolve(identity.data.directory) !== expected ||
+      typeof identity.data.captureId !== 'string' || !identity.data.captureId)
+    throw new Error('Invalid Claude capture identity or output path');
+  const output = identity.data.output, captureId = identity.data.captureId;
   const result = convertDirectObservations(rows);
+  const corruptRecords = rows.filter(r => r.source === 'recovery').reduce((sum, r) => sum + Number(r.data.corrupt_records ?? 0), 0);
   const ownership = join(directory, 'published');
   // Only replace the exact file we last published; a user may replace the path
   // between /clear or /resume. First publication must never overwrite a file.
@@ -65,6 +76,6 @@ export function finishDirectCapture(directory: string): {output: string} & Recor
   writeFileSync(`${ownership}.tmp`, JSON.stringify(marker), {mode: 0o600});
   renameSync(`${ownership}.tmp`, ownership);
   if (existsSync(join(directory, 'error.txt'))) unlinkSync(join(directory, 'error.txt'));
-  writeFileSync(join(directory, 'summary.json'), JSON.stringify({output, ...result.summary}, null, 2) + '\n', {mode: 0o600});
-  return {output, ...result.summary};
+  writeFileSync(join(directory, 'summary.json'), JSON.stringify({output, ...result.summary, corruptRecords}, null, 2) + '\n', {mode: 0o600});
+  return {output, ...result.summary, corruptRecords};
 }

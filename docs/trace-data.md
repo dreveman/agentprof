@@ -166,9 +166,12 @@ categories. This is the task prompt observed by `before_agent_start`, not the
 system prompt or entire conversation. Disabling the category retains length and
 timing. Text is capped at 65,536 UTF-16 code units without splitting a surrogate
 pair; `truncated = true` marks truncation and length remains the
-full original length. Prompt capture is independent of `captureContents`, which
-controls tool arguments. Tool END annotations include `is_error`,
-`updates`, and `bytes`; `middleware_is_error`
+full original length. Pi's legacy `captureContents` controls tool arguments
+independently; the shared `AGENTPROF_CAPTURE_CONTENTS=0` opt-out also disables
+prompt text across all four harnesses. Tool END annotations include `is_error`,
+`updates`, and `bytes`; when content capture is off, `bytes_unavailable`
+marks zero as unknown because cumulative tool results are not encoded for
+sizing. `middleware_is_error`
 separately records the outcome seen by the result middleware hook. The provider
 span's `context_messages` is the count observed by our context hook,
 before later handlers may modify the transcript. Configuration spans replace
@@ -184,9 +187,10 @@ Event names identify operations, never their arguments or results. For example,
 use the normal `response`, `request`, `tool-result`, or
 `tool-middleware` name with `start_not_recorded = true`.
 
-Workflow events use `launch`, `delegate`, `run`, `reconcile`, `run-terminal`, and
-`spawn-confirmation`; identifiers, outcomes, counts, durations, and confirmation
-decisions are annotations. `user_bash` records `executable` and
+Workflow-category spans describe observed `subagent` or explicitly configured
+child-tool executions, with bounded delegation identifiers and returned child
+session IDs when available. No external orchestrator lifecycle is inferred from
+unrelated events. `user_bash` records `executable` and
 `length` (UTF-16 code units), never the command body in its name.
 
 Annotation values use protobuf integers for integral counts/status codes,
@@ -198,18 +202,52 @@ and script source. Capture is bounded to 128 values, eight nesting levels, and
 65,536 UTF-16 code units for keys/text. `args_truncated` marks omitted data,
 including null values (which DebugAnnotation
 cannot represent as a scalar). Arrays preserve a prefix so indices never shift.
-`bytes` always measures the complete JSON-serialized input in UTF-8 bytes;
-unserializable input instead records `serializable = false`.
+When content capture is enabled, `bytes` measures the complete JSON-serialized
+input in UTF-8 bytes, including metadata-only preflight for an already-started
+tool; unserializable input records `serializable = false`. When content capture
+is disabled, argument values are not traversed or JSON-serialized, so `args`,
+`bytes`, and key lists are absent rather than guessed.
 If the execution start was not recorded, preflight retains the arguments with
 `truncated` instead. Readers also support arguments on preflight in older traces.
-Disable argument values with `PI_TRACING_CAPTURE_CONTENTS=0` or
-`/tracing categories contents off`; metadata such as byte counts remains.
+Disable Pi argument values only with `PI_TRACING_CAPTURE_CONTENTS=0` or
+`/tracing categories contents off`; metadata-only preflight sizes/key lists
+remain only while content capture is otherwise enabled. To omit prompt and argument values in **new** Pi, Claude, Codex and
+Muse recordings, set `AGENTPROF_CAPTURE_CONTENTS=0` before launching the
+harness. Default behavior remains content-on unless the harness-specific
+config/category or this shared switch opts out. Claude also accepts plugin
+`capture_contents: false`; Muse persists `configure --no-content`. Prompt
+lengths (when observed), operation names/IDs, token usage, timing and model
+metadata remain. File output paths and session identifiers remain in capture
+metadata; Pi workflow IDs and source-key lists can still identify work.
+Claude's direct/legacy and Codex collectors omit content before their retained
+raw journals; older journals are not rewritten. Muse omits content from the
+published trace and parsed state but its native export temporarily contains
+raw content, and Muse's own session journal is outside Agent Profiler's
+control. Codex's own session log is similarly unaffected. In content-on mode,
+Claude/Codex raw journals may contain more than the bounded final trace; Codex
+raw telemetry can include tool output. Assistant response text and tool-result
+bodies are not intentionally stored in final traces, but Muse reminder prompts
+can quote the main conversation, including tool results.
+
+| Harness | Default prompt and argument values | Content-off final trace | Content-off local intermediates |
+| --- | --- | --- | --- |
+| Pi | Task prompt text; tool input, including commands, edit paths/text and scripts | Prompt length; tool names/IDs; disabled argument values are not serialized for sizes/keys | Private part/spool contains no prompt or argument values |
+| Claude | Main and subagent prompts; tool inputs/descriptions | Prompt length; tool name/IDs, timing and usage | Direct checkpoint/journal and legacy hook/OTLP journal omit values; response/tool-result bodies are not collected intentionally |
+| Codex | Main/child prompts; native or hook tool input/script source | Prompt length when a hook supplies it; tool names/IDs, timing, usage and outcomes | Hook/OTLP journal omits prompt, argument and output values; Codex's own session logs are unaffected |
+| Muse | Main and reminder prompts (which may quote conversation/tool results); tool inputs | Prompt length; tool name/ID, timing and usage; raw string argument length when supplied (no parsed keys or object size) | Parsed plugin state omits values; temporary native export and Muse's own journal still contain them |
+
+In every mode, the requested output path, process/machine identity, session and
+workflow IDs, model/provider settings, token usage, duration and errors may
+remain as metadata. Raw journals are local/private, but are not safe to publish
+without separate review. Existing content-on files are never retroactively
+redacted by changing the setting.
 
 Harnesses may record an optional `intent` string on a tool or script span to
 describe why it was invoked. The Tools tab prefers that text, falling back to
 an excerpt of `args` for ordinary tools. Scripts instead show their `language`
-and `line_count`. Pi codemode executes JavaScript; pi-tracing records its language
-and line count even when source capture is disabled. Line counts include blank
+and `line_count`. Pi codemode executes JavaScript; pi-tracing always records the
+language, but omits the source-derived line count when capture is disabled to
+avoid scanning uncaptured code. When recorded, line counts include blank
 lines, but a final newline does not add an extra line. Older traces can use
 recorded source to count lines, with partial source marked as a lower bound.
 Pi's current hooks do not supply intent, so pi-tracing
@@ -269,7 +307,7 @@ data, not recorder metadata. Readers accept older camelCase workflow fields.
 | `call_id`, `name`, `is_error` | Tool identity and observed boolean outcome |
 | `parent_call_id` | Immediate calling tool's ID, scoped to the same capture; links scripts to nested calls |
 | `intent` | Optional harness-provided description of why a tool or script was invoked |
-| `language`, `line_count` | Script language and total physical source lines, independent of source capture |
+| `language`, `line_count` | Script language and, when content capture is enabled, total physical source lines |
 | `args`, `args_truncated` | Recorded tool input and whether any argument data was omitted |
 | `session_labels` | Harness-provided string array on capture/configuration spans; the UI displays its values directly as session subtitles |
 | `phase` | `response-headers`: this interval excludes consuming the response stream |
@@ -408,9 +446,13 @@ complete packet, with remaining spans explicitly incomplete. Independent runs
 can still be loaded separately for comparison. Separate-file imports do not join
 native flows across their trace contexts.
 
-Metadata is collected by default. Tool arguments require both content category
-and content-capture opt-in. Prompts, model output, tool results, credentials, and
-headers are not added by these structured fields.
+Metadata and bounded prompt/tool content are collected by default (Pi also
+requires its `contents` and `prompt-data` categories). The shared opt-out keeps
+measurements and IDs but not prompt or tool argument values in a new trace.
+Model output, tool-result bodies, credentials and headers are not intentionally
+added as structured fields; captured prompt text, especially Muse reminder
+prompts, may quote prior messages or tool results. Review recordings before
+sharing them.
 
 ## Next collection priorities
 

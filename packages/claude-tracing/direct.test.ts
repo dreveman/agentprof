@@ -6,6 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations, type Observation} from './convert.ts';
 import {initializeDirectCapture, readDirectCapture, finishDirectCapture} from './direct-journal.ts';
+import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
 import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
 
@@ -58,6 +59,22 @@ function query(rows: Observation[], sql: string): string {
   } finally {rmSync(directory, {recursive: true, force: true});}
 }
 
+test('direct conversion cannot re-enable content omitted by the capture policy', () => {
+  const rows = fixture();
+  rows.find(r => r.data.event === 'session' && r.data.phase === 'begin')!.data.capture_contents = false;
+  let serialized = false;
+  rows.find(r => r.data.event === 'tool' && r.data.phase === 'begin' && r.data.id === 'bash')!.data.arguments = {
+    toJSON() {serialized = true; throw new Error('disabled tool input was serialized');},
+    get description() {serialized = true; throw new Error('disabled tool input was inspected');},
+  };
+  const trace = Buffer.from(convertObservations(rows).trace);
+  expect(serialized).toBe(false);
+  expect(trace.includes('Check these numbers')).toBe(false);
+  expect(trace.includes('exit 7')).toBe(false);
+  expect(trace.includes('Independent check')).toBe(false);
+  expect(trace.includes('fixture-model')).toBe(true);
+});
+
 test('direct capture imports with measured work, compaction usage, child flows and known context limits', () => {
   expect(convertObservations(fixture()).summary).toMatchObject({sessions: 2, responses: 3, tools: 3, measuredTools: 3,
     compactions: 1, inputTokens: 17, outputTokens: 24});
@@ -97,6 +114,22 @@ test('context limits are sampled for the response, never borrowed from a later m
     WHERE kind = 'assistant-message' AND ts = (SELECT MAX(ts) FROM agentprof_slices WHERE kind = 'assistant-message');`)).toBe('1');
 }, 30000);
 
+test('post-turn event deltas attach to the real prompt rather than claiming request-input coverage', () => {
+  const rows = fixture();
+  rows.push(row(899, 'context', 'sample', 'prompt', {context: {
+    item_changes: [{id: 'result:bash', category: 'results', chars: 50,
+      tokens: 13, source_id: 'bash', source_kind: 'tool', label: 'Tool result'}], removed_items: []}}));
+  rows.push(row(901, 'context', 'summary', 'prompt', {context: {window: 200000,
+    breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: 100}]}}}));
+  const trace = Buffer.from(convertObservations(rows).trace);
+  expect(trace.includes('transcript-observed')).toBe(true);
+  expect(trace.includes('result:bash')).toBe(true);
+  expect(trace.includes('Context:')).toBe(true);
+  expect(trace.includes('request-input')).toBe(false);
+  const withoutSummary = Buffer.from(convertObservations(rows.filter(r => r.data.phase !== 'summary')).trace);
+  expect(withoutSummary.includes('result:bash')).toBe(true);
+});
+
 test('native composition retains sparse changes without adding free space, item details or child windows', () => {
   const rows = fixture();
   const reading = (messages: number, delta: unknown[], extra = {}) => ({window: 200000,
@@ -129,6 +162,58 @@ test('child causal link survives estimated execution start after actual child st
     JOIN slice a ON a.id=flow.slice_out JOIN slice b ON b.id=flow.slice_in
     WHERE a.name='Agent' AND EXTRACT_ARG(a.arg_set_id, 'debug.kind')='tool-dispatch' AND b.name='prompt-input';`)).toBe('1');
 }, 30000);
+
+test('Claude recovery skips and counts corrupt middle records while publishing later events incomplete', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-corrupt-journal-'));
+  try {
+    const capture = initializeDirectCapture(join(directory, 'salvaged.pftrace'), 12345);
+    const events = fixture().filter(r => r.source === 'claude.mod');
+    const lines = events.map(r => JSON.stringify(r));
+    lines.splice(3, 0, '{bad-json}', 'null', JSON.stringify({source: 'claude.mod', timestamp: 'invalid', data: {}}));
+    writeFileSync(join(capture.directory, 'events-000000.jsonl'), lines.join('\n') + '\n');
+    const rows = readDirectCapture(capture.directory);
+    expect(rows.filter(r => r.source === 'claude.mod')).toHaveLength(events.length);
+    expect(rows.filter(r => r.source === 'recovery')).toHaveLength(1);
+    expect(rows.find(r => r.source === 'recovery')!.data).toMatchObject({corrupt_records: 3, incomplete_chunk: 'events-000000.jsonl'});
+    expect(finishDirectCapture(capture.directory)).toMatchObject({corruptRecords: 3, responses: 3});
+    const packets = tracePackets(readFileSync(capture.output));
+    const incomplete = packets.some(packet => {
+      const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
+      if (!event) return false;
+      const fields = decodeFields(event);
+      if (new TextDecoder().decode(fields.find(f => f.number === 23)?.bytes) !== 'profile (1)') return false;
+      return fields.filter(f => f.number === 4).some(f => {
+        const annotation = decodeFields(f.bytes!);
+        return new TextDecoder().decode(annotation.find(a => a.number === 10)?.bytes) === 'incomplete' &&
+          annotation.find(a => a.number === 2)?.value === 1n;
+      });
+    });
+    expect(incomplete).toBe(true);
+    expect(JSON.parse(readFileSync(join(capture.directory, 'summary.json'), 'utf8')).corruptRecords).toBe(3);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('damaged Claude identity metadata never redirects publication', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-corrupt-identity-'));
+  try {
+    const output = join(directory, 'original.pftrace'), capture = initializeDirectCapture(output, 12345);
+    const path = join(capture.directory, 'metadata.json');
+    const metadata = JSON.parse(readFileSync(path, 'utf8'));
+    delete metadata[0].data.output;
+    writeFileSync(path, JSON.stringify(metadata));
+    expect(() => finishDirectCapture(capture.directory)).toThrow('Invalid Claude capture identity');
+    const packaged = spawnSync('node', [resolve(import.meta.dir, 'runtime/direct-writer.mjs'), 'finish', capture.directory],
+      {cwd: directory, encoding: 'utf8'});
+    expect(packaged.status).toBe(1);
+    expect(packaged.stderr).toContain('Invalid Claude capture identity');
+    expect(existsSync(join(directory, 'undefined'))).toBe(false);
+    expect(existsSync(output)).toBe(false);
+    metadata[0].data.output = join(directory, 'wrong.pftrace');
+    writeFileSync(path, JSON.stringify(metadata));
+    expect(() => finishDirectCapture(capture.directory)).toThrow('Invalid Claude capture identity');
+    expect(existsSync(join(directory, 'wrong.pftrace'))).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
 
 test('journal recovery retains complete records, protects existing output, and publishes privately', () => {
   const directory = mkdtempSync(join(tmpdir(), 'claude-direct-journal-'));
@@ -182,6 +267,26 @@ test('same-id resume isolates unfinished operations and keeps native identity', 
     (SELECT MAX(dur) FROM agentprof_slices WHERE kind='assistant-message')=80000000,
     (SELECT COUNT(*) FROM agentprof_slices WHERE kind='capture' AND EXTRACT_ARG(arg_set_id,'debug.native_session_id')='session')=1,
     (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`)).toBe('1,1,1,1');
+});
+
+test('packaged writer merges split post-turn context rows on publication', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'claude-context-writer-'));
+  try {
+    const output = join(directory, 'context.pftrace');
+    const capture = initializeDirectCapture(output, 12345);
+    const rows = fixture().filter(r => r.source === 'claude.mod');
+    rows.push(row(899, 'context', 'sample', 'prompt', {context: {item_changes: [
+      {id: 'result:bash', category: 'results', chars: 50, tokens: 13, source_id: 'bash', source_kind: 'tool'}],
+      removed_items: []}}));
+    rows.push(row(901, 'context', 'summary', 'prompt', {context: {window: 200000,
+      breakdown: {categories: [{name: 'Messages', kind: 'used', tokens: 100}]}}}));
+    writeFileSync(join(capture.directory, 'events-000000.jsonl'), rows.map(r => JSON.stringify(r) + '\n').join(''));
+    const result = spawnSync('node', [resolve(import.meta.dir, 'runtime/direct-writer.mjs'), 'finish', capture.directory], {encoding: 'utf8'});
+    expect(result.status, result.stderr).toBe(0);
+    const trace = readFileSync(output);
+    expect(trace.includes('result:bash')).toBe(true);
+    expect(trace.includes('transcript-observed')).toBe(true);
+  } finally {rmSync(directory, {recursive: true, force: true});}
 });
 
 test('packaged Node writer finalizes after its launcher exits, and records publication failures', async () => {

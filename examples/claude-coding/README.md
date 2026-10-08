@@ -3,7 +3,7 @@
 Selecting Claude Code on the front page offers **Open Claude Code example**,
 named `claude-code-coding`. This is the standalone Claude Code session from the
 existing [Pi codemode comparison](../harness-comparison/README.md), recorded on
-2026-10-05 with Claude Code 2.1.289 and Haiku 4.5, with thinking disabled.
+2026-10-08 (UTC) with Claude Code 2.1.289 and Haiku 4.5, with thinking disabled.
 
 The [prompt](prompt.txt) asks the agent to fix interval union duration and peak
 concurrency, add four regression tests, and run the tests. The trace shows the
@@ -19,6 +19,9 @@ with partial item attribution from session messages. Model request durations
 use the native LLM hooks; input
 tokens are uncached input, with cache usage recorded separately. The launch
 configuration disabled thinking, but the trace does not report an effort value.
+
+Distributed result files have Apache-2.0 headers; original captured source hashes
+are retained in the manifest.
 
 [recording.json](recording.json) contains checksums and validated measurements.
 `npm run trace:example` rebuilds the UI bundle without running a model.

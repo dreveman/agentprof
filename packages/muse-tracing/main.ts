@@ -5,7 +5,7 @@ import {mkdir} from 'node:fs/promises';
 import {dirname, resolve, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createInterface} from 'node:readline';
-import {hook, control, dataDirectory, atomicJson, catalog, ensureWatcher, watch} from './record.ts';
+import {hook, control, dataDirectory, atomicJson, readJson, catalog, ensureWatcher, watch} from './record.ts';
 import {object, string} from './native.ts';
 import {controlPrompt} from './convert.ts';
 
@@ -44,8 +44,8 @@ try {
   if (action === 'hook') {
     const payload = object(JSON.parse(readFileSync(0, 'utf8')));
     try {
-      const result = await hook(data, payload);
-      await ensureWatcher(data, string(payload.session_id), script);
+      const result = await hook(data, payload, process.ppid,
+        () => ensureWatcher(data, string(payload.session_id), script));
       console.log(JSON.stringify(result));
     }
     catch (error) {
@@ -63,10 +63,14 @@ try {
     try {await atomicJson(join(data, 'catalog.json'), {at: Date.now(), models: await catalog('muse', data)});} catch {}
     console.log('Installed Agent Profiler. Review and enable its hooks and tools with:\n  muse plugins approve agentprof\nThen start Muse normally and type: tracing start\nType tracing stop to save, or exit Muse to finish recording.');
   } else if (action === 'configure') {
-    if (args.length !== 1 || !['--auto-start', '--manual'].includes(args[0]!)) throw new Error('Use configure --auto-start or configure --manual');
+    if (args.length !== 1 || !['--auto-start', '--manual', '--no-content', '--capture-content'].includes(args[0]!))
+      throw new Error('Use configure --auto-start|--manual|--no-content|--capture-content');
     await mkdir(data, {recursive: true, mode: 0o700});
-    await atomicJson(join(data, 'config.json'), {auto_start: args[0] === '--auto-start'});
-    console.log(`Muse tracing: ${args[0] === '--auto-start' ? 'start automatically in new sessions' : 'start manually'}`);
+    const previous = await readJson(join(data, 'config.json')) ?? {};
+    const next = args[0] === '--auto-start' ? {auto_start: true} : args[0] === '--manual' ? {auto_start: false} :
+      {capture_contents: args[0] === '--capture-content'};
+    await atomicJson(join(data, 'config.json'), {...previous, ...next});
+    console.log(`Muse tracing: ${args[0]}`);
   } else if (['start', 'stop', 'status', 'recover'].includes(action ?? '')) {
     const index = args.indexOf('--session'), id = index >= 0 ? args.splice(index, 2)[1] : process.env.MUSE_SESSION_ID;
     if (!id) throw new Error('Provide --session SESSION_ID, or use the recording controls inside Muse.');
@@ -74,7 +78,7 @@ try {
     if (result.state === 'recording') await ensureWatcher(data, id, script);
     console.log(JSON.stringify(result, null, 2));
   } else {
-    console.log('Usage: agentprof-muse install [--project] | configure --auto-start|--manual | start [OUTPUT.pftrace] --session ID | stop|status|recover --session ID');
+    console.log('Usage: agentprof-muse install [--project] | configure --auto-start|--manual|--no-content|--capture-content | start [OUTPUT.pftrace] --session ID | stop|status|recover --session ID');
     if (action && action !== '--help') process.exitCode = 2;
   }
 } catch (e) {console.error(e instanceof Error ? e.message : String(e)); process.exitCode = 1;}

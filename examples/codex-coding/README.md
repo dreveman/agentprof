@@ -1,13 +1,13 @@
 # Codex coding example
 
 Selecting Codex on the front page offers **Open Codex example**, named
-`codex-coding`. This is one live run recorded on 2026-10-05 with Codex 0.160.0,
+`codex-coding`. This is one live run recorded on 2026-10-08 (UTC) with Codex 0.161.0,
 GPT-6-Luna and low reasoning effort, using the interactive recording plugin
 with automatic start and save on exit.
 
 The [prompt](prompt.txt) asks the agent to fix interval union duration and peak
 concurrency, add four regression tests, and run the tests. The trace includes
-five measured model responses, four scripts and six nested tool calls. Expand
+six measured model responses, five scripts and five nested tool calls. Expand
 **Tools → Scripted tool use** to follow file inspection, edits and test runs.
 The completed files are in [result](result/). All 12 tests and 500 independent
 cases passed. The original tests are unchanged.
@@ -18,10 +18,9 @@ Input tokens include cached input; the context limit comes from Codex session
 metadata. This is a workflow example, not a speed comparison with the other
 harness examples, which use different models and timing boundaries.
 
-Context categories were re-exported from the original durable session transcript
+Context categories were captured from this run's durable session transcript
 using character-count estimates. They cover observed history with partial
 attribution; provider instructions and tool definitions remain unavailable.
-The original timings and reported usage are unchanged.
 
 [recording.json](recording.json) contains checksums and validated measurements.
 `npm run trace:example` rebuilds the UI bundle without running a model.

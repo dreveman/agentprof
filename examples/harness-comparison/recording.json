@@ -1,52 +1,47 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-05",
+  "recordedAt": "2026-10-08",
   "model": "claude-haiku-4-5-20251001",
   "thinking": "off",
   "piVersion": "1.0.3",
   "claudeVersion": "2.1.289 (Claude Code)",
-  "description": "The same coding task with Pi codemode and Claude Code, selected to showcase the fastest correct Pi codemode run from six trials.",
+  "description": "Two sessions performing the same coding task with the same model: Pi codemode and Claude Code.",
   "bundledFile": "comparison.pftrace",
-  "sha256": "5236edea57a61540f927003cbdaac336ed962755cc2255695060c14e27f34a85",
+  "sha256": "6c054c3f82d1e073f302fc16a0b3af9abcacb357700445152f8cdeadcd99712d",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
-  "sourceBatch": "context-refresh-comparison-b",
   "oracleCases": 500,
   "merge": "Packet sequence IDs made unique; original clocks, timestamps and event payloads preserved.",
   "recordings": [
     {
-      "round": 5,
       "harness": "pi",
       "variant": "pi-codemode",
-      "sessionId": "d7097260-c6c5-42f8-bc4c-187c362f2a57",
-      "processWallSeconds": 16.280278526246548,
+      "sessionId": "64993226-fc29-4f75-b8ab-d858973eae4f",
+      "processWallSeconds": 16.91075691813603,
       "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
-      "traceSha256": "4f8058e994f30c30a97bb5b0b87b40274f72e4ee62e0557847e9e9544d6fd03d",
+      "traceSha256": "dc2d28a5fff0a82e227327127739a174af1520080f4815c2a585117b68a545d4",
       "correct": true,
       "protocolIssues": [],
-      "primaryResponses": 7,
-      "primaryExecutedCalls": 14,
-      "scriptCalls": 6,
-      "nestedToolCalls": 8,
+      "primaryResponses": 6,
+      "primaryExecutedCalls": 11,
+      "scriptCalls": 5,
+      "nestedToolCalls": 6,
       "testCount": 12,
-      "wallSeconds": 15.76338612,
+      "wallSeconds": 16.426876815,
       "usage": {
-        "input_tokens": 5964,
-        "output_tokens": 1673,
-        "cache_read_tokens": 28892,
-        "cache_write_tokens": 8746
+        "input_tokens": 6039,
+        "output_tokens": 1637,
+        "cache_read_tokens": 21331,
+        "cache_write_tokens": 8384
       },
-      "convertedTraceSha256": "4f8058e994f30c30a97bb5b0b87b40274f72e4ee62e0557847e9e9544d6fd03d",
-      "sourceBatch": "context-refresh-comparison-b",
-      "sourceRound": 2
+      "convertedTraceSha256": "dc2d28a5fff0a82e227327127739a174af1520080f4815c2a585117b68a545d4"
     },
     {
-      "round": 5,
       "harness": "claude-code",
       "variant": "claude-code",
-      "sessionId": "23f3e374-4393-4d77-a184-7789fe0a310e",
-      "processWallSeconds": 22.247144469991326,
+      "sessionId": "27bf59a7-adec-48ad-964d-00ab0504a0cd",
+      "processWallSeconds": 23.34475773293525,
       "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
-      "traceSha256": "1e0bb9a62d8a5a72088af0bc6d730f0fa7bb8a24f22662268c6f5c3fbac8f6d1",
+      "traceSha256": "7221e5ccf61ce744456c9652b904931045fdd1005563554821422d311db2397b",
       "correct": true,
       "protocolIssues": [],
       "primaryResponses": 9,
@@ -54,68 +49,17 @@
       "scriptCalls": 0,
       "nestedToolCalls": 0,
       "testCount": 12,
-      "wallSeconds": 21.30004317,
+      "wallSeconds": 22.19158648,
       "usage": {
         "input_tokens": 48,
-        "output_tokens": 2090,
-        "cache_read_tokens": 114082,
-        "cache_write_tokens": 9209
+        "output_tokens": 2023,
+        "cache_read_tokens": 103158,
+        "cache_write_tokens": 17121
       },
-      "convertedTraceSha256": "6ec17875bd644347c7b266a15deae99bf4c2a8c55aa180999ffff4841d1e27c7",
-      "sourceBatch": "context-refresh-comparison-b",
-      "sourceRound": 2
+      "convertedTraceSha256": "2d26f0d309c845637ab0816371dacca2e392e6648e84a3bb31e1972645918862"
     }
   ],
-  "selection": {
-    "criterion": "Fastest correct Pi codemode attempt with a complete trace and a correct Claude Code attempt from the same trial.",
-    "sourceRounds": 6,
-    "selectedRound": 5,
-    "codemodeCandidates": [
-      {
-        "round": 1,
-        "processWallSeconds": 36.43624837882817,
-        "correct": true,
-        "captureAvailable": true,
-        "pairedClaudeCorrect": true
-      },
-      {
-        "round": 2,
-        "processWallSeconds": 20.64389271568507,
-        "correct": true,
-        "captureAvailable": true,
-        "pairedClaudeCorrect": true
-      },
-      {
-        "round": 3,
-        "processWallSeconds": 18.34607490291819,
-        "correct": true,
-        "captureAvailable": true,
-        "pairedClaudeCorrect": true
-      },
-      {
-        "round": 4,
-        "processWallSeconds": 18.742183045949787,
-        "correct": true,
-        "captureAvailable": true,
-        "pairedClaudeCorrect": true
-      },
-      {
-        "round": 5,
-        "processWallSeconds": 16.280278526246548,
-        "correct": true,
-        "captureAvailable": true,
-        "pairedClaudeCorrect": true
-      },
-      {
-        "round": 6,
-        "processWallSeconds": 25.072578037157655,
-        "correct": true,
-        "captureAvailable": false,
-        "pairedClaudeCorrect": false
-      }
-    ]
-  },
-  "conversion": "Both sessions recorded with the current extensions, including context breakdowns. Claude Code uses its native plugin. Local workspace paths in tool arguments were sanitized; clocks, session identities, counts and measurements are preserved.",
+  "conversion": "Local workspace paths sanitized and packet sequence IDs made unique; measured timings, clocks, session identities, context composition and token usage preserved.",
   "redactions": [
     "Local workspace paths in tool arguments replaced with /workspace/intervals."
   ]

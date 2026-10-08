@@ -76,6 +76,57 @@ test('Muse measurements import with scoped sessions, usage, context, flows and r
     (SELECT COUNT(*) FROM process WHERE pid=12345 AND name='muse')=1,
     (SELECT COUNT(*) FROM thread WHERE tid NOT IN (0,12345))=0;`)).toBe('1,1,1,1,1,1,1,1,1,1,1,1');
 });
+test('metadata-only export and conversion omit main and reminder prompts and tool values', () => {
+  const f = fixture();
+  f.capture.capture_contents = false;
+  const session = readExport(f.raw, root, false);
+  const serialized = JSON.stringify(session);
+  expect(serialized).not.toMatch(/Read the fixture and fix the bug|exit 2/);
+  expect(serialized).toContain('prompt_length');
+  expect(serialized).toContain('args_chars');
+  expect(serialized).not.toContain('args_meta');
+  f.sessions[0] = session;
+  const bytes = Buffer.from(convert(f.capture, f.sessions).trace);
+  expect(bytes.includes('Read the fixture and fix the bug')).toBe(false);
+  expect(bytes.includes('Inspect the tests.')).toBe(false);
+  expect(bytes.includes('exit 2')).toBe(false);
+  expect(bytes.includes('fixture-model')).toBe(true);
+});
+
+test('metadata-only export still excludes tracing controls from prompts', () => {
+  const f = fixture();
+  const started = (f.raw.events as any[]).find(event => event.envelope.payload.event?.kind === 'started'
+    && event.envelope.payload.kind === 'run')!.envelope.payload.event;
+  started.prompt = 'tracing status';
+  const full = readExport(f.raw, root);
+  const stripped = readExport(f.raw, root, false);
+  const prompt = stripped.records.find(r => r.family === 'run' && r.kind === 'started')!;
+  expect(prompt.data).toMatchObject({prompt_length: 14, control_prompt: true});
+  expect(prompt.data.prompt).toBeUndefined();
+  f.sessions[0] = full;
+  expect(query(f, `SELECT (SELECT COUNT(*) FROM slice WHERE name='prompt'),
+    (SELECT COUNT(*) FROM slice WHERE name='prompt-input');`)).toBe('1,1');
+  f.capture.capture_contents = false;
+  f.sessions[0] = stripped;
+  expect(query(f, `SELECT (SELECT COUNT(*) FROM slice WHERE name='prompt'),
+    (SELECT COUNT(*) FROM slice WHERE name='prompt-input');`)).toBe('1,1');
+});
+
+test('disabled Muse export never serializes object-valued tool arguments', () => {
+  const f = fixture();
+  const calls = (f.raw.events as any[]).find(event => event.envelope.payload.event?.kind === 'assistant_tool_calls_committed')!
+    .envelope.payload.event.tool_calls;
+  let inspected = false;
+  calls[0].args = {toJSON() {inspected = true; throw new Error('must not serialize');}};
+  const native = readExport(f.raw, root, false);
+  expect(inspected).toBe(false);
+  const committed = native.records.find(r => r.kind === 'assistant_tool_calls_committed')!;
+  expect(committed.data.tool_calls[0].args).toBeUndefined();
+  f.capture.capture_contents = false; f.sessions[0] = native;
+  expect(() => convert(f.capture, f.sessions)).not.toThrow();
+  expect(inspected).toBe(false);
+});
+
 test('export deduplicates records, excludes inherited history and never retains reasoning', () => {
   const f = fixture();
   f.raw.events.push(f.raw.events[2]!);

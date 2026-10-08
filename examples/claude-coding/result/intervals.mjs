@@ -5,39 +5,33 @@ export function summarizeIntervals(intervals) {
     return { activeMs: 0, peakConcurrency: 0 };
   }
 
-  // Sort by start time, then by end time descending (to handle nesting)
-  const sorted = [...intervals].sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const sorted = [...intervals].sort((a, b) => a[0] - b[0]);
 
-  // Merge overlapping intervals
-  const merged = [];
-  for (const [start, end] of sorted) {
-    if (merged.length === 0) {
-      merged.push([start, end]);
+  let activeMs = 0;
+  let peakConcurrency = 0;
+  let mergeStart = sorted[0][0];
+  let mergeEnd = sorted[0][1];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [start, end] = sorted[i];
+    if (start <= mergeEnd) {
+      mergeEnd = Math.max(mergeEnd, end);
     } else {
-      const [lastStart, lastEnd] = merged[merged.length - 1];
-      if (start <= lastEnd) {
-        // Overlapping or touching, merge
-        merged[merged.length - 1][1] = Math.max(lastEnd, end);
-      } else {
-        // Gap, add new interval
-        merged.push([start, end]);
-      }
+      activeMs += mergeEnd - mergeStart;
+      mergeStart = start;
+      mergeEnd = end;
     }
   }
+  activeMs += mergeEnd - mergeStart;
 
-  // Calculate active duration from merged intervals
-  const activeMs = merged.reduce((sum, [start, end]) => sum + (end - start), 0);
-
-  // Calculate peak concurrency using sweep algorithm
   const events = [];
   for (const [start, end] of intervals) {
-    events.push([start, 1]); // start event
-    events.push([end, -1]); // end event
+    events.push([start, 1]);
+    events.push([end, -1]);
   }
-  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]); // sort by time, starts before ends
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 
   let current = 0;
-  let peakConcurrency = 0;
   for (const [, delta] of events) {
     current += delta;
     peakConcurrency = Math.max(peakConcurrency, current);

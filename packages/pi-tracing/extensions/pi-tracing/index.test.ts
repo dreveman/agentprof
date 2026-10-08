@@ -128,6 +128,63 @@ test('agent tracing tools publish default and requested paths and report state',
 }, 25000);
 
 const processor = process.env.PERFETTO_TRACE_PROCESSOR;
+test('content-disabled Pi hooks do not inspect tool bodies, scripts or cumulative output', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-no-content-'));
+  try {
+    const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
+    const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
+    const driver = join(dir, 'driver.ts');
+    await writeFile(driver, `
+      import tracing from ${JSON.stringify(extension)};
+      import {writeFileSync} from 'node:fs';
+      export default function(pi) {
+        const hooks = new Map();
+        tracing(new Proxy(pi, {get(target, key) {
+          if (key === 'on') return (name, handler) => {hooks.set(name, [...(hooks.get(name) ?? []), handler]); pi.on(name, handler);};
+          return Reflect.get(target, key);
+        }}));
+        pi.registerCommand('no-content-test', {handler: async (_, ctx) => {
+          let inspected = 0;
+          const emit = async (name, event) => {
+            for (const hook of hooks.get(name) ?? []) await hook(event, ctx);
+          };
+          const child = {type: 'code-search', toJSON() {inspected++; throw new Error('serialized task');},
+            get task() {inspected++; throw new Error('read task');}};
+          const script = {get code() {inspected++; throw new Error('read source');}};
+          await emit('tool_execution_start', {toolCallId: 'child', toolName: 'subagent', args: child});
+          await emit('tool_call', {toolCallId: 'child', toolName: 'subagent', input: child});
+          await emit('tool_execution_start', {toolCallId: 'script', toolName: 'codemode', args: script});
+          const modelCall = status => ({id: 'script/models.classify/1', name: 'models.classify', status,
+            get args() {inspected++; throw new Error('read model source');}});
+          await emit('tool_execution_update', {toolCallId: 'script', toolName: 'codemode', partialResult: {
+            details: {calls: [modelCall('running')]}, get content() {inspected++; throw new Error('read output');}}});
+          await emit('tool_execution_end', {toolCallId: 'script', toolName: 'codemode',
+            result: {details: {calls: [modelCall('ok')]}}});
+          await emit('tool_execution_end', {toolCallId: 'child', toolName: 'subagent', result: {
+            content: [{text: 'Spawned detached Pi session 019ffdb0-3e55-713c-a283-1373113797d5'}],
+            toJSON() {inspected++; throw new Error('serialized result');}}});
+          writeFileSync(${JSON.stringify(join(dir, 'inspected.txt'))}, String(inspected));
+        }});
+      }
+    `);
+    const result = spawnSync('node', [cli, '--no-extensions', '-e', driver, '--no-skills',
+      '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
+      '--tracing', '--mode', 'json', '-p', '/no-content-test'], {cwd: dir, encoding: 'utf8', timeout: 20000,
+      env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
+        AGENTPROF_CAPTURE_CONTENTS: '0'}});
+    expect(result.status, result.stderr).toBe(0);
+    expect(await readFile(join(dir, 'inspected.txt'), 'utf8')).toBe('0');
+    const file = (await readdir(join(dir, 'pi-tracing'))).find(name => name.endsWith('.pftrace'))!;
+    const events = tracePackets(await readFile(join(dir, 'pi-tracing', file))).flatMap(packet => {
+      const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
+      return event ? [decodeFields(event)] : [];
+    });
+    const names = events.map(fields => new TextDecoder().decode(fields.find(f => f.number === 23)?.bytes));
+    expect(names).toContain('subagent');
+    expect(names).toContain('codemode');
+  } finally {await rm(dir, {recursive: true, force: true});}
+}, 25000);
+
 const hookTest = processor ? test : test.skip;
 hookTest('codemode hooks link parallel children, preserve errors, and record model-call lifecycle once', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-codemode-'));
@@ -201,7 +258,7 @@ hookTest('codemode hooks link parallel children, preserve errors, and record mod
         (SELECT COUNT(*) FROM calls WHERE name = 'read' AND parent_call_id = 'script' AND dur > 0) = 12
         AND (SELECT COUNT(*) FROM calls WHERE name = 'codemode'
           AND EXTRACT_ARG(arg_set_id, 'debug.language') = 'JavaScript'
-          AND EXTRACT_ARG(arg_set_id, 'debug.line_count') = 1) = 2
+          AND EXTRACT_ARG(arg_set_id, 'debug.line_count') IS NULL) = 2
         AND NOT EXISTS (SELECT 1 FROM args WHERE key GLOB 'debug.args.*')
         AND (SELECT COUNT(*) FROM calls WHERE name = 'read' AND EXTRACT_ARG(arg_set_id, 'debug.is_error') = 1) = 1
         AND (SELECT COUNT(*) FROM calls WHERE name = 'models.classify' AND parent_call_id = 'script') = 1
@@ -239,9 +296,8 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
     await writeFile(driver, `
       import tracing from ${JSON.stringify(extension)};
       export default function(pi) {
-        const hooks = new Map(); const commands = new Map(); const bus = new Map();
+        const hooks = new Map(); const commands = new Map();
         tracing(new Proxy(pi, {get(target, key) {
-          if (key === 'events') return {on: (name, handler) => bus.set(name, handler)};
           if (key === 'on') return (name, handler) => {
             hooks.set(name, [...(hooks.get(name) ?? []), handler]);
             return pi.on(name, handler);
@@ -275,7 +331,7 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
           for (const mode of ['both', 'workflow-only']) {
             if (mode === 'workflow-only') await commands.get('tracing').handler('categories tools off', ctx);
             const a = {toolCallId: mode + '-child-a', toolName: 'subagent', args: {type: 'fixture', task: 'work'}};
-            const b = {toolCallId: mode + '-child-b', toolName: 'rig_launch', args: {task_id: 'task-b'}};
+            const b = {toolCallId: mode + '-child-b', toolName: 'subagent', args: {type: 'fixture-b', task: 'work-b'}};
             await emit('tool_execution_start', a); await emit('tool_execution_start', b);
             // Reverse completion order exercises per-call child correlation.
             await emit('tool_execution_end', {...b, isError: false,
@@ -298,12 +354,6 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
           await emit('tool_call', {toolCallId: 'typed', toolName: 'typed-tool',
             input: {count: -2, ratio: 1.25, enabled: false, labels: ['a', 'b']}});
           await emit('user_bash', {command: 'echo hello'});
-          bus.get('workflow-rig:worker-launched')({taskId: 'task-a', sessionId: 'child-a', attempt: 2, outcome: 'ok'});
-          bus.get('workflow-rig:run-started')({rootId: 'root-a', workflowName: 'fixture'});
-          bus.get('workflow-rig:run-terminal')({rootId: 'root-a', outcome: 'ok'});
-          bus.get('workflow-rig:reconcile')({rootId: 'root-a', outcome: 'idle', actionCount: 3, durationMs: 0.125});
-          bus.get('workflow-rig:spawn-confirm')({taskId: 'task-a', granted: false});
-          bus.get('workflow-rig:run-terminal')({rootId: 'unrecorded', outcome: 'failed'});
           await emit('model_select', {model: {id: 'fixture-model', provider: 'fixture', contextWindow: 200000}});
           await emit('thinking_level_select', {level: 'low'});
           await emit('turn_end'); await emit('agent_end'); await emit('agent_settled');
@@ -347,8 +397,8 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
       '--tracing', '--mode', 'json', '-p', '/trace-test'], {
       cwd: dir, encoding: 'utf8', timeout: 15000,
       env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
-        PI_SUBAGENT_TYPE: 'test-child', WORKFLOW_RIG_PROCESS: '', PI_TRACING_CAPTURE_CONTENTS: undefined,
-        DEVMATE_PARENT_SESSION_ID: '11111111-1111-4111-8111-111111111111'},
+        PI_SUBAGENT_TYPE: 'test-child', PI_TRACING_CAPTURE_CONTENTS: undefined,
+        PI_TRACING_PARENT_SESSION_ID: '11111111-1111-4111-8111-111111111111'},
     });
     expect(result.status, result.stderr).toBe(0);
     const traces = (await readdir(join(dir, 'pi-tracing'))).filter(name => name.endsWith('.pftrace')).sort();
@@ -461,22 +511,7 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
         AND EXTRACT_ARG(arg_set_id, 'debug.args.labels[1]') = 'b') = 1 AND
       (SELECT COUNT(*) FROM slice WHERE name = 'user_bash'
         AND EXTRACT_ARG(arg_set_id, 'debug.executable') = 'echo'
-        AND EXTRACT_ARG(arg_set_id, 'debug.length') = 10) = 1 AND
-      (SELECT COUNT(*) FROM slice WHERE name = 'launch'
-        AND EXTRACT_ARG(arg_set_id, 'debug.task_id') = 'task-a'
-        AND EXTRACT_ARG(arg_set_id, 'debug.attempt') = 2) = 1 AND
-      (SELECT COUNT(*) FROM slice WHERE name = 'run'
-        AND EXTRACT_ARG(arg_set_id, 'debug.root_id') = 'root-a'
-        AND EXTRACT_ARG(arg_set_id, 'debug.outcome') = 'ok') = 1 AND
-      (SELECT COUNT(*) FROM slice WHERE name = 'reconcile'
-        AND EXTRACT_ARG(arg_set_id, 'debug.root_id') = 'root-a'
-        AND EXTRACT_ARG(arg_set_id, 'debug.duration_ms') = 0.125
-        AND EXTRACT_ARG(arg_set_id, 'debug.action_count') = 3) = 1 AND
-      (SELECT COUNT(*) FROM slice WHERE name = 'spawn-confirmation'
-        AND EXTRACT_ARG(arg_set_id, 'debug.task_id') = 'task-a'
-        AND EXTRACT_ARG(arg_set_id, 'debug.granted') = 0) = 1 AND
-      (SELECT COUNT(*) FROM slice WHERE name = 'run-terminal'
-        AND EXTRACT_ARG(arg_set_id, 'debug.root_id') = 'unrecorded') = 1
+        AND EXTRACT_ARG(arg_set_id, 'debug.length') = 10) = 1
       THEN 'HOOKS_OK' ELSE 'HOOKS_FAILED' END`);
     query(traces[0]!, `SELECT CASE WHEN
       (SELECT COUNT(*) FROM slice s JOIN track t ON t.id = s.track_id
@@ -548,7 +583,7 @@ hookTest('real Pi processes inherit one recording through parallel children and 
               '--no-skills', '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
               '--mode', 'json', '-p', '/family'], {
               cwd: ctx.cwd, env: {...process.env, FAMILY_ROLE: name, PI_SUBAGENT_TYPE: name,
-                DEVMATE_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()}, stdio: ['ignore', 'ignore', 'pipe']});
+                PI_TRACING_PARENT_SESSION_ID: ctx.sessionManager.getSessionId()}, stdio: ['ignore', 'ignore', 'pipe']});
             let stderr = ''; child.stderr.on('data', data => stderr += data);
             await new Promise((resolve, reject) => {
               child.on('error', reject); child.on('close', code => code === 0 ? resolve() : reject(new Error(stderr)));
@@ -564,7 +599,7 @@ hookTest('real Pi processes inherit one recording through parallel children and 
       }
     `);
     const env: NodeJS.ProcessEnv = {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '1', PI_SUBAGENT_EXTENSIONS: '',
-      FAMILY_ROLE: 'root', WORKFLOW_RIG_PROCESS: '', PI_SUBAGENT_TYPE: ''};
+      FAMILY_ROLE: 'root', PI_SUBAGENT_TYPE: ''};
     delete env.PI_TRACING_RECORDING_DIR;
     const result = spawnSync('node', [cli, '--no-extensions', '-e', driver, '--no-skills',
       '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',

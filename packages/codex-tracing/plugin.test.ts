@@ -1,18 +1,65 @@
 // SPDX-License-Identifier: Apache-2.0
 import {test, expect, spyOn} from 'bun:test';
-import {mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync} from 'node:fs';
+import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
-import {spawnSync} from 'node:child_process';
+import {spawn, spawnSync} from 'node:child_process';
+import {createServer as httpServer} from 'node:http';
+import {createHash} from 'node:crypto';
 import {Collector} from './plugin-collector.ts';
-import {configure, stateDirectory} from './plugin-config.ts';
+import {configure, readConnection, stateDirectory} from './plugin-config.ts';
 import {publish} from './plugin-journal.ts';
 import {convertObservations} from './convert.ts';
 import {readOtel} from './otel.ts';
 import {addHooks} from './plugin-observations.ts';
 import {fixture, rootSession, childSession, epoch, at, log} from './fixture.ts';
 import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
+import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
+
+async function runRuntimeClient(state: string, cwd: string, args: string[], input = '',
+                                env: NodeJS.ProcessEnv = process.env): Promise<{code: number | null; output: string; error: string}> {
+  const child = spawn('node', [resolve(import.meta.dir, 'runtime/codex-tracing.mjs'), ...args, '--state', state],
+    {cwd, env, stdio: ['pipe', 'pipe', 'pipe']});
+  let output = '', error = '';
+  child.stdout.on('data', chunk => {output += chunk;});
+  child.stderr.on('data', chunk => {error += chunk;});
+  child.stdin.end(input);
+  const code = await new Promise<number | null>((done, reject) => {
+    const timer = setTimeout(() => {child.kill(); reject(new Error('Codex hook timed out'));}, 10000);
+    child.once('error', reject); child.once('exit', code => {clearTimeout(timer); done(code);});
+  });
+  return {code, output, error};
+}
+
+async function runHookClient(state: string, cwd: string, sessionId = rootSession, event = 'SessionStart') {
+  return runRuntimeClient(state, cwd, ['hook'],
+    JSON.stringify({hook_event_name: event, session_id: sessionId, cwd, source: 'startup'}));
+}
+
+async function terminalStatus(collector: Collector, id: string, timeoutMs = 3000) {
+  const deadline = performance.now() + timeoutMs;
+  do {
+    const status = collector.status(id);
+    if (status.state === 'saved' || status.state === 'error') return status;
+    await Bun.sleep(5);
+  } while (performance.now() < deadline);
+  throw new Error('Timed out waiting for Codex publication');
+}
+
+function incompleteCapture(path: string): boolean {
+  return tracePackets(readFileSync(path)).some(packet => {
+    const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
+    if (!event) return false;
+    const fields = decodeFields(event);
+    if (new TextDecoder().decode(fields.find(f => f.number === 23)?.bytes) !== 'profile (1)') return false;
+    return fields.filter(f => f.number === 4).some(f => {
+      const attrs = decodeFields(f.bytes!);
+      return new TextDecoder().decode(attrs.find(a => a.number === 10)?.bytes) === 'incomplete' &&
+        attrs.find(a => a.number === 2)?.value === 1n;
+    });
+  });
+}
 
 test('profile setup is private, repeatable and does not replace existing user configuration', async () => {
   const home = mkdtempSync(join(tmpdir(), 'codex-plugin-config-'));
@@ -28,6 +75,212 @@ test('profile setup is private, repeatable and does not replace existing user co
     await expect(configure(join(home, 'agentprof'), home)).rejects.toThrow('different settings');
     expect(stateDirectory(join(home, 'plugins/data/agent-plugins/hash'))).toBe(join(home, 'agentprof'));
   } finally {rmSync(home, {recursive: true, force: true});}
+});
+
+test('install leaves the profile untouched when a legacy receiver cannot shut down', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-legacy-upgrade-'));
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof'), profile = await configure(state, home);
+    const connection = readConnection(state);
+    // The receiver on origin/main has no generation/build response headers,
+    // active-capture count or /shutdown endpoint.
+    writeFileSync(join(state, 'connection.json'), JSON.stringify({port: connection.port, token: connection.token}));
+    server = httpServer(async (request, response) => {
+      const reply = (status: number, body: unknown) => {
+        response.writeHead(status, {'content-type': 'application/json'}); response.end(JSON.stringify(body));
+      };
+      if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${connection.token}`)
+        return reply(403, {error: 'Forbidden'});
+      if (request.url === '/health') return reply(200, {ready: true});
+      if (request.url === '/status') {
+        let body = '';
+        for await (const chunk of request) body += chunk;
+        return reply(200, {state: 'idle', session_id: JSON.parse(body).session_id});
+      }
+      reply(404, {error: 'Unknown operation'});
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const before = readFileSync(profile, 'utf8');
+    const bin = join(home, 'bin'), invoked = join(home, 'codex-invoked'); mkdirSync(bin);
+    writeFileSync(join(bin, 'codex'), '#!/bin/sh\necho invoked >> "$FAKE_CODEX_MARKER"\nexit 0\n', {mode: 0o755});
+    const result = await runRuntimeClient(state, home, ['install'], '',
+      {...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_CODEX_MARKER: invoked});
+    expect(result.code).toBe(1);
+    expect(result.error).toContain('older Agent Profiler receiver');
+    expect(readFileSync(profile, 'utf8')).toBe(before);
+    expect(existsSync(invoked)).toBe(false);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('install rebinds a legacy connection whose port was reused by another service', async () => {
+  for (const mode of ['not-found', 'ready'] as const) {
+    const home = mkdtempSync(join(tmpdir(), 'codex-legacy-port-'));
+    let blocker: ReturnType<typeof httpServer> | undefined, receiverPid: number | undefined;
+    try {
+      const state = join(home, 'agentprof'), profile = await configure(state, home);
+      const original = readConnection(state);
+      writeFileSync(join(state, 'connection.json'), JSON.stringify({port: original.port, token: original.token}));
+      blocker = httpServer((_request, response) => {
+        response.writeHead(mode === 'ready' ? 200 : 404, {'content-type': mode === 'ready' ? 'application/json' : 'text/html'});
+        response.end(mode === 'ready' ? '{"ready":true}' : '<html>unrelated service</html>');
+      });
+      await new Promise<void>((done, reject) => {blocker!.once('error', reject); blocker!.listen(original.port, '127.0.0.1', done);});
+      const bin = join(home, 'bin'); mkdirSync(bin);
+      writeFileSync(join(bin, 'codex'), `#!/bin/sh\nif [ "$2" = add ]; then echo '${JSON.stringify({installedPath: resolve(import.meta.dir)})}'; fi\n`, {mode: 0o755});
+      const result = await runRuntimeClient(state, home, ['install'], '',
+        {...process.env, PATH: `${bin}:${process.env.PATH}`});
+      expect(result.code, `${mode}: ${result.error}`).toBe(0);
+      const next = readConnection(state);
+      expect(next.port).not.toBe(original.port);
+      expect(readFileSync(profile, 'utf8')).toContain(`127.0.0.1:${next.port}/v1/logs`);
+      receiverPid = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8')).pid;
+    } finally {
+      if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+      if (blocker) await new Promise<void>(done => blocker!.close(() => done()));
+      rmSync(home, {recursive: true, force: true});
+    }
+  }
+});
+
+test('install can rebind a collided port without replacing an edited profile', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-port-rebind-'));
+  let blocker: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof');
+    const profile = await configure(state, home);
+    const original = readConnection(state);
+    blocker = httpServer((_request, response) => {response.writeHead(200, {'content-type': 'application/json'}); response.end('{"ready":true}');});
+    await new Promise<void>((resolve, reject) => {blocker!.once('error', reject); blocker!.listen(original.port, '127.0.0.1', resolve);});
+    const blocked = await runHookClient(state, home);
+    expect(blocked.code).toBe(0); // Recording failure never blocks the agent.
+    expect(JSON.parse(blocked.output).systemMessage).toContain('Unexpected receiver');
+    expect(existsSync(join(state, 'receiver-owner.json'))).toBe(false);
+    await configure(state, home, 'codex-tracing.mjs', false, true);
+    const next = readConnection(state);
+    expect(next.port).not.toBe(original.port);
+    expect(next.generation).not.toBe(original.generation);
+    const text = readFileSync(profile, 'utf8');
+    expect(text).toContain(`127.0.0.1:${next.port}/v1/logs`);
+    expect(text).toContain(`127.0.0.1:${next.port}/v1/traces`);
+    await Promise.all(Array.from({length: 4}, () => configure(state, home, 'codex-tracing.mjs', false, true)));
+    const final = readConnection(state), finalProfile = readFileSync(profile, 'utf8');
+    expect(finalProfile).toContain(`127.0.0.1:${final.port}/v1/logs`);
+    expect(finalProfile).toContain(`Bearer ${final.token}`);
+    writeFileSync(join(state, 'receiver-owner.json'), '{');
+    await configure(state, home, 'codex-tracing.mjs', false, true);
+    const afterMalformed = readConnection(state);
+    expect(readFileSync(profile, 'utf8')).toContain(`127.0.0.1:${afterMalformed.port}/v1/logs`);
+    writeFileSync(profile, '# user edit');
+    await expect(configure(state, home, 'codex-tracing.mjs', false, true)).rejects.toThrow('different settings');
+    expect(readConnection(state)).toEqual(afterMalformed);
+  } finally {
+    if (blocker) await new Promise<void>(resolve => blocker!.close(() => resolve()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('a warm Codex hook issues one request without a health round trip', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-warm-hook-'));
+  const state = join(home, 'agentprof');
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    await configure(state, home);
+    const connection = readConnection(state), paths: string[] = [];
+    server = httpServer((request, response) => {
+      paths.push(request.url ?? '');
+      response.writeHead(200, {'content-type': 'application/json', 'x-agentprof-generation': connection.generation!,
+        'x-agentprof-build': createHash('sha256').update(readFileSync(resolve(import.meta.dir, 'runtime/codex-tracing.mjs'))).digest('hex')});
+      response.end('{}');
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code, result.error).toBe(0);
+    expect(paths).toEqual(['/hook']);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('old receiver build never handles new hooks while its capture is active', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-build-active-'));
+  let server: ReturnType<typeof httpServer> | undefined;
+  try {
+    const state = join(home, 'agentprof'); await configure(state, home);
+    const connection = readConnection(state);
+    server = httpServer((request, response) => {
+      response.writeHead(200, {'content-type': 'application/json',
+        'x-agentprof-generation': connection.generation!, 'x-agentprof-build': 'old-build'});
+      response.end(request.url === '/health' ? JSON.stringify({ready: true, generation: connection.generation,
+        build: 'old-build', active_captures: 1}) :
+        request.url === '/status' ? JSON.stringify({state: 'recording'}) :
+        request.url === '/stop' ? JSON.stringify({state: 'saving'}) : '{}');
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.output).systemMessage).toContain('upgrade is waiting for active recordings');
+    expect(JSON.parse((await runRuntimeClient(state, home, ['status', '--session', rootSession])).output).state).toBe('recording');
+    expect(JSON.parse((await runRuntimeClient(state, home, ['stop', '--session', rootSession])).output).state).toBe('saving');
+    expect((await runHookClient(state, home, rootSession, 'SessionEnd')).code).toBe(0);
+    expect(existsSync(join(state, 'receiver-owner.json'))).toBe(false);
+  } finally {
+    if (server) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('idle old receiver is replaced before a new hook is recorded', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-build-idle-'));
+  let server: ReturnType<typeof httpServer> | undefined, receiverPid: number | undefined;
+  try {
+    const state = join(home, 'agentprof'); await configure(state, home);
+    const connection = readConnection(state);
+    server = httpServer((request, response) => {
+      response.writeHead(200, {'content-type': 'application/json',
+        'x-agentprof-generation': connection.generation!, 'x-agentprof-build': 'old-build'});
+      response.end(request.url === '/health' ? JSON.stringify({ready: true, generation: connection.generation,
+        build: 'old-build', active_captures: 0}) : '{}');
+      if (request.url === '/shutdown') setImmediate(() => server!.close());
+    });
+    await new Promise<void>((done, reject) => {server!.once('error', reject); server!.listen(connection.port, '127.0.0.1', done);});
+    const result = await runHookClient(state, home);
+    expect(result.code, result.error).toBe(0);
+    expect(JSON.parse(result.output).systemMessage).toBeUndefined();
+    receiverPid = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8')).pid;
+  } finally {
+    if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+    if (server?.listening) await new Promise<void>(done => server!.close(() => done()));
+    rmSync(home, {recursive: true, force: true});
+  }
+});
+
+test('concurrent cold hooks share one receiver', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-receiver-start-'));
+  let receiverPid: number | undefined;
+  try {
+    const state = join(home, 'agentprof');
+    await configure(state, home, resolve(import.meta.dir, 'runtime/codex-tracing.mjs'));
+    const clients = await Promise.all(Array.from({length: 5}, () => runHookClient(state, home)));
+    expect(clients.every(client => client.code === 0 && JSON.parse(client.output).systemMessage === undefined),
+      clients.map(client => client.error).join('\n')).toBe(true);
+    const owner = JSON.parse(readFileSync(join(state, 'receiver-owner.json'), 'utf8'));
+    receiverPid = owner.pid;
+    expect(owner.generation).toBe(readConnection(state).generation);
+    expect(readFileSync(join(state, 'receiver.log'), 'utf8')).not.toContain('EADDRINUSE');
+    const stopped = await runRuntimeClient(state, home, ['receiver-stop']);
+    expect(stopped.code, stopped.error).toBe(0);
+    expect(JSON.parse(stopped.output).stopping).toBe(true);
+  } finally {
+    if (!receiverPid && existsSync(join(home, 'agentprof/receiver-owner.json')))
+      receiverPid = JSON.parse(readFileSync(join(home, 'agentprof/receiver-owner.json'), 'utf8')).pid;
+    if (receiverPid) try {process.kill(receiverPid, 'SIGTERM');} catch {}
+    rmSync(home, {recursive: true, force: true});
+  }
 });
 
 test('plugin routes late native exports to the primary session and children without copying unrelated sessions', async () => {
@@ -47,11 +300,14 @@ test('plugin routes late native exports to the primary session and children with
     await hook(rootSession, 'SubagentStart', {agent_id: childSession, agent_type: 'auditor'});
     clock += 750;
     const stopping = collector.stop(rootSession);
+    expect(stopping.state).toBe('saving');
     expect(collector.status(rootSession).state).toBe('saving');
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect(() => collector.start(rootSession, 'too-soon.pftrace')).toThrow('still being saved');
     for (const row of fixture().filter(row => row.source.startsWith('/v1/'))) collector.ingest(row.data);
     collector.ingest({resourceLogs: [{scopeLogs: [{logRecords: [log(500,
       '10000000-0000-4000-8000-000000000003', 'codex.user_prompt', {prompt: 'PRIVATE OTHER SESSION'})]}]}]});
-    const result = await stopping;
+    const result = await terminalStatus(collector, rootSession);
     expect(result).toMatchObject({state: 'saved', sessions: 2, responses: 3, nestedTools: 1, inputTokens: 260, outputTokens: 14});
     const journal = readFileSync(join(directory, 'test.pftrace.capture/observations.jsonl'), 'utf8');
     expect(journal).not.toContain('PRIVATE OTHER SESSION');
@@ -60,9 +316,165 @@ test('plugin routes late native exports to the primary session and children with
     expect(collector.status(rootSession).state).toBe('saved');
     expect(() => collector.start(rootSession, 'test.pftrace')).toThrow('Output already exists');
     collector.start(rootSession, 'second.pftrace');
-    await collector.stop(rootSession);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    await terminalStatus(collector, rootSession);
     expect(existsSync(join(directory, 'second.pftrace'))).toBe(true);
   } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
+});
+
+test('content opt-out strips Codex hooks and OTLP before the persistent journal and trace', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-no-content-'));
+  const mocked = spyOn(Date, 'now').mockReturnValue(Number(epoch / 1_000_000n));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0, false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit', prompt: 'PRIVATE_PROMPT', turn_id: 'turn-main'}, process.pid, at(10));
+    collector.start(rootSession, 'private.pftrace');
+    await collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse', tool_name: 'Bash',
+      tool_use_id: 'call', tool_input: {command: 'PRIVATE_COMMAND'}}, process.pid, at(11));
+    for (const row of fixture().filter(row => row.source.startsWith('/v1/'))) collector.ingest(row.data);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    await terminalStatus(collector, rootSession);
+    const journal = readFileSync(join(directory, 'private.pftrace.capture/observations.jsonl'), 'utf8');
+    const trace = readFileSync(join(directory, 'private.pftrace'));
+    for (const secret of ['PRIVATE_PROMPT', 'PRIVATE_COMMAND', 'Check the recorded fixture.', 'Process exited with code 7', 'Check the sum']) {
+      expect(journal).not.toContain(secret);
+      expect(trace.includes(secret)).toBe(false);
+    }
+    expect(journal).toContain('"capture_contents":false');
+    expect(journal).toContain('"prompt_length":14');
+  } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
+});
+
+test('content-disabled Codex ingestion never serializes raw OTLP argument or output values', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-no-serialize-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0, false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'bounded.pftrace');
+    let serialized = 0;
+    const wire = log(10, rootSession, 'codex.tool_result', {tool_name: 'exec_command', call_id: 'guarded',
+      duration_ms: '1', arguments: 'SECRET_ARGS'.repeat(50_000), output: 'SECRET_OUTPUT'.repeat(50_000)});
+    for (const attr of wire.attributes.filter(a => ['arguments', 'output'].includes(a.key)))
+      Object.defineProperty(attr.value, 'toJSON', {value() {serialized++; throw new Error('raw value serialized');}});
+    let fingerprinted = 0;
+    const stringify = JSON.stringify;
+    const spy = spyOn(JSON, 'stringify').mockImplementation((value: any, replacer?: any, space?: any) => {
+      // The former readOtel path stringified [time, trace, span, sortedAttrs],
+      // copying primitive argument/output strings before journal sanitization.
+      if (Array.isArray(value) && Array.isArray(value[3]) && value[3].some((entry: unknown) =>
+        Array.isArray(entry) && ['arguments', 'output'].includes(entry[0]) &&
+        typeof entry[1] === 'string' && entry[1].startsWith('SECRET_'))) {
+        fingerprinted++; throw new Error('raw attribute fingerprinted');
+      }
+      return stringify(value, replacer, space);
+    });
+    try {collector.ingest({resourceLogs: [{scopeLogs: [{logRecords: [wire]}]}]});}
+    finally {spy.mockRestore();}
+    expect(serialized).toBe(0);
+    expect(fingerprinted).toBe(0);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    const journal = readFileSync(join(directory, 'bounded.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(journal).not.toContain('SECRET_ARGS');
+    expect(journal).not.toContain('SECRET_OUTPUT');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('a shared Codex receiver honors a later session opt-out independently', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-shared-policy-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0);
+    const other = childSession;
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0), false, true);
+    collector.start(rootSession, 'enabled.pftrace', true);
+    await collector.hook({session_id: other, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0), false, false);
+    collector.start(other, 'disabled.pftrace', false);
+    await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit', prompt: 'VISIBLE_A'}, process.pid, at(10), false, true);
+    await collector.hook({session_id: other, hook_event_name: 'UserPromptSubmit', prompt: 'PRIVATE_B'}, process.pid, at(10), false, false);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect(collector.stop(other).state).toBe('saving');
+    await Promise.all([terminalStatus(collector, rootSession), terminalStatus(collector, other)]);
+    expect(readFileSync(join(directory, 'enabled.pftrace.capture/observations.jsonl'), 'utf8')).toContain('VISIBLE_A');
+    const disabled = readFileSync(join(directory, 'disabled.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(disabled).not.toContain('PRIVATE_B');
+    expect(disabled).toContain('"capture_contents":false');
+    expect(readFileSync(join(directory, 'disabled.pftrace')).includes('PRIVATE_B')).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('typed stop returns saving before native drain and publishes through status', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-typed-stop-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 40);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'typed.pftrace');
+    const response = await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit',
+      prompt: 'tracing stop'}, process.pid, at(10));
+    expect(response.reason).toContain('Saving');
+    expect(collector.status(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(existsSync(join(directory, 'typed.pftrace'))).toBe(true);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('background publication errors become terminal status with the journal retained', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-stop-error-'));
+  try {
+    const collector = new Collector(join(directory, 'state'), 0);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'existing.pftrace');
+    writeFileSync(join(directory, 'existing.pftrace'), 'keep');
+    const saveStatus = (collector as any).recordState.bind(collector);
+    (collector as any).recordState = (id: string, value: {state: string}) => {
+      if (value.state === 'error') throw new Error('status write failed');
+      return saveStatus(id, value);
+    };
+    expect(collector.stop(rootSession).state).toBe('saving');
+    const status = await terminalStatus(collector, rootSession);
+    expect(status.state).toBe('error');
+    expect(status.journal).toBe(join(directory, 'existing.pftrace.capture'));
+    expect(readFileSync(join(directory, 'existing.pftrace'), 'utf8')).toBe('keep');
+    expect(readFileSync(join(directory, 'existing.pftrace.capture/error.txt'), 'utf8')).toContain('Output already exists');
+    expect(new Collector(join(directory, 'state'), 0).status(rootSession).state).toBe('error');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('terminal status survives a failed state-file update after background publication', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-status-fault-'));
+  try {
+    const state = join(directory, 'state'), collector = new Collector(state, 0);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'published.pftrace');
+    const writeState = (collector as any).recordState.bind(collector);
+    (collector as any).recordState = (id: string, value: {state: string}) => {
+      if (value.state === 'saved') throw new Error('status write failed');
+      return writeState(id, value);
+    };
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(existsSync(join(directory, 'published.pftrace'))).toBe(true);
+    expect(new Collector(state, 0).status(rootSession).state).toBe('saved');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('failure to persist saving state cannot wedge background publication', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-saving-fault-'));
+  try {
+    const state = join(directory, 'state'), collector = new Collector(state, 0);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'saved-despite-status.pftrace');
+    const writeState = (collector as any).recordState.bind(collector);
+    (collector as any).recordState = (id: string, value: {state: string}) => {
+      if (value.state === 'saving' || value.state === 'saved') throw new Error('status write failed');
+      return writeState(id, value);
+    };
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(existsSync(join(directory, 'saved-despite-status.pftrace'))).toBe(true);
+    expect(new Collector(state, 0).status(rootSession).state).toBe('saved');
+  } finally {rmSync(directory, {recursive: true, force: true});}
 });
 
 test('session end saves automatically and compaction remains a measured span in Perfetto', async () => {
@@ -73,7 +485,8 @@ test('session end saves automatically and compaction remains a measured span in 
     await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
     collector.start(rootSession, 'exit.pftrace');
     await collector.hook({session_id: rootSession, hook_event_name: 'SessionEnd'}, process.pid, at(1000));
-    expect(await collector.stop(rootSession)).toMatchObject({state: 'saved'});
+    expect(collector.stop(rootSession).state).toBe('saving');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
     const rows = fixture();
     rows[0]!.data.recorder = 'codex-plugin-1'; rows[0]!.data.sessionId = rootSession;
     rows.push({source: 'codex.hook', timestamp: at(100), data: {session_id: rootSession, hook_event_name: 'PreCompact', trigger: 'auto'}});
@@ -101,10 +514,12 @@ test('subagent tool hooks retain their own identity; separate primary recordings
     await collector.hook({session_id: rootSession, hook_event_name: 'SubagentStart', agent_id: childSession}, process.pid, at(0));
     await collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse', agent_id: childSession,
       tool_name: 'Bash', tool_use_id: 'child-command', tool_input: {command: 'echo child'}}, process.pid, at(0));
-    await expect(collector.stop(childSession)).rejects.toThrow('primary session');
-    await collector.stop(rootSession);
+    expect(() => collector.stop(childSession)).toThrow('primary session');
+    expect(collector.stop(rootSession).state).toBe('saving');
+    await terminalStatus(collector, rootSession);
     expect(collector.status(other).state).toBe('recording');
-    await collector.stop(other);
+    expect(collector.stop(other).state).toBe('saving');
+    await terminalStatus(collector, other);
     const rows = readFileSync(join(directory, `${rootSession}.pftrace.capture/observations.jsonl`), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     const childHook = rows.find(row => row.source === 'codex.hook' && row.data.tool_use_id === 'child-command');
     expect(childHook.data).toMatchObject({session_id: childSession, parent_session: rootSession});
@@ -121,7 +536,8 @@ test('automatic capture starts once and compaction does not restart a manually s
     const output = collector.status(rootSession).output;
     await hook('compact');
     expect(collector.status(rootSession).output).toBe(output);
-    await collector.stop(rootSession);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    await terminalStatus(collector, rootSession);
     await hook('compact');
     expect(collector.status(rootSession).state).toBe('saved');
   } finally {rmSync(directory, {recursive: true, force: true});}
@@ -137,11 +553,62 @@ test('resuming a session updates its process and does not restart completed suba
     await collector.hook({session_id: rootSession, hook_event_name: 'SessionEnd'}, 123456, at(2));
     await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', source: 'resume', cwd: directory}, process.pid, at(3));
     collector.start(rootSession, 'resumed.pftrace');
-    const result = await collector.stop(rootSession);
+    expect(collector.stop(rootSession).state).toBe('saving');
+    const result = await terminalStatus(collector, rootSession);
     expect(result).toMatchObject({sessions: 1, state: 'saved'});
     const rows = readFileSync(join(directory, 'resumed.pftrace.capture/observations.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     expect(rows[0].data.pid).toBe(process.pid);
     expect(rows.some(row => row.data.session_id === childSession)).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('recycled Codex PID stops its original capture without accepting a new generation', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-pid-reuse-'));
+  try {
+    let marker = 'start-a';
+    const collector = new Collector(join(directory, 'state'), 0, true,
+      {start: () => marker, same: (_pid, expected) => expected === marker});
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'reused.pftrace');
+    marker = 'start-b';
+    collector.tick();
+    expect(collector.status(rootSession).state).toBe('saving');
+    await expect(collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse'}, process.pid, at(1)))
+      .rejects.toThrow('process generation changed');
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(incompleteCapture(join(directory, 'reused.pftrace'))).toBe(true);
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(2));
+    expect(collector.sessions.get(rootSession)?.processStartMarker).toBe('start-b');
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('Codex promotes a replacement generation whose only SessionStart occurs during drain', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-generation-drain-'));
+  try {
+    let marker = 'first';
+    const collector = new Collector(join(directory, 'state'), 40, true,
+      {start: () => marker, same: (_pid, expected) => expected === marker});
+    await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(0));
+    collector.start(rootSession, 'first.pftrace');
+    marker = 'second';
+    const response = await collector.hook({session_id: rootSession, hook_event_name: 'SessionStart', cwd: directory}, process.pid, at(1));
+    expect(response.systemMessage).toContain('saving');
+    expect(collector.status(rootSession).state).toBe('saving');
+    const control = await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit',
+      prompt: 'tracing start'}, process.pid, at(2));
+    expect(control).toMatchObject({decision: 'block'});
+    expect(control.reason).toContain('Retry');
+    expect(await collector.hook({session_id: rootSession, hook_event_name: 'UserPromptSubmit',
+      prompt: 'New task'}, process.pid, at(3))).toEqual({});
+    expect(await collector.hook({session_id: rootSession, hook_event_name: 'PreToolUse'}, process.pid, at(4))).toEqual({});
+    expect((await terminalStatus(collector, rootSession)).state).toBe('saved');
+    expect(collector.sessions.get(rootSession)?.processStartMarker).toBe('second');
+    expect(collector.start(rootSession, 'second.pftrace').state).toBe('recording');
+    const newJournal = readFileSync(join(directory, 'second.pftrace.capture/observations.jsonl'), 'utf8');
+    expect(newJournal).toContain('New task');
+    expect(newJournal).toContain('started_before_capture');
+    collector.stop(rootSession); await terminalStatus(collector, rootSession);
+    expect(incompleteCapture(join(directory, 'second.pftrace'))).toBe(true);
   } finally {rmSync(directory, {recursive: true, force: true});}
 });
 
@@ -174,6 +641,43 @@ test('typed recording controls do not leave an orphan prompt or an incomplete tu
   addHooks(rows, spans, logs, BigInt(at(0)), BigInt(at(1000)));
   expect(spans.has('root:prompt')).toBe(false);
   expect(logs.filter(log => log.attrs['event.name'] === 'codex.user_prompt').map(log => log.attrs['conversation.id'])).toEqual([childSession]);
+});
+
+test('middle corruption is counted, later valid records survive, and the published capture is incomplete', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-journal-corrupt-'));
+  try {
+    const rows = fixture();
+    rows[0]!.data.recorder = 'codex-plugin-1'; rows[0]!.data.sessionId = rootSession;
+    const lines = rows.map(row => JSON.stringify(row));
+    lines.splice(4, 0, '{bad-json}', 'null');
+    writeFileSync(join(directory, 'observations.jsonl'), lines.join('\n') + '\n');
+    const path = join(directory, 'recovered.pftrace');
+    expect(publish(directory, path)).toMatchObject({output: path, sessions: 2, responses: 3, corruptRecords: 2});
+    expect(incompleteCapture(path)).toBe(true);
+    expect(JSON.parse(readFileSync(join(directory, 'summary.json'), 'utf8')).corruptRecords).toBe(2);
+    const invalid = mkdtempSync(join(tmpdir(), 'codex-journal-identity-'));
+    try {
+      writeFileSync(join(invalid, 'observations.jsonl'), '{bad-json}\n' + lines.slice(1).join('\n') + '\n');
+      expect(() => publish(invalid, join(invalid, 'no-identity.pftrace'))).toThrow('process identity');
+    } finally {rmSync(invalid, {recursive: true, force: true});}
+  } finally {rmSync(directory, {recursive: true, force: true});}
+});
+
+test('Codex recovery does not trust a mismatched implicit output path', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'codex-invalid-output-'));
+  try {
+    const capture = join(directory, 'expected.pftrace.capture');
+    mkdirSync(capture);
+    const rows = fixture();
+    rows[0]!.data.output = join(directory, 'unexpected.pftrace');
+    writeFileSync(join(capture, 'observations.jsonl'), rows.map(row => JSON.stringify(row)).join('\n') + '\n');
+    expect(() => publish(capture)).toThrow('Invalid Codex capture identity');
+    const packaged = spawnSync('node', [resolve(import.meta.dir, 'runtime/codex-tracing.mjs'), 'recover',
+      '--state', join(directory, 'state'), capture], {cwd: directory, encoding: 'utf8'});
+    expect(packaged.status).toBe(1);
+    expect(packaged.stderr).toContain('Invalid Codex capture identity');
+    expect(existsSync(join(directory, 'unexpected.pftrace'))).toBe(false);
+  } finally {rmSync(directory, {recursive: true, force: true});}
 });
 
 test('a truncated crash journal can be recovered without overwriting another recording', () => {

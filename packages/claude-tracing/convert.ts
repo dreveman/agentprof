@@ -50,6 +50,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   const processStart = rows.find(r => r.source === 'process_start');
   if (!processStart || integer(processStart.data.pid) === undefined) throw new Error('Missing recorded Claude process identity');
   const first = BigInt(processStart.timestamp);
+  const captureContents = processStart.data.capture_contents !== false;
   const processEnd = rows.find(r => r.source === 'process_end');
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const capture = string(processStart.data.captureId);
@@ -157,7 +158,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const scope = spanScope(s);
     if (s.name === 'claude_code.interaction') {
       const prompt = add(s.key, scope, 'Session', 'prompt', s.start, s.end,
-        {kind: 'prompt', ...promptAnnotations(s.attrs.user_prompt, true)});
+        {kind: 'prompt', ...promptAnnotations(s.attrs.user_prompt, captureContents)});
       mapped.set(s.key, prompt);
       const input = add(`${s.key}:input`, scope, 'Inputs', 'prompt-input', s.start, undefined, {source: 'user', timing: 'interaction-start'});
       edge(input, prompt);
@@ -186,12 +187,12 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
       const callId = string(s.attrs.tool_use_id ?? parent?.attrs.tool_use_id);
       const hook = preflight.get(`${scope.session}:${callId}`);
       const name = string(parent?.attrs.tool_name) || string(hook?.event.tool_name) || 'tool';
-      const args = toolArgumentAnnotations(hook?.event.tool_input, true);
+      const args = toolArgumentAnnotations(hook?.event.tool_input, captureContents);
       if (args.truncated !== undefined) {args.args_truncated = args.truncated; delete args.truncated;}
-      const description = object(hook?.event.tool_input).description;
+      const description = captureContents ? object(hook?.event.tool_input).description : undefined;
       const tool = add(s.key, scope, 'Tools', name, s.start, s.end,
         {kind: 'tool-execution', call_id: callId, is_error: s.error || s.attrs.success === false, ...args,
-          ...(typeof description === 'string' ? {intent: description} : {})});
+          ...(captureContents && typeof description === 'string' ? {intent: description} : {})});
       mapped.set(s.key, tool);
       if (parent) mapped.set(parent.key, tool);
       tools++;
@@ -220,7 +221,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const observedEnd = terminal?.at ?? last;
     add(`unmeasured:${scope.key}:${callId}`, scope, 'Tools', string(h.event.tool_name) || 'tool', h.at, observedEnd,
       {kind: 'tool-execution', call_id: callId, incomplete: true, timing: 'hook-observation',
-        reason: 'native_execution_span_not_received', ...toolArgumentAnnotations(h.event.tool_input, true)});
+        reason: 'native_execution_span_not_received', ...toolArgumentAnnotations(h.event.tool_input, captureContents)});
     if (h.at < scope.start) scope.start = h.at;
     if (observedEnd > scope.end) scope.end = observedEnd;
   }
@@ -260,7 +261,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
       launch.attrs.delegation = true; launch.attrs.child_session = scope.key;
       scope.attrs.parent_session = launch.scope;
       const h = preflight.get(`${scopes.get(launch.scope)!.session}:${launch.attrs.call_id}`);
-      Object.assign(prompt.attrs, promptAnnotations(object(h?.event.tool_input).prompt, true));
+      Object.assign(prompt.attrs, promptAnnotations(object(h?.event.tool_input).prompt, captureContents));
       edge(launch, input);
     }
   }

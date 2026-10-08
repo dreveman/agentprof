@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // packages/claude-tracing/direct-journal.ts
 import { mkdirSync, writeFileSync, readFileSync as readFileSync3, readdirSync, renameSync, existsSync, linkSync, unlinkSync, statSync } from "node:fs";
-import { resolve, dirname, join } from "node:path";
+import { resolve, dirname, join, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
@@ -220,7 +220,9 @@ function framePacket(packet) {
 }
 
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
-function toolArgumentAnnotations(input, captureContents) {
+function toolArgumentAnnotations(input, mode) {
+  if (mode === false || mode === "disabled")
+    return {};
   const attrs = {};
   let json;
   try {
@@ -237,7 +239,7 @@ function toolArgumentAnnotations(input, captureContents) {
     if (keys.length > 12 || keys.some((key) => key.length > 200))
       attrs["keys_truncated"] = true;
   }
-  if (!captureContents)
+  if (mode === "metadata")
     return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
@@ -471,6 +473,7 @@ var DEFAULT_COUNTERS = [
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
+var MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 var OWNER_GRACE_MS = 5 * 60 * 1000;
 var utf82 = new TextEncoder;
 var runtimeIdentity = randomToken();
@@ -661,6 +664,7 @@ function convertDirectObservations(rows) {
     throw new Error("Missing Claude process identity");
   const capture = text(identity.data.captureId);
   const events = rows.filter((r) => r.source === "claude.mod").sort((a, b) => compareTime(BigInt(a.timestamp), BigInt(b.timestamp)));
+  const captureContents = !events.some((r) => r.data.event === "session" && r.data.capture_contents === false);
   if (!events.length)
     throw new Error("No direct Claude events captured");
   const last = BigInt(events.at(-1).timestamp);
@@ -770,7 +774,7 @@ function convertDirectObservations(rows) {
     const input = add(r, "Inputs", "prompt-input", BigInt(r.timestamp), undefined, { source: d.agent_id ? "agent" : "user" }, ":input");
     const prompt = add(r, "Session", "prompt", BigInt(r.timestamp), promptEnd, {
       kind: "prompt",
-      ...promptAnnotations(d.prompt, true),
+      ...promptAnnotations(d.prompt, captureContents),
       ...tokens(d.prompt_length) !== undefined ? { length: tokens(d.prompt_length) } : {},
       ...d.content_omitted ? { content_omitted: true } : {},
       ...d.started_before_capture ? { started_before_capture: true, incomplete: true } : {},
@@ -833,14 +837,14 @@ function convertDirectObservations(rows) {
     const attrs = {
       kind: "tool-execution",
       call_id: text(d.id),
-      ...toolArgumentAnnotations(d.arguments, true),
+      ...toolArgumentAnnotations(d.arguments, captureContents),
       timing: measured ? "reported-execution-duration" : "dispatch-only",
       ...d.content_omitted ? { content_omitted: true } : {},
       ...!measured || !close || close.data.incomplete ? { incomplete: true } : {},
       ...close ? { is_error: Boolean(close.data.is_error) } : execution ? { is_error: Boolean(execution.data.is_error) } : {}
     };
-    const intent = object(d.arguments).description;
-    if (typeof intent === "string")
+    const intent = captureContents ? object(d.arguments).description : undefined;
+    if (captureContents && typeof intent === "string")
       attrs.intent = intent;
     const tool = add(r, "Tools", text(d.tool) || "tool", start, end, attrs);
     tools.set(`${scope(d)}:${d.id}`, tool);
@@ -887,6 +891,27 @@ function convertDirectObservations(rows) {
         at: compact.end,
         model: text(result.model)
       });
+  }
+  const turnContexts = new Map;
+  for (const r of events.filter((r) => r.data.event === "context")) {
+    const id = `${scope(r.data)}:${text(r.data.id)}`, pair = turnContexts.get(id) ?? {};
+    if (r.data.phase === "summary")
+      pair.summary = r;
+    else
+      pair.delta = r;
+    turnContexts.set(id, pair);
+  }
+  for (const [id, { delta, summary }] of turnContexts) {
+    const prompt = prompts.get(id), input = { ...object(summary?.data.context), ...object(delta?.data.context) };
+    if (!prompt || !input.breakdown && !(Array.isArray(input.item_changes) && input.item_changes.length))
+      continue;
+    contextSamples.push({
+      slice: prompt,
+      input,
+      stage: "transcript-observed",
+      at: BigInt(delta?.timestamp ?? summary.timestamp),
+      model: text(summary?.data.model) || text(sessions.get(prompt.session)?.attrs.model)
+    });
   }
   for (const r of events.filter((r) => r.data.event === "session" && r.data.phase === "begin" && object(r.data.context).breakdown)) {
     const session = sessions.get(scope(r.data));
@@ -1018,6 +1043,28 @@ function convertDirectObservations(rows) {
   } };
 }
 
+// packages/agent-tracing/journal.ts
+function parseObservationJournal(text) {
+  const lines = text.split(`
+`), tail = lines.pop();
+  const rows = [];
+  let corruptRecords = tail ? 1 : 0;
+  for (const line of lines) {
+    try {
+      const row = JSON.parse(line);
+      if (row === null || typeof row !== "object" || Array.isArray(row))
+        throw new Error("invalid observation");
+      const value = row;
+      if (typeof value.source !== "string" || !value.source || typeof value.timestamp !== "string" || !/^\d{1,20}$/.test(value.timestamp) || BigInt(value.timestamp) > (1n << 64n) - 1n || value.data === null || typeof value.data !== "object" || Array.isArray(value.data))
+        throw new Error("invalid observation");
+      rows.push(value);
+    } catch {
+      corruptRecords++;
+    }
+  }
+  return { rows, corruptRecords };
+}
+
 // packages/claude-tracing/direct-journal.ts
 function initializeDirectCapture(path, pid = process.ppid) {
   const captureId = randomUUID();
@@ -1039,24 +1086,30 @@ function initializeDirectCapture(path, pid = process.ppid) {
   return metadata;
 }
 function readDirectCapture(directory) {
-  const rows = JSON.parse(readFileSync3(join(directory, "metadata.json"), "utf8"));
+  const metadata = JSON.parse(readFileSync3(join(directory, "metadata.json"), "utf8"));
+  if (!Array.isArray(metadata) || !metadata.every((row) => row && typeof row === "object" && typeof row.source === "string" && typeof row.timestamp === "string" && row.data && typeof row.data === "object" && !Array.isArray(row.data)))
+    throw new Error("Invalid Claude capture metadata");
+  const rows = metadata;
   for (const file of readdirSync(directory).filter((p) => /^events-\d+\.jsonl$/.test(p)).sort()) {
-    const text = readFileSync3(join(directory, file), "utf8");
-    const lines = text.split(`
-`);
-    const tail = lines.pop();
-    for (const line of lines)
-      if (line)
-        rows.push(JSON.parse(line));
-    if (tail)
-      rows.push({ source: "recovery", timestamp: rows.at(-1).timestamp, data: { incomplete_chunk: file } });
+    const { rows: valid, corruptRecords } = parseObservationJournal(readFileSync3(join(directory, file), "utf8"));
+    rows.push(...valid);
+    if (corruptRecords)
+      rows.push({
+        source: "recovery",
+        timestamp: rows.at(-1).timestamp,
+        data: { incomplete_chunk: file, corrupt_records: corruptRecords }
+      });
   }
   return rows;
 }
 function finishDirectCapture(directory) {
   const rows = readDirectCapture(directory), identity = rows.find((r) => r.source === "process_start");
-  const output = String(identity.data.output), captureId = String(identity.data.captureId);
+  const expected = resolve(directory);
+  if (!expected.endsWith(".pftrace.capture") || !identity || typeof identity.data.output !== "string" || !isAbsolute(identity.data.output) || resolve(identity.data.output) !== expected.slice(0, -".capture".length) || typeof identity.data.directory !== "string" || resolve(identity.data.directory) !== expected || typeof identity.data.captureId !== "string" || !identity.data.captureId)
+    throw new Error("Invalid Claude capture identity or output path");
+  const output = identity.data.output, captureId = identity.data.captureId;
   const result = convertDirectObservations(rows);
+  const corruptRecords = rows.filter((r) => r.source === "recovery").reduce((sum, r) => sum + Number(r.data.corrupt_records ?? 0), 0);
   const ownership = join(directory, "published");
   const owned = existsSync(ownership) ? JSON.parse(readFileSync3(ownership, "utf8")) : undefined;
   const replace = existsSync(output);
@@ -1081,9 +1134,9 @@ function finishDirectCapture(directory) {
   renameSync(`${ownership}.tmp`, ownership);
   if (existsSync(join(directory, "error.txt")))
     unlinkSync(join(directory, "error.txt"));
-  writeFileSync(join(directory, "summary.json"), JSON.stringify({ output, ...result.summary }, null, 2) + `
+  writeFileSync(join(directory, "summary.json"), JSON.stringify({ output, ...result.summary, corruptRecords }, null, 2) + `
 `, { mode: 384 });
-  return { output, ...result.summary };
+  return { output, ...result.summary, corruptRecords };
 }
 
 // packages/claude-tracing/direct-writer.ts

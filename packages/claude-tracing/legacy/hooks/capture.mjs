@@ -8,8 +8,9 @@ if (process.env.AGENTPROF_CAPTURE_ENDPOINT) {
     const event = {};
     for (const key of ['session_id', 'prompt_id', 'hook_event_name', 'agent_id', 'agent_type', 'tool_use_id',
       'tool_name', 'tool_input', 'prompt', 'source', 'reason', 'trigger', 'error', 'model']) {
-      if (input[key] !== undefined) event[key] = input[key];
+      if (input[key] !== undefined && (!['prompt', 'tool_input'].includes(key) || !['0', 'false'].includes(String(process.env.AGENTPROF_CAPTURE_CONTENTS).toLowerCase()))) event[key] = input[key];
     }
+    if (typeof input.prompt === 'string') event.prompt_length = input.prompt.length;
     await fetch(`${process.env.AGENTPROF_CAPTURE_ENDPOINT}/hook`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json', Authorization: `Bearer ${process.env.AGENTPROF_CAPTURE_TOKEN}`},

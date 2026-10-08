@@ -49,19 +49,40 @@ SELECT c.*, COALESCE((SELECT t.id FROM agentprof_tool_calls t
 FROM changes c;
 `;
 
+// Bound UI result sets; the complete context tables remain queryable in SQL.
+export const CONTEXT_SAMPLE_LIMIT = 2000;
+export const CONTEXT_CHANGE_LIMIT = 500;
+export const CONTEXT_COMPACTION_LIMIT = 500;
+
 export const CONTEXT_QUERIES = {
-  context_compactions: `SELECT id AS event_id, capture_id, ts, dur,
-    COALESCE(EXTRACT_ARG(arg_set_id, 'debug.pre_tokens'), EXTRACT_ARG(arg_set_id, 'debug.tokens_before')) AS before_tokens,
-    COALESCE(EXTRACT_ARG(arg_set_id, 'debug.post_tokens'), EXTRACT_ARG(arg_set_id, 'debug.tokens_after')) AS after_tokens
-    FROM agentprof_slices WHERE kind = 'compaction' AND dur >= 0 AND NOT incomplete`,
-  context_snapshots: `SELECT s.*, h.root_capture_id, r.harness FROM agentprof_context_snapshots s
-    JOIN agentprof_capture_hierarchy h USING(capture_id)
-    JOIN agentprof_capture_runs r USING(capture_id) ORDER BY s.ts, s.event_id`,
-  context_changes: `SELECT * FROM agentprof_context_changes ORDER BY ABS(delta_tokens) DESC, ts`,
-  context_history: `SELECT c.ts, c.value AS tokens, t.capture_id, h.root_capture_id, r.session,
+  context_compactions: `SELECT * FROM (
+    SELECT id AS event_id, capture_id, ts, dur,
+      COALESCE(EXTRACT_ARG(arg_set_id, 'debug.pre_tokens'), EXTRACT_ARG(arg_set_id, 'debug.tokens_before')) AS before_tokens,
+      COALESCE(EXTRACT_ARG(arg_set_id, 'debug.post_tokens'), EXTRACT_ARG(arg_set_id, 'debug.tokens_after')) AS after_tokens
+    FROM agentprof_slices WHERE kind = 'compaction' AND dur >= 0 AND NOT incomplete
+    ORDER BY ts DESC, id DESC LIMIT ${CONTEXT_COMPACTION_LIMIT}
+  ) ORDER BY ts, event_id`,
+  context_latest: `SELECT s.*, h.root_capture_id, r.harness FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY capture_id ORDER BY ts DESC, event_id DESC) AS sample_rank
+    FROM agentprof_context_snapshots
+  ) s JOIN agentprof_capture_hierarchy h USING(capture_id)
+    JOIN agentprof_capture_runs r USING(capture_id)
+    WHERE s.sample_rank = 1 ORDER BY s.ts, s.event_id`,
+  context_snapshots: `SELECT * FROM (
+    SELECT s.*, h.root_capture_id, r.harness FROM agentprof_context_snapshots s
+      JOIN agentprof_capture_hierarchy h USING(capture_id)
+      JOIN agentprof_capture_runs r USING(capture_id)
+      ORDER BY s.ts DESC, s.event_id DESC LIMIT ${CONTEXT_SAMPLE_LIMIT}
+  ) ORDER BY ts, event_id`,
+  context_changes: `SELECT * FROM agentprof_context_changes
+    ORDER BY ABS(delta_tokens) DESC, ts LIMIT ${CONTEXT_CHANGE_LIMIT}`,
+  context_history: `SELECT * FROM (
+    SELECT c.ts, c.value AS tokens, t.capture_id, h.root_capture_id, r.session,
       r.context_window_tokens AS window_tokens
     FROM counter c JOIN agentprof_counter_tracks t ON t.id = c.track_id
     JOIN agentprof_capture_hierarchy h USING(capture_id)
     JOIN agentprof_capture_runs r USING(capture_id)
-    WHERE t.name = 'llm.context.estimated_tokens' AND c.ts < r.end_ts ORDER BY c.ts`,
+    WHERE t.name = 'llm.context.estimated_tokens' AND c.ts < r.end_ts
+    ORDER BY c.ts DESC LIMIT ${CONTEXT_SAMPLE_LIMIT}
+  ) ORDER BY ts`,
 };

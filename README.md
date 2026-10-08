@@ -41,8 +41,11 @@ Run a task, then exit Pi to finalize the trace and print its path. Use
 To try the extension from a local checkout without installing it, run
 `pi -e ./packages/pi-tracing --tracing`. See the
 [extension guide](packages/pi-tracing/README.md) for options.
-Recordings include prompts and tool arguments by default. Set
-`PI_TRACING_CAPTURE_CONTENTS=0` to omit tool arguments.
+Recordings include prompt text and tool arguments by default. Set
+`AGENTPROF_CAPTURE_CONTENTS=0` before launching any supported harness to keep
+content out of new recordings; timing, usage, IDs and metadata remain. Pi's
+legacy `PI_TRACING_CAPTURE_CONTENTS=0` continues to omit tool arguments only.
+See each harness guide for raw-journal and native-export limitations.
 
 For Claude Code (2.1.289+ with mods enabled, Node.js 22+), install the
 [interactive plugin](packages/claude-tracing/README.md):
@@ -68,8 +71,9 @@ codex --no-daemon -p agentprof
 ```
 
 Review the recording hooks in `/hooks`, then type `tracing start`. Type
-`tracing stop` to save, or exit Codex. Agent tools can also start, stop and
-report recording status. Subagents share the same trace, with native model
+`tracing stop` to begin saving, or exit Codex. Stop returns `saving` promptly;
+use `tracing status` to confirm publication or see an error. Agent tools can also
+start, stop and report recording status. Subagents share the same trace, with native model
 timing, token usage, context limits, and scripts and their nested tools.
 
 For Muse Code, install the [native recording plugin](packages/muse-tracing/README.md):

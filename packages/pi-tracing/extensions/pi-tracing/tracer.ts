@@ -20,6 +20,7 @@ import { hostname, uptime } from "node:os";
 import { basename, dirname, join } from "node:path";
 
 import {Recording} from "./recording.ts";
+import {captureContentsEnabled} from '../../../agent-tracing/content.ts';
 
 import type { CategoryId, TracingConfig } from "./config.ts";
 import { SCHEMA_VERSION, TRACE_VERSION, reportedTokenUsage, tokenCount, runConfigurationAnnotations, type RunConfiguration } from "./annotations.ts";
@@ -108,7 +109,12 @@ interface OpenSpan {
   updates: number;
   bytes: number;
   annotations?: NormalizedAttrs;
-  deferredBegin?: {flowIds?: bigint[]; annotations: NormalizedAttrs};
+  deferredBegin?: {
+    flowIds?: bigint[];
+    annotations: NormalizedAttrs;
+    record: Uint8Array;
+    reservedBytes: number; // BEGIN plus a minimal END (including the longest timestamp).
+  };
   laneKey?: string;
   laneAllocator?: ToolLaneAllocator;
 }
@@ -117,10 +123,22 @@ interface EnqueueOptions {
   critical?: boolean;
 }
 
+interface EventRecordArgs {
+  trackUuid: bigint;
+  categories: string[];
+  name?: string;
+  type: number;
+  counterValue?: bigint;
+  debugAnnotations?: Record<string, DebugAnnotationValue>;
+  flowIds?: bigint[];
+  tNs: bigint;
+}
+
 const FLUSH_BATCH_BYTES = 64 * 1024;
 const FLUSH_BATCH_RECORDS = 128;
 const FINALIZE_RESERVE_BYTES = 64 * 1024;
 const CRITICAL_RECORD_RESERVE = 128;
+const MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 const OWNER_GRACE_MS = 5 * 60 * 1000;
 const CLOCK_RESNAPSHOT_NS = 60_000_000_000n;
 const CLOCK_RESNAPSHOT_RETRY_NS = 1_000_000_000n;
@@ -392,6 +410,10 @@ export class Recorder {
   private queuedRecords = 0;
   private queuedBytes = 0;
   private acceptedBytes = 0;
+  // Deferred BEGINs live in memory rather than the writer queue. Account for
+  // them and their closing ENDs before admitting any more ordinary packets.
+  private deferredBytes = 0;
+  private deferredRecords = 0;
   private packetsWritten = 0;
   private bytesWritten = 0;
   private droppedEvents = 0;
@@ -592,6 +614,8 @@ export class Recorder {
       this.queuedRecords = 0;
       this.queuedBytes = 0;
       this.acceptedBytes = 0;
+      this.deferredBytes = 0;
+      this.deferredRecords = 0;
       this.packetsWritten = 0;
       this.bytesWritten = 0;
       this.droppedEvents = 0;
@@ -673,7 +697,8 @@ export class Recorder {
           "clock_uncertainty_ns": Number(clock.uncertaintyNs),
           "categories": Object.entries(this.config.categories)
             .filter(([, enabled]) => enabled).map(([name]) => name).join(","),
-          "tool_arguments": this.config.captureContents && this.config.categories.contents,
+          "tool_arguments": this.config.captureContents && this.config.categories.contents &&
+            captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS),
         },
         tNs: this.tStartNs,
       }, true);
@@ -876,17 +901,34 @@ export class Recorder {
     }
     const spanId = this.nextSpanId++;
     const annotations = {...options.annotations, kind: options.kind ?? "tool-execution", call_id: toolCallId, name};
+    const beginArgs: EventRecordArgs = {
+      trackUuid: lane.uuid, categories: [`pi.${category}`], name,
+      type: TRACK_EVENT_BEGIN, flowIds, debugAnnotations: annotations, tNs: started,
+    };
+    let deferredBegin: OpenSpan["deferredBegin"];
+    if (options.deferBegin) {
+      try {
+        const record = this.encodeEvent(beginArgs);
+        // Reserve enough for an END even if the clock's varint grows before
+        // this call finishes. Dynamic result annotations are best-effort.
+        const endBytes = this.encodeEvent({
+          trackUuid: lane.uuid, categories: [], type: TRACK_EVENT_END,
+          tNs: MAX_TIMESTAMP_NS,
+        }).length;
+        const reservedBytes = record.length + endBytes;
+        if (this.fitsDeferred(reservedBytes, 2)) {
+          this.deferredBytes += reservedBytes;
+          this.deferredRecords += 2;
+          deferredBegin = {flowIds: flowIds?.slice(), annotations, record, reservedBytes};
+        }
+      } catch { /* Malformed annotations or flow ids: drop only this span. */ }
+    }
     // Reserve the lane now; child session IDs may only arrive in the result.
-    const accepted = options.deferBegin === true || this.enqueueEvent({
-      trackUuid: lane.uuid,
-      categories: [`pi.${category}`],
-      name,
-      type: TRACK_EVENT_BEGIN,
-      flowIds,
-      debugAnnotations: annotations,
-      tNs: started,
-    });
+    const accepted = options.deferBegin
+      ? deferredBegin !== undefined
+      : this.enqueueEvent(beginArgs);
     if (!accepted) {
+      if (options.deferBegin) this.droppedEvents++;
       this.tracks.lanes.free(toolCallId);
       return null;
     }
@@ -897,7 +939,7 @@ export class Recorder {
       cat: category,
       updates: 0,
       bytes: 0,
-      deferredBegin: options.deferBegin ? {flowIds, annotations} : undefined,
+      deferredBegin,
       laneKey: toolCallId,
       laneAllocator: this.tracks.lanes,
     });
@@ -968,8 +1010,26 @@ export class Recorder {
 
   /** Link a subsequently observed child to this span's original BEGIN. */
   addBeginFlow(spanId: number, flowId: bigint): void {
-    const begin = this.openSpans.get(spanId)?.deferredBegin;
-    if (begin !== undefined) (begin.flowIds ??= []).push(flowId);
+    const span = this.openSpans.get(spanId);
+    const begin = span?.deferredBegin;
+    if (span === undefined || begin === undefined) return;
+    const flowIds = [...(begin.flowIds ?? []), flowId];
+    try {
+      const record = this.encodeEvent({
+        trackUuid: span.trackUuid, categories: [`pi.${span.cat}`], name: span.name,
+        type: TRACK_EVENT_BEGIN, tNs: span.beginNs,
+        debugAnnotations: begin.annotations, flowIds,
+      });
+      const growth = record.length - begin.record.length;
+      if (this.fitsDeferred(growth, 0)) {
+        this.deferredBytes += growth;
+        begin.reservedBytes += growth;
+        begin.flowIds = flowIds;
+        begin.record = record;
+        return;
+      }
+    } catch { /* Invalid flow id: keep the already reserved BEGIN. */ }
+    this.droppedEvents++;
   }
 
   /** Attach observations to an open span; they are written with its END. */
@@ -984,31 +1044,63 @@ export class Recorder {
     const span = this.openSpans.get(spanId);
     if (span === undefined || this.tracks === null) return null;
     const endedNs = tNs ?? this.captureTimestamp();
+    const endArgs: EventRecordArgs = {
+      trackUuid: span.trackUuid,
+      categories: [],
+      type: TRACK_EVENT_END,
+      debugAnnotations: {...span.annotations,
+        ...(span.laneAllocator === this.tracks.lanes ? {
+          "updates": span.updates,
+          "bytes": span.bytes,
+        } : {}), ...extra},
+      tNs: endedNs,
+    };
     if (span.deferredBegin !== undefined) {
       const begin = span.deferredBegin;
-      if (!this.enqueueEvent({
-        trackUuid: span.trackUuid, categories: [`pi.${span.cat}`], name: span.name,
-        type: TRACK_EVENT_BEGIN, tNs: span.beginNs,
-        debugAnnotations: begin.annotations,
-        flowIds: [...(begin.flowIds ?? []), ...(beginFlowIds ?? [])],
-      }, true)) return null;
+      let beginRecord = begin.record;
+      if (beginFlowIds?.length) {
+        try {
+          beginRecord = this.encodeEvent({
+            trackUuid: span.trackUuid, categories: [`pi.${span.cat}`], name: span.name,
+            type: TRACK_EVENT_BEGIN, tNs: span.beginNs,
+            debugAnnotations: begin.annotations,
+            flowIds: [...(begin.flowIds ?? []), ...beginFlowIds],
+          });
+        } catch { /* Fall back to the reserved BEGIN. */ }
+      }
+      let endRecord: Uint8Array | undefined;
+      try { endRecord = this.encodeEvent(endArgs); } catch { /* Keep the operation, not its malformed annotations. */ }
+      if (endRecord === undefined || !this.fitsDeferred(
+        beginRecord.length + endRecord.length - begin.reservedBytes, 0,
+      )) {
+        // Late flows and result content can grow beyond the reservation.
+        // Prefer the original full BEGIN (including captured arguments), then
+        // a minimal END. Never strand a critical half-slice or poison the file.
+        beginRecord = begin.record;
+        try { endRecord = this.encodeEvent({...endArgs, debugAnnotations: undefined}); }
+        catch { endRecord = undefined; }
+        this.droppedEvents++;
+      }
+      const fits = endRecord !== undefined && this.fitsDeferred(
+        beginRecord.length + endRecord.length - begin.reservedBytes, 0,
+      );
+      this.deferredBytes -= begin.reservedBytes;
+      this.deferredRecords -= 2;
       span.deferredBegin = undefined;
+      if (!fits || !this.enqueueBytes(beginRecord, {critical: true}) ||
+        !this.enqueueBytes(endRecord!, {critical: true})) {
+        this.droppedEvents++;
+        this.releaseSpan(spanId, span);
+        return null;
+      }
+    } else if (!this.enqueueEvent(endArgs, true)) {
+      return null;
     }
-    const accepted = this.enqueueEvent(
-      {
-        trackUuid: span.trackUuid,
-        categories: [],
-        type: TRACK_EVENT_END,
-        debugAnnotations: {...span.annotations,
-          ...(span.laneAllocator === this.tracks.lanes ? {
-            "updates": span.updates,
-            "bytes": span.bytes,
-          } : {}), ...extra},
-        tNs: endedNs,
-      },
-      true,
-    );
-    if (!accepted) return null;
+    this.releaseSpan(spanId, span);
+    return { updates: span.updates, bytes: span.bytes, durationNs: endedNs - span.beginNs };
+  }
+
+  private releaseSpan(spanId: number, span: OpenSpan): void {
     this.openSpans.delete(spanId);
     if (span.laneKey !== undefined && span.laneAllocator !== undefined) {
       span.laneAllocator.free(span.laneKey);
@@ -1016,7 +1108,6 @@ export class Recorder {
       // Legacy spans predate the allocator reference; free from the tool pool.
       this.tracks.lanes.free(span.laneKey);
     }
-    return { updates: span.updates, bytes: span.bytes, durationNs: endedNs - span.beginNs };
   }
 
   emitInstant(args: { cat: CategoryId; trackUuid: bigint; name: string; tNs?: bigint; flowIds?: bigint[]; annotations?: Record<string, DebugAnnotationValue> }): boolean {
@@ -1335,42 +1426,50 @@ export class Recorder {
     }
   }
 
-  private enqueueEvent(
-    args: {
-      trackUuid: bigint;
-      categories: string[];
-      name?: string;
-      type: number;
-      counterValue?: bigint;
-      debugAnnotations?: Record<string, DebugAnnotationValue>;
-      flowIds?: bigint[];
-      tNs: bigint;
-    },
-    critical = false,
-  ): boolean {
+  private encodeEvent(args: EventRecordArgs): Uint8Array {
+    const event = buildTrackEvent({
+      trackUuid: args.trackUuid,
+      categories: args.categories,
+      name: args.name,
+      type: args.type,
+      counterValue: args.counterValue,
+      debugAnnotations: args.debugAnnotations,
+      flowIds: args.flowIds,
+    });
+    return framePacket(buildTracePacket({
+      timestampNs: args.tNs,
+      clockId: this.clockId,
+      seqId: this.seqId,
+      machineId: this.machineId,
+      trackEvent: event,
+    }));
+  }
+
+  private enqueueEvent(args: EventRecordArgs, critical = false): boolean {
     if (this.tracks === null || this.writeFailure !== null) return false;
     try {
-      const event = buildTrackEvent({
-        trackUuid: args.trackUuid,
-        categories: args.categories,
-        name: args.name,
-        type: args.type,
-        counterValue: args.counterValue,
-        debugAnnotations: args.debugAnnotations,
-        flowIds: args.flowIds,
-      });
-      const packet = buildTracePacket({
-        timestampNs: args.tNs,
-        clockId: this.clockId,
-        seqId: this.seqId,
-        machineId: this.machineId,
-        trackEvent: event,
-      });
-      return this.enqueueBytes(framePacket(packet), { critical });
+      return this.enqueueBytes(this.encodeEvent(args), { critical });
     } catch {
       this.droppedEvents++;
       return false;
     }
+  }
+
+  /** Could the deferred packets (or an increase to them) still fit once
+   * emitted? Charge both writer and file budgets; leave the finalization
+   * reserve for the capture END and counters. */
+  private fitsDeferred(bytes: number, records: number): boolean {
+    const fileLimit = this.config.maxFileMB * 1024 * 1024;
+    const totalBytes = this.deferredBytes + bytes;
+    if (this.acceptedBytes + totalBytes > Math.max(0, fileLimit - FINALIZE_RESERVE_BYTES)) {
+      this.fileLimitReached = true;
+      return false;
+    }
+    // Deferred pairs may not spend the queue's critical reserve: capture END
+    // and final counters still have to fit when all pending spans close at stop.
+    return this.fileHandle !== null && this.writeFailure === null &&
+      this.queuedBytes + totalBytes <= this.config.queueBytes &&
+      this.queuedRecords + this.deferredRecords + records <= this.config.queueDepth;
   }
 
   private enqueueBytes(record: Uint8Array, options: EnqueueOptions = {}): boolean {
@@ -1381,14 +1480,17 @@ export class Recorder {
     const fileLimit = this.config.maxFileMB * 1024 * 1024;
     const normalFileLimit = Math.max(0, fileLimit - FINALIZE_RESERVE_BYTES);
     if (
-      this.queuedRecords + 1 > recordLimit ||
-      this.queuedBytes + record.length > byteLimit ||
-      this.acceptedBytes + record.length > (critical ? fileLimit : normalFileLimit)
+      this.queuedRecords + this.deferredRecords + 1 > recordLimit ||
+      this.queuedBytes + this.deferredBytes + record.length > byteLimit ||
+      this.acceptedBytes + this.deferredBytes + record.length > (critical ? fileLimit : normalFileLimit)
     ) {
       this.droppedEvents++;
-      if (this.acceptedBytes + record.length > (critical ? fileLimit : normalFileLimit)) {
+      if (this.acceptedBytes + this.deferredBytes + record.length > (critical ? fileLimit : normalFileLimit)) {
         this.fileLimitReached = true;
       }
+      // Deferred pairs are preflighted atomically before reaching this path.
+      // Keep the existing fail-closed behavior for other critical records: a
+      // trace missing its capture END must never publish as complete.
       if (critical) this.writeFailure ??= new Error("critical trace record could not be queued within configured bounds");
       return false;
     }
@@ -1495,6 +1597,8 @@ export class Recorder {
     this.queuedBytes = 0;
     this.seqId = 0;
     this.openSpans.clear();
+    this.deferredBytes = 0;
+    this.deferredRecords = 0;
     this.sampledCounters.clear();
     this.configurationOpen = false;
   }

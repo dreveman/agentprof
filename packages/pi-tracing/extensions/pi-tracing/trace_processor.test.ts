@@ -55,6 +55,10 @@ function query(binary: string, trace: string, sql: string): { status: number | n
   return { status: legacy.status, output: `${legacy.stdout}${legacy.stderr}` };
 }
 
+// Some Trace Processor builds omit the visualization-only stdlib module.
+// Ignore only that precise include error, never a failed grouping assertion.
+const UNKNOWN_VISUALIZATION_MODULE = /(?:^|\n)INCLUDE: unknown module 'viz\.summary\.track_event'(?:\r?\n|$)/;
+
 const binary = resolveTraceProcessor();
 
 test("CI provides trace_processor for golden import validation", () => {
@@ -62,6 +66,12 @@ test("CI provides trace_processor for golden import validation", () => {
 });
 
 const goldenTest = binary === undefined ? test.skip : test;
+
+test('only an unknown visualization module is optional', () => {
+  expect(UNKNOWN_VISUALIZATION_MODULE.test("INCLUDE: unknown module 'viz.summary.track_event'\n")).toBe(true);
+  expect(UNKNOWN_VISUALIZATION_MODULE.test("INCLUDE: unknown module 'other.module'\n")).toBe(false);
+  expect(UNKNOWN_VISUALIZATION_MODULE.test('No such table: _track_event_tracks_ordered_groups\n')).toBe(false);
+});
 
 goldenTest('sampled counters close at zero without losing totals, diagnostics, or unknowns', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-counter-close-'));
@@ -468,10 +478,7 @@ goldenTest('tool siblings merge visually, preserve overlap and flows, and keep c
   const {mergePiTraces} = await import('./merge.ts');
   const merged = mergePiTraces(await Promise.all([first!.path, second!.path].map(async path => ({bytes: await readFile(path)}))));
   const path = join(dir, 'merged.pftrace'); await writeFile(path, merged.bytes);
-  const result = query(binary!, path, `INCLUDE PERFETTO MODULE viz.summary.track_event;
-    SELECT CASE WHEN
-    (SELECT COUNT(*) FROM _track_event_tracks_ordered_groups WHERE name='Tools' AND has_data)=2 AND
-    (SELECT COUNT(*) FROM _track_event_tracks_ordered_groups WHERE name='Tools' AND track_ids GLOB '*,*')=1 AND
+  const core = query(binary!, path, `SELECT CASE WHEN
     NOT EXISTS (SELECT 1 FROM track WHERE name GLOB 'tools.lane.*') AND
     (SELECT COUNT(*) FROM slice WHERE name IN ('long','short','reused','next-capture') AND parent_id IS NULL)=4 AND
     (SELECT COUNT(*) FROM slice WHERE (name='long' AND dur=60) OR (name='short' AND dur=20) OR (name='reused' AND dur=30))=3 AND
@@ -479,6 +486,17 @@ goldenTest('tool siblings merge visually, preserve overlap and flows, and keep c
       WHERE src.name='tool-preflight' AND dst.name='long')=1 AND
     NOT EXISTS (SELECT 1 FROM stats WHERE severity='error' AND value>0)
     THEN 'MERGED_TOOLS_OK' ELSE 'FAILED' END`);
-  expect(result.status, result.output).toBe(0);
-  expect(result.output).toContain('MERGED_TOOLS_OK');
-});
+  expect(core.status, core.output).toBe(0);
+  expect(core.output).toContain('MERGED_TOOLS_OK');
+  const visualization = query(binary!, path, `INCLUDE PERFETTO MODULE viz.summary.track_event;
+    SELECT CASE WHEN
+    (SELECT COUNT(*) FROM _track_event_tracks_ordered_groups WHERE name='Tools' AND has_data)=2 AND
+    (SELECT COUNT(*) FROM _track_event_tracks_ordered_groups WHERE name='Tools' AND track_ids GLOB '*,*')=1
+    THEN 'GROUPED_TOOLS_OK' ELSE 'FAILED' END`);
+  if (visualization.status !== 0 && UNKNOWN_VISUALIZATION_MODULE.test(visualization.output)) {
+    console.warn('Skipping Tools visualization grouping: this Trace Processor lacks viz.summary.track_event.');
+    return;
+  }
+  expect(visualization.status, visualization.output).toBe(0);
+  expect(visualization.output).toContain('GROUPED_TOOLS_OK');
+}, 30_000);

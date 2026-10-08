@@ -11,10 +11,16 @@ test('script metadata counts physical lines without treating a final newline as 
 
 test("tool argument metadata records UTF-8 byte counts and keys without values", () => {
   const input = {text: "secret 🌍", count: 42, enabled: false};
-  const attrs = toolArgumentAnnotations(input, false);
+  const attrs = toolArgumentAnnotations(input, 'metadata');
   expect(attrs["bytes"]).toBe(new TextEncoder().encode(JSON.stringify(input)).length);
   expect(attrs["keys"]).toEqual(["text", "count", "enabled"]);
   expect(JSON.stringify(attrs)).not.toContain("secret");
+  let reads = 0;
+  const guarded = {toJSON() {reads++; throw new Error('must not serialize');},
+    get secret() {reads++; throw new Error('must not inspect values');}};
+  expect(toolArgumentAnnotations(guarded, false)).toEqual({});
+  expect(toolArgumentAnnotations(guarded, 'disabled')).toEqual({});
+  expect(reads).toBe(0);
   const circular: Record<string, unknown> = {};
   circular.self = circular;
   expect(toolArgumentAnnotations(circular, true)).toEqual({"serializable": false});

@@ -1,35 +1,206 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 // packages/codex-tracing/plugin.ts
-import { spawn, spawnSync } from "node:child_process";
-import { readFileSync as readFileSync6, openSync as openSync2, closeSync as closeSync2 } from "node:fs";
+import { spawn as spawn2, spawnSync } from "node:child_process";
+import { readFileSync as readFileSync8, existsSync as existsSync5, openSync as openSync2, closeSync as closeSync2 } from "node:fs";
+import { connect } from "node:net";
 import { createInterface as createInterface2 } from "node:readline";
-import { dirname as dirname3, join as join4, resolve as resolve3 } from "node:path";
-import { fileURLToPath } from "node:url";
-import { setTimeout as delay2 } from "node:timers/promises";
+import { dirname as dirname3, join as join5, resolve as resolve3 } from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+import { createHash as createHash5, randomUUID as randomUUID3 } from "node:crypto";
+import { setTimeout as delay3 } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-config.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve, basename } from "node:path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync2, renameSync as renameSync2 } from "node:fs";
+import { dirname, join as join2, resolve, basename } from "node:path";
 import { homedir } from "node:os";
 import { randomBytes } from "node:crypto";
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 import { createServer } from "node:net";
+
+// packages/agent-tracing/lease.ts
+import { existsSync, mkdirSync, readFileSync as readFileSync2, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { join, win32 } from "node:path";
+import { randomUUID, createHash } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
+import { spawn } from "node:child_process";
+
+// packages/agent-tracing/process-identity.ts
+import { readFileSync } from "node:fs";
+function linuxProcessStartMarker(stat) {
+  const close = stat.lastIndexOf(")");
+  const fields = close < 0 ? [] : stat.slice(close + 1).trim().split(/\s+/);
+  const value = fields[19];
+  return value && /^\d+$/.test(value) ? value : undefined;
+}
+function processStartMarker(pid, platform = process.platform, read = (path, encoding) => readFileSync(path, encoding)) {
+  if (platform !== "linux" || !Number.isSafeInteger(pid) || pid <= 0)
+    return;
+  try {
+    return linuxProcessStartMarker(read(`/proc/${pid}/stat`, "utf8"));
+  } catch {
+    return;
+  }
+}
+function sameProcess(pid, marker, exists = pidExists, start = processStartMarker) {
+  if (!exists(pid))
+    return false;
+  if (!marker)
+    return true;
+  const current = start(pid);
+  return current === undefined || current === marker;
+}
+function pidExists(pid, signal = process.kill) {
+  if (!Number.isSafeInteger(pid) || pid <= 0)
+    return false;
+  try {
+    signal(pid, 0);
+    return true;
+  } catch (error) {
+    return error.code === "EPERM";
+  }
+}
+
+// packages/agent-tracing/lease.ts
+function reaperCommand(path, timeoutMs, platform = process.platform) {
+  const seconds = String(Math.max(1, Math.ceil(timeoutMs / 1000)));
+  const command = 'printf "READY\\n"; cat >/dev/null';
+  if (platform === "win32") {
+    let parent = win32.dirname(path);
+    try {
+      parent = realpathSync.native(parent);
+    } catch {}
+    const canonical = win32.join(parent, win32.basename(path)).toLowerCase();
+    const name = `Global\\agentprof_${createHash("sha256").update(canonical).digest("hex").slice(0, 32)}`;
+    const powershell = `$m = [System.Threading.Mutex]::new($false, '${name}'); ` + `$locked = $false; try {$locked = $m.WaitOne(${timeoutMs})} ` + `catch [System.Threading.AbandonedMutexException] {$locked = $true}; ` + `if (!$locked) {exit 2}; [Console]::Out.WriteLine('READY'); ` + `[Console]::In.ReadToEnd() | Out-Null; $m.ReleaseMutex(); $m.Dispose()`;
+    return ["powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", powershell]];
+  }
+  if (platform === "darwin")
+    return ["lockf", ["-t", seconds, `${path}.reaper.lock`, "sh", "-c", command]];
+  return ["flock", ["-x", "-w", seconds, `${path}.reaper.lock`, "sh", "-c", command]];
+}
+async function acquireReaper(path, timeoutMs) {
+  const [binary, args] = reaperCommand(path, timeoutMs);
+  const child = spawn(binary, args, { stdio: ["pipe", "pipe", "pipe"] });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("Timed out waiting for stale-owner recovery lock"));
+    }, timeoutMs + 1000);
+    let output = "";
+    child.stdout.on("data", (chunk) => {
+      output += chunk;
+      if (/READY\r?\n/.test(output)) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Stale-owner recovery lock failed (${code}): ${stderr}`));
+    });
+  });
+  return () => {
+    child.stdin.end();
+  };
+}
+async function acquireDirectoryLease(path, timeoutMs = 5000) {
+  const nonce = randomUUID(), deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      mkdirSync(path, { mode: 448 });
+      try {
+        writeFileSync(join(path, "owner.json"), JSON.stringify({
+          pid: process.pid,
+          marker: processStartMarker(process.pid),
+          nonce
+        }), { flag: "wx", mode: 384 });
+      } catch (error) {
+        rmSync(path, { recursive: true, force: true });
+        throw error;
+      }
+      const owner = statSync(path);
+      return () => {
+        try {
+          const current = statSync(path), stored = JSON.parse(readFileSync2(join(path, "owner.json"), "utf8"));
+          if (current.dev !== owner.dev || current.ino !== owner.ino || stored.nonce !== nonce)
+            return;
+          const quarantine = `${path}.release-${nonce}`;
+          renameSync(path, quarantine);
+          const moved = statSync(quarantine);
+          if (moved.dev === owner.dev && moved.ino === owner.ino)
+            rmSync(quarantine, { recursive: true, force: true });
+          else if (!existsSync(path))
+            renameSync(quarantine, path);
+        } catch {}
+      };
+    } catch (error) {
+      if (error.code !== "EEXIST")
+        throw error;
+      try {
+        const before = statSync(path);
+        let stale = false;
+        try {
+          const owner = JSON.parse(readFileSync2(join(path, "owner.json"), "utf8"));
+          stale = typeof owner.pid === "number" && !sameProcess(owner.pid, owner.marker);
+        } catch {
+          stale = Date.now() - before.mtimeMs > 15000;
+        }
+        if (stale) {
+          const releaseReaper = await acquireReaper(path, timeoutMs);
+          try {
+            const current = statSync(path);
+            let stillStale = false;
+            try {
+              const owner = JSON.parse(readFileSync2(join(path, "owner.json"), "utf8"));
+              stillStale = typeof owner.pid === "number" && !sameProcess(owner.pid, owner.marker);
+            } catch {
+              stillStale = Date.now() - current.mtimeMs > 15000;
+            }
+            if (stillStale && current.dev === before.dev && current.ino === before.ino && current.mtimeMs === before.mtimeMs) {
+              const quarantine = `${path}.stale-${nonce}`;
+              renameSync(path, quarantine);
+              rmSync(quarantine, { recursive: true, force: true });
+            }
+          } finally {
+            releaseReaper();
+          }
+          continue;
+        }
+      } catch (error) {
+        if (error.code !== "ENOENT")
+          throw error;
+      }
+      await delay(50);
+    }
+  }
+  throw new Error(`Timed out waiting for receiver lease: ${path}`);
+}
+
+// packages/codex-tracing/plugin-config.ts
 function stateDirectory(pluginData) {
   if (pluginData) {
     let directory = resolve(pluginData);
     while (dirname(directory) !== directory) {
       if (basename(directory) === "plugins")
-        return join(dirname(directory), "agentprof");
+        return join2(dirname(directory), "agentprof");
       directory = dirname(directory);
     }
     throw new Error("Cannot locate Codex home from PLUGIN_DATA.");
   }
-  return join(process.env.CODEX_HOME ?? join(homedir(), ".codex"), "agentprof");
+  return join2(process.env.CODEX_HOME ?? join2(homedir(), ".codex"), "agentprof");
 }
 function readConnection(state) {
-  const value = JSON.parse(readFileSync(join(state, "connection.json"), "utf8"));
-  if (!Number.isInteger(value.port) || value.port < 1024 || value.port > 65535 || !/^[0-9a-f]{64}$/.test(value.token))
+  const value = JSON.parse(readFileSync3(join2(state, "connection.json"), "utf8"));
+  if (!Number.isInteger(value.port) || value.port < 1024 || value.port > 65535 || !/^[0-9a-f]{64}$/.test(value.token) || value.generation !== undefined && !/^[0-9a-f]{32}$/.test(value.generation))
     throw new Error("Invalid Agent Profiler connection configuration.");
   return value;
 }
@@ -46,32 +217,52 @@ var hookEvents = [
   "Stop",
   "Interrupt"
 ];
-async function configure(state, codexHome, runtime = "codex-tracing.mjs", autoStart = false) {
-  mkdirSync(state, { recursive: true, mode: 448 });
-  if (!existsSync(join(state, "connection.json"))) {
-    const listener = createServer();
-    await new Promise((done, reject) => {
-      listener.once("error", reject);
-      listener.listen(0, "127.0.0.1", done);
-    });
-    const address = listener.address();
-    if (!address || typeof address === "string")
-      throw new Error("Cannot allocate local telemetry port.");
-    const port = address.port;
-    await new Promise((done) => listener.close(() => done()));
-    try {
-      writeFileSync(join(state, "connection.json"), JSON.stringify({ port, token: randomBytes(32).toString("hex") }), { flag: "wx", mode: 384 });
-    } catch (error) {
-      if (error.code !== "EEXIST")
-        throw error;
+async function configure(state, codexHome, runtime = "codex-tracing.mjs", autoStart = false, rebind = false) {
+  mkdirSync2(state, { recursive: true, mode: 448 });
+  const release = await acquireDirectoryLease(join2(state, "receiver-lifecycle.lock"), 1e4);
+  try {
+    const path = join2(codexHome, "agentprof.config.toml"), marker = join2(state, "profile.sha256");
+    const hash = (text) => createHash2("sha256").update(text).digest("hex");
+    if (rebind && existsSync2(path) && (!existsSync2(marker) || readFileSync3(marker, "utf8") !== hash(readFileSync3(path, "utf8"))))
+      throw new Error(`Profile already exists with different settings: ${path}`);
+    if (rebind && existsSync2(join2(state, "receiver-owner.json"))) {
+      let owner;
+      try {
+        owner = JSON.parse(readFileSync3(join2(state, "receiver-owner.json"), "utf8"));
+      } catch {}
+      if (owner && Number.isSafeInteger(owner.pid) && owner.pid > 0 && (owner.marker === undefined || typeof owner.marker === "string" && /^\d+$/.test(owner.marker)) && owner.generation === readConnection(state).generation && sameProcess(owner.pid, owner.marker))
+        throw new Error("Cannot rebind an active Agent Profiler receiver.");
     }
-  }
-  const connection = readConnection(state);
-  const exporter = (path) => `{ otlp-http = { endpoint = "http://127.0.0.1:${connection.port}/v1/${path}", protocol = "json", headers = { Authorization = "Bearer ${connection.token}" } } }`;
-  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
-  const hookCommand = `${quote(process.execPath)} ${quote(runtime)} hook --state ${quote(state)}`;
-  const windowsCommand = `"${process.execPath}" "${runtime}" hook --state "${state}"`;
-  const profile = `# Agent Profiler Codex profile
+    if (rebind || !existsSync2(join2(state, "connection.json"))) {
+      const listener = createServer();
+      await new Promise((done, reject) => {
+        listener.once("error", reject);
+        listener.listen(0, "127.0.0.1", done);
+      });
+      const address = listener.address();
+      if (!address || typeof address === "string")
+        throw new Error("Cannot allocate local telemetry port.");
+      const port = address.port;
+      await new Promise((done) => listener.close(() => done()));
+      const connection = JSON.stringify({ port, token: randomBytes(32).toString("hex"), generation: randomBytes(16).toString("hex") });
+      if (rebind) {
+        const temp = join2(state, `connection-${process.pid}-${Date.now()}.tmp`);
+        writeFileSync2(temp, connection, { flag: "wx", mode: 384 });
+        renameSync2(temp, join2(state, "connection.json"));
+      } else
+        try {
+          writeFileSync2(join2(state, "connection.json"), connection, { flag: "wx", mode: 384 });
+        } catch (error) {
+          if (error.code !== "EEXIST")
+            throw error;
+        }
+    }
+    const connection = readConnection(state);
+    const exporter = (path) => `{ otlp-http = { endpoint = "http://127.0.0.1:${connection.port}/v1/${path}", protocol = "json", headers = { Authorization = "Bearer ${connection.token}" } } }`;
+    const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+    const hookCommand = `${quote(process.execPath)} ${quote(runtime)} hook --state ${quote(state)}`;
+    const windowsCommand = `"${process.execPath}" "${runtime}" hook --state "${state}"`;
+    const profile = `# Agent Profiler Codex profile
 ` + `# Native timing is exported only to the local recording plugin.
 ` + `[features]
 hooks = true
@@ -92,33 +283,35 @@ type = "command"
 ` + `timeout = ${["SessionEnd", "Interrupt"].includes(event) ? 3 : 15}
 `).join(`
 `);
-  const path = join(codexHome, "agentprof.config.toml");
-  const marker = join(state, "profile.sha256");
-  const hash = (text) => createHash("sha256").update(text).digest("hex");
-  if (existsSync(path) && readFileSync(path, "utf8") !== profile) {
-    const owned = existsSync(marker) && readFileSync(marker, "utf8") === hash(readFileSync(path, "utf8"));
-    if (!owned)
-      throw new Error(`Profile already exists with different settings: ${path}`);
+    if (existsSync2(path) && readFileSync3(path, "utf8") !== profile) {
+      const owned = existsSync2(marker) && readFileSync3(marker, "utf8") === hash(readFileSync3(path, "utf8"));
+      if (!owned)
+        throw new Error(`Profile already exists with different settings: ${path}`);
+    }
+    writeFileSync2(path, profile, { mode: 384 });
+    writeFileSync2(marker, hash(profile), { mode: 384 });
+    return path;
+  } finally {
+    release();
   }
-  writeFileSync(path, profile, { mode: 384 });
-  writeFileSync(marker, hash(profile), { mode: 384 });
-  return path;
 }
 
 // packages/codex-tracing/plugin-collector.ts
 import { createServer as createServer2 } from "node:http";
-import { writeFileSync as writeFileSync3, readFileSync as readFileSync5, existsSync as existsSync3, mkdirSync as mkdirSync3 } from "node:fs";
-import { join as join3 } from "node:path";
+import { createHash as createHash4 } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { writeFileSync as writeFileSync4, readFileSync as readFileSync7, existsSync as existsSync4, mkdirSync as mkdirSync4 } from "node:fs";
+import { join as join4 } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { setTimeout as delay } from "node:timers/promises";
+import { setTimeout as delay2 } from "node:timers/promises";
 
 // packages/codex-tracing/plugin-journal.ts
-import { mkdirSync as mkdirSync2, openSync, writeSync, fsyncSync, closeSync, readFileSync as readFileSync4, writeFileSync as writeFileSync2, existsSync as existsSync2, linkSync, unlinkSync } from "node:fs";
-import { dirname as dirname2, join as join2, resolve as resolve2 } from "node:path";
-import { randomUUID } from "node:crypto";
+import { mkdirSync as mkdirSync3, openSync, writeSync, fsyncSync, closeSync, readFileSync as readFileSync6, writeFileSync as writeFileSync3, existsSync as existsSync3, linkSync, unlinkSync } from "node:fs";
+import { dirname as dirname2, join as join3, resolve as resolve2, isAbsolute } from "node:path";
+import { randomUUID as randomUUID2 } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
-import { constants as fsConstants, readFileSync as readFileSync3 } from "node:fs";
+import { constants as fsConstants, readFileSync as readFileSync5 } from "node:fs";
 import { hostname, uptime } from "node:os";
 
 // packages/pi-tracing/extensions/pi-tracing/encoder.ts
@@ -332,13 +525,54 @@ function framePacket(packet) {
   return toU8(encodeBytesField(1, packet));
 }
 
+// packages/agent-tracing/content.ts
+function captureContentsEnabled(value, fallback = true) {
+  if (value === false || typeof value === "string" && ["0", "false"].includes(value.toLowerCase()))
+    return false;
+  if (value === true || typeof value === "string" && ["1", "true"].includes(value.toLowerCase()))
+    return true;
+  return fallback;
+}
+var metadataAttribute = /^(?:event\.(?:name|timestamp|kind|sequence)|agentprof\.control_script|(?:conversation|thread|turn|session)\.id|(?:gen_ai\.system|model|provider_name|reasoning_effort|app\.version|tool_name|call_id|cell\.id|outcome|success|reason|status_code|tool_use_id)|[\w.]+(?:_tokens?|_count|_bytes|_length|_ms|_ns|_id|_code))$/i;
+function omitContent(value) {
+  if (Array.isArray(value))
+    return value.map(omitContent);
+  if (value === null || typeof value !== "object")
+    return value;
+  const source = value;
+  if (typeof source.key === "string" && (!metadataAttribute.test(source.key) || /(?:prompt|argument|output|input|content|body|text|tool_response|tool_result)/i.test(source.key) && !/(?:length|bytes|tokens|count|duration|status|exit_code)$/i.test(source.key)))
+    return;
+  return Object.fromEntries(Object.entries(source).flatMap(([key, entry]) => {
+    if (/(?:^|[._-])(?:prompt|arguments?|output|input|content|body|text|tool_response|tool_result|error|message|description|stack|script)(?:$|[._-])/i.test(key) && !/(?:length|bytes|tokens|count|duration|status|exit_code)$/i.test(key))
+      return [];
+    const safe = omitContent(entry);
+    return safe === undefined ? [] : [[key, safe]];
+  }));
+}
+
 // packages/pi-tracing/extensions/pi-tracing/annotations.ts
 function scriptAnnotations(language, code) {
-  return { language, ...typeof code === "string" ? {
-    line_count: code.length === 0 ? 0 : code.split(/\r\n|\r|\n/).length - (/[\r\n]$/.test(code) ? 1 : 0)
-  } : {} };
+  if (typeof code !== "string")
+    return { language };
+  if (!code.length)
+    return { language, line_count: 0 };
+  let lines = 1;
+  for (let i = 0;i < code.length; i++) {
+    const char = code.charCodeAt(i);
+    if (char === 13) {
+      lines++;
+      if (code.charCodeAt(i + 1) === 10)
+        i++;
+    } else if (char === 10)
+      lines++;
+  }
+  if (/[\r\n]$/.test(code))
+    lines--;
+  return { language, line_count: lines };
 }
-function toolArgumentAnnotations(input, captureContents) {
+function toolArgumentAnnotations(input, mode) {
+  if (mode === false || mode === "disabled")
+    return {};
   const attrs = {};
   let json;
   try {
@@ -355,7 +589,7 @@ function toolArgumentAnnotations(input, captureContents) {
     if (keys.length > 12 || keys.some((key) => key.length > 200))
       attrs["keys_truncated"] = true;
   }
-  if (!captureContents)
+  if (mode === "metadata")
     return attrs;
   let remainingNodes = 128;
   let remainingText = 65536;
@@ -427,7 +661,7 @@ function promptAnnotations(prompt, captureText) {
 
 // packages/pi-tracing/extensions/pi-tracing/machine.ts
 import { execFileSync } from "node:child_process";
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync4 } from "node:fs";
 var FNV1A_64_OFFSET_BASIS = 0xcbf29ce484222325n;
 var FNV1A_64_PRIME = 0x100000001b3n;
 var UINT64_MASK = 0xffffffffffffffffn;
@@ -435,7 +669,7 @@ var UINT32_MASK = 0xffffffffn;
 var utf8 = new TextEncoder;
 var defaultDependencies = {
   readTextFile(path) {
-    return readFileSync2(path, "utf8");
+    return readFileSync4(path, "utf8");
   },
   readSysctl(name) {
     return execFileSync("/usr/sbin/sysctl", ["-n", name], {
@@ -650,6 +884,7 @@ var DEFAULT_COUNTERS = [
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 var FLUSH_BATCH_BYTES = 64 * 1024;
 var FINALIZE_RESERVE_BYTES = 64 * 1024;
+var MAX_TIMESTAMP_NS = (1n << 64n) - 1n;
 var OWNER_GRACE_MS = 5 * 60 * 1000;
 var utf82 = new TextEncoder;
 var runtimeIdentity = randomToken();
@@ -667,7 +902,7 @@ function boottimeNsForPlatform(platform, realtimeNs, uptimeSeconds) {
   }
   return BigInt(Math.round(uptimeSeconds * 1e9));
 }
-function linuxUptimeReading(readText = () => readFileSync3("/proc/uptime", "utf8"), fallback = uptime) {
+function linuxUptimeReading(readText = () => readFileSync5("/proc/uptime", "utf8"), fallback = uptime) {
   try {
     const seconds = Number(readText().trim().split(/\s+/)[0]);
     if (Number.isFinite(seconds) && seconds >= 0) {
@@ -812,7 +1047,7 @@ function writeTrace(options) {
 }
 
 // packages/codex-tracing/otel.ts
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 var object = (v) => v !== null && typeof v === "object" && !Array.isArray(v) ? v : {};
 var array = (v) => Array.isArray(v) ? v : [];
 var string = (v) => typeof v === "string" ? v : "";
@@ -881,7 +1116,7 @@ function readOtel(rows) {
           const at = ns(l.timeUnixNano) || isoTime(attrs["event.timestamp"]);
           if (at === undefined)
             continue;
-          const key = createHash2("sha256").update(JSON.stringify([at.toString(), l.traceId, l.spanId, Object.entries(attrs).sort()])).digest("hex");
+          const key = createHash3("sha256").update(JSON.stringify([at.toString(), l.traceId, l.spanId, Object.entries(attrs).sort()])).digest("hex");
           logs.set(key, { key, trace: string(l.traceId), span: `${l.traceId}:${l.spanId}`, at, attrs });
         }
       }
@@ -895,7 +1130,17 @@ var isControlScript = (source) => {
   const calls = [...source.matchAll(/\btools\.([\w]+)\s*\(/g)];
   return calls.length > 0 && calls.every((call) => isControl(call[1]));
 };
-function addHooks(rows, spans, logs, first, last) {
+function tagControlScripts(wire) {
+  for (const resource of array(wire.resourceLogs))
+    for (const scope of array(object(resource).scopeLogs))
+      for (const raw of array(object(scope).logRecords)) {
+        const log = object(raw), attrs = attributes(log.attributes);
+        if (attrs["event.name"] !== "codex.tool_result" || typeof attrs.arguments !== "string" || attrs.arguments.length > 4096)
+          continue;
+        array(log.attributes).push({ key: "agentprof.control_script", value: { boolValue: isControlScript(attrs.arguments) } });
+      }
+}
+function addHooks(rows, spans, logs, first, last, captureContents = true) {
   const extra = [], tools = new Map, compactions = new Map;
   const hooks = rows.filter((row) => row.source === "codex.hook");
   for (const control of rows.filter((row) => row.source === "codex.control")) {
@@ -948,7 +1193,10 @@ function addHooks(rows, spans, logs, first, last) {
         attrs: { "conversation.id": string(data.agent_id), "event.name": "codex.conversation_starts", model: string(data.model) }
       });
     if (event === "UserPromptSubmit") {
-      log("codex.user_prompt", { prompt: string(data.prompt) });
+      log("codex.user_prompt", {
+        prompt_length: integer(data.prompt_length) ?? string(data.prompt).length,
+        ...captureContents ? { prompt: string(data.prompt) } : {}
+      });
       const native = [...spans.values()].find((span) => span.name === "session_task.turn" && (span.attrs["conversation.id"] ?? span.attrs["thread.id"]) === id && span.attrs["turn.id"] === turn);
       if (native) {
         native.start = at;
@@ -981,7 +1229,7 @@ function addHooks(rows, spans, logs, first, last) {
     if (event === "PreToolUse" && !isControl(tool)) {
       const native = logs.some((log) => log.attrs["event.name"] === "codex.tool_result" && log.attrs["conversation.id"] === id && log.attrs.call_id === call);
       if (!native) {
-        const annotation = toolArgumentAnnotations(data.tool_input, true);
+        const annotation = data.tool_input === undefined ? {} : toolArgumentAnnotations(data.tool_input, captureContents);
         if (annotation.truncated !== undefined) {
           annotation.args_truncated = annotation.truncated;
           delete annotation.truncated;
@@ -1006,11 +1254,12 @@ function addHooks(rows, spans, logs, first, last) {
         slice.end = at;
         slice.attrs.incomplete = false;
         const result = object(data.tool_response);
-        if (typeof result.exit_code === "number") {
-          slice.attrs.exit_code = result.exit_code;
-          slice.attrs.is_error = result.exit_code !== 0;
-        } else if (typeof result.isError === "boolean")
-          slice.attrs.is_error = result.isError;
+        const exit = typeof result.exit_code === "number" ? result.exit_code : integer(data.exit_code);
+        if (exit !== undefined) {
+          slice.attrs.exit_code = exit;
+          slice.attrs.is_error = exit !== 0;
+        } else if (typeof result.isError === "boolean" || typeof data.is_error === "boolean")
+          slice.attrs.is_error = typeof result.isError === "boolean" ? result.isError : data.is_error;
       }
     }
     if (event === "PreCompact") {
@@ -1049,11 +1298,12 @@ function convertObservations(rows) {
   const pid = integer(processStart?.data.pid), capture = string(processStart?.data.captureId);
   if (!pid || !capture || !processStart)
     throw new Error("Missing recorded Codex process identity");
+  const captureContents = processStart.data.capture_contents !== false;
   const first = BigInt(processStart.timestamp), processEnd = rows.findLast((r) => r.source === "process_end");
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const { spans, logs } = readOtel(rows);
   const plugin = processStart.data.recorder === "codex-plugin-1";
-  const extra = plugin ? addHooks(rows, spans, logs, first, last) : [];
+  const extra = plugin ? addHooks(rows, spans, logs, first, last, captureContents) : [];
   const ordered = [...spans.values()].sort((a, b) => compareTime(a.start, b.start));
   logs.sort((a, b) => compareTime(a.at, b.at));
   const cli = rows.filter((r) => r.source === "cli").map((r) => r.data);
@@ -1217,7 +1467,8 @@ function convertObservations(rows) {
       kind: "prompt",
       turn_id: string(turn.attrs["turn.id"]),
       ...turn.attrs["capture.incomplete"] ? { incomplete: true } : {},
-      ...promptAnnotations(log?.attrs.prompt === "[REDACTED]" ? undefined : log?.attrs.prompt, true)
+      ...promptAnnotations(log?.attrs.prompt === "[REDACTED]" ? undefined : log?.attrs.prompt, captureContents),
+      ...integer(log?.attrs.prompt_length) !== undefined ? { length: integer(log?.attrs.prompt_length) } : {}
     });
     edge(input, prompt);
     prompts.push(prompt);
@@ -1229,7 +1480,12 @@ function convertObservations(rows) {
     if (!sessions.has(id))
       continue;
     const input = add(id, `${log.key}:input`, "Inputs", "prompt-input", log.at, undefined, { source: "user" });
-    const prompt = add(id, log.key, "Session", "prompt", log.at, getSession(id).end, { kind: "prompt", incomplete: true, ...promptAnnotations(log.attrs.prompt, true) });
+    const prompt = add(id, log.key, "Session", "prompt", log.at, getSession(id).end, {
+      kind: "prompt",
+      incomplete: true,
+      ...promptAnnotations(log.attrs.prompt, captureContents),
+      ...integer(log.attrs.prompt_length) !== undefined ? { length: integer(log.attrs.prompt_length) } : {}
+    });
     edge(input, prompt);
     prompts.push(prompt);
     inputs.set(id, input);
@@ -1323,20 +1579,22 @@ function convertObservations(rows) {
     const native = ordered.find((s) => s.name === "code_mode.handler.execute" && s.attrs.call_id === call && spanSession(s) === id);
     const start = native?.start ?? log.at - ms(duration), end = native?.end ?? log.at;
     const source = string(log.attrs.arguments);
-    if (native && isControlScript(source))
+    if (native && (log.attrs["agentprof.control_script"] === true || captureContents && isControlScript(source)))
       continue;
     let args;
-    try {
-      args = JSON.parse(source);
-    } catch {
-      args = { code: source };
+    if (captureContents && source) {
+      try {
+        args = JSON.parse(source);
+      } catch {
+        args = { code: source };
+      }
     }
-    const annotation = toolArgumentAnnotations(args, true);
+    const annotation = captureContents && source ? toolArgumentAnnotations(args, true) : {};
     if (annotation.truncated !== undefined) {
       annotation.args_truncated = annotation.truncated;
       delete annotation.truncated;
     }
-    const output = string(log.attrs.output);
+    const output = captureContents ? string(log.attrs.output) : "";
     const exit = ["exec_command", "write_stdin", "shell", "shell_command"].includes(name) ? output.match(/(?:Process exited with code |"exit_code"\s*:\s*)(-?\d+)/) : null;
     const denied = logs.some((l) => l.attrs["event.name"] === "codex.sandbox_outcome" && l.attrs["conversation.id"] === id && l.attrs.call_id === call && l.attrs.outcome === "denied");
     const failed = log.attrs.success === false || log.attrs.success === "false" || native?.error || denied;
@@ -1347,12 +1605,12 @@ function convertObservations(rows) {
       timing: native ? "native-span" : "native-tool-duration",
       ...failed ? { is_error: true } : native?.attrs.outcome === "completed" ? { is_error: false } : exit ? { is_error: Number(exit[1]) !== 0 } : {},
       ...exit ? { exit_code: Number(exit[1]) } : {},
-      ...native ? scriptAnnotations("JavaScript", source) : {}
+      ...native ? scriptAnnotations("JavaScript", captureContents ? source : undefined) : {}
     };
     if (native?.attrs["capture.incomplete"])
       attrs.incomplete = true;
-    const intent = object(args).description ?? object(args).justification;
-    if (typeof intent === "string" && intent)
+    const intent = captureContents ? object(args).description ?? object(args).justification : undefined;
+    if (captureContents && typeof intent === "string" && intent)
       attrs.intent = intent;
     const slice = add(id, log.key, "Tools", name, start, end, attrs);
     if (plugin && start < first) {
@@ -1384,7 +1642,7 @@ function convertObservations(rows) {
     const parent = string(session.attrs.parent_session);
     if (!parent)
       continue;
-    const launch = toolSlices.find(({ slice, log }) => slice.session === parent && slice.name.endsWith("spawn_agent") && string(log.attrs.output).includes(session.id))?.slice;
+    const launch = captureContents ? toolSlices.find(({ slice, log }) => slice.session === parent && slice.name.endsWith("spawn_agent") && string(log.attrs.output).includes(session.id))?.slice : undefined;
     if (launch) {
       launch.attrs.delegation = true;
       launch.attrs.child_session = session.id;
@@ -1489,36 +1747,61 @@ function convertObservations(rows) {
   } };
 }
 
+// packages/agent-tracing/journal.ts
+function parseObservationJournal(text) {
+  const lines = text.split(`
+`), tail = lines.pop();
+  const rows = [];
+  let corruptRecords = tail ? 1 : 0;
+  for (const line of lines) {
+    try {
+      const row = JSON.parse(line);
+      if (row === null || typeof row !== "object" || Array.isArray(row))
+        throw new Error("invalid observation");
+      const value = row;
+      if (typeof value.source !== "string" || !value.source || typeof value.timestamp !== "string" || !/^\d{1,20}$/.test(value.timestamp) || BigInt(value.timestamp) > (1n << 64n) - 1n || value.data === null || typeof value.data !== "object" || Array.isArray(value.data))
+        throw new Error("invalid observation");
+      rows.push(value);
+    } catch {
+      corruptRecords++;
+    }
+  }
+  return { rows, corruptRecords };
+}
+
 // packages/codex-tracing/plugin-journal.ts
 var now = () => String(BigInt(Date.now()) * 1000000n);
 
 class Journal {
   sessionId;
+  captureContents;
   output;
   directory;
   start = now();
   fd;
   bytes = 0;
   dropped = 0;
-  constructor(sessionId, pid, cwd, path) {
+  constructor(sessionId, pid, cwd, path, captureContents = true) {
     this.sessionId = sessionId;
+    this.captureContents = captureContents;
     if (path !== undefined && (!path.trim() || !path.endsWith(".pftrace") || path.includes("\x00")))
       throw new Error("output_path must name a .pftrace file.");
-    const captureId = randomUUID();
-    this.output = resolve2(cwd, path ?? join2("agentprof-traces", `codex-${new Date().toISOString().replace(/[:.]/g, "-")}-${captureId.slice(0, 8)}.pftrace`));
+    const captureId = randomUUID2();
+    this.output = resolve2(cwd, path ?? join3("agentprof-traces", `codex-${new Date().toISOString().replace(/[:.]/g, "-")}-${captureId.slice(0, 8)}.pftrace`));
     this.directory = `${this.output}.capture`;
-    if (existsSync2(this.output))
+    if (existsSync3(this.output))
       throw new Error(`Output already exists: ${this.output}`);
-    mkdirSync2(dirname2(this.output), { recursive: true });
-    mkdirSync2(this.directory, { mode: 448 });
-    this.fd = openSync(join2(this.directory, "observations.jsonl"), "wx", 384);
+    mkdirSync3(dirname2(this.output), { recursive: true });
+    mkdirSync3(this.directory, { mode: 448 });
+    this.fd = openSync(join3(this.directory, "observations.jsonl"), "wx", 384);
     this.add({ source: "process_start", timestamp: this.start, data: {
       pid,
       captureId,
       sessionId,
       output: this.output,
       machineId: currentMachineIdentity().id,
-      recorder: "codex-plugin-1"
+      recorder: "codex-plugin-1",
+      capture_contents: this.captureContents
     } });
     this.clock();
   }
@@ -1526,7 +1809,24 @@ class Journal {
     this.add({ source: "clock_snapshot", timestamp: now(), data: Object.fromEntries(Object.entries(captureClockReadings()).map(([key, value]) => [key, String(value)])) });
   }
   add(row) {
-    const line = JSON.stringify(row) + `
+    const safe = this.captureContents || ["process_start", "process_end", "clock_snapshot", "session_metadata"].includes(row.source) ? row : { ...row, data: row.source === "codex.hook" ? Object.fromEntries(Object.entries(row.data).filter(([key]) => [
+      "hook_event_name",
+      "session_id",
+      "parent_session",
+      "agent_id",
+      "agent_type",
+      "turn_id",
+      "tool_name",
+      "tool_use_id",
+      "model",
+      "source",
+      "trigger",
+      "prompt_length",
+      "started_before_capture",
+      "exit_code",
+      "is_error"
+    ].includes(key))) : omitContent(row.data) };
+    const line = JSON.stringify(safe) + `
 `;
     const size = Buffer.byteLength(line);
     if (this.bytes + size > 128 * 1024 * 1024 && row.source !== "process_end") {
@@ -1546,27 +1846,31 @@ class Journal {
   }
 }
 function publish(directory, output) {
-  const text = readFileSync4(join2(directory, "observations.jsonl"), "utf8");
-  const lines = text.split(`
-`), tail = lines.pop();
-  const rows = lines.filter(Boolean).map((line) => JSON.parse(line));
-  if (tail)
-    rows.push({ source: "recovery", timestamp: rows.at(-1)?.timestamp ?? now(), data: { incomplete: true } });
-  const target = output ? resolve2(output) : String(rows.find((r) => r.source === "process_start")?.data.output ?? "");
+  const { rows, corruptRecords } = parseObservationJournal(readFileSync6(join3(directory, "observations.jsonl"), "utf8"));
+  if (corruptRecords)
+    rows.push({
+      source: "recovery",
+      timestamp: rows.at(-1)?.timestamp ?? now(),
+      data: { incomplete: true, corrupt_records: corruptRecords }
+    });
+  const original = rows.find((r) => r.source === "process_start")?.data.output;
+  if (!output && (typeof original !== "string" || !isAbsolute(original) || !resolve2(directory).endsWith(".pftrace.capture") || resolve2(original) !== resolve2(directory).slice(0, -".capture".length)))
+    throw new Error("Invalid Codex capture identity or output path.");
+  const target = output ? resolve2(output) : original;
   if (!target || !target.endsWith(".pftrace"))
     throw new Error("Missing trace output path.");
-  if (existsSync2(target))
+  if (existsSync3(target))
     throw new Error(`Output already exists: ${target}`);
   const result = convertObservations(rows);
-  const temporary = join2(directory, `recording-${randomUUID()}.tmp`);
-  writeFileSync2(temporary, result.trace, { flag: "wx", mode: 384 });
+  const temporary = join3(directory, `recording-${randomUUID2()}.tmp`);
+  writeFileSync3(temporary, result.trace, { flag: "wx", mode: 384 });
   try {
     linkSync(temporary, target);
   } finally {
     unlinkSync(temporary);
   }
-  const summary = { output: target, ...result.summary };
-  writeFileSync2(join2(directory, "summary.json"), JSON.stringify(summary, null, 2) + `
+  const summary = { output: target, ...result.summary, corruptRecords };
+  writeFileSync3(join3(directory, "summary.json"), JSON.stringify(summary, null, 2) + `
 `, { mode: 384 });
   return summary;
 }
@@ -1693,33 +1997,35 @@ async function readKnownSession(path, id, emit) {
 
 // packages/codex-tracing/plugin-collector.ts
 var validId = (id) => /^[a-zA-Z0-9_-]{1,128}$/.test(id);
-var alive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 class Collector {
   state;
   drainMs;
+  captureContents;
+  identity;
   sessions = new Map;
+  pendingGenerations = new Map;
   captures = new Map;
+  terminalResults = new Map;
   routes = new Map;
   pending = new Map;
   pendingBytes = 0;
   spans = new Map;
-  lastActivity = Date.now();
   lastClock = Date.now();
-  constructor(state, drainMs = 7000) {
+  constructor(state, drainMs = 7000, captureContents = true, identity = { start: processStartMarker, same: sameProcess }) {
     this.state = state;
     this.drainMs = drainMs;
-    mkdirSync3(state, { recursive: true, mode: 448 });
+    this.captureContents = captureContents;
+    this.identity = identity;
+    mkdirSync4(state, { recursive: true, mode: 448 });
   }
   recordState(id, value) {
-    writeFileSync3(join3(this.state, `${id}.json`), JSON.stringify(value), { mode: 384 });
+    writeFileSync4(join4(this.state, `${id}.json`), JSON.stringify(value), { mode: 384 });
+  }
+  rememberTerminal(id, result) {
+    this.terminalResults.set(id, result);
+    if (this.terminalResults.size > 256)
+      this.terminalResults.delete(this.terminalResults.keys().next().value);
   }
   status(id) {
     if (!validId(id))
@@ -1732,9 +2038,29 @@ class Collector {
         session_id: capture.journal.sessionId,
         native_telemetry_received: capture.telemetry
       };
-    const path = join3(this.state, `${id}.json`);
-    if (existsSync3(path)) {
-      const status = JSON.parse(readFileSync5(path, "utf8"));
+    const terminal = this.terminalResults.get(id);
+    if (terminal)
+      return terminal;
+    const path = join4(this.state, `${id}.json`);
+    if (existsSync4(path)) {
+      const status = JSON.parse(readFileSync7(path, "utf8"));
+      if (["recording", "saving"].includes(status.state) && typeof status.output === "string") {
+        const directory = `${status.output}.capture`, summary = join4(directory, "summary.json");
+        try {
+          if (existsSync4(status.output) && existsSync4(summary))
+            return { state: "saved", ...JSON.parse(readFileSync7(summary, "utf8")) };
+        } catch {}
+        const error = join4(directory, "error.txt");
+        try {
+          if (existsSync4(error))
+            return {
+              state: "error",
+              output: status.output,
+              journal: directory,
+              error: readFileSync7(error, "utf8").trim()
+            };
+        } catch {}
+      }
       if (["recording", "saving"].includes(status.state))
         return {
           ...status,
@@ -1760,7 +2086,7 @@ class Collector {
       return;
     capture.journal.add(row);
   }
-  start(id, output) {
+  start(id, output, requestedContents = this.captureContents) {
     const session = this.sessions.get(id);
     if (!session || session.ended)
       throw new Error("No live Codex session. Enable and trust the Agent Profiler hooks.");
@@ -1774,8 +2100,12 @@ class Collector {
         throw new Error(`Already recording to ${existing.journal.output}`);
       return this.status(id);
     }
-    const journal = new Journal(id, session.pid, session.cwd, output);
+    const policy = this.captureContents && session.captureContents !== false && requestedContents;
+    const journal = new Journal(id, session.pid, session.cwd, output, policy);
+    journal.dropped += session.skippedEvents ?? 0;
+    session.skippedEvents = 0;
     const capture = { journal, sessions: new Set([id]), telemetry: false };
+    this.terminalResults.delete(id);
     this.captures.set(id, capture);
     for (const item of this.sessions.values()) {
       if (this.captureFor(item.id) !== capture || item.ended)
@@ -1800,19 +2130,22 @@ class Collector {
     this.recordState(id, status);
     return status;
   }
-  async stop(id, incomplete = false) {
+  stop(id, incomplete = false) {
     const capture = this.captureFor(id);
     if (!capture)
       return this.status(id);
     if (capture.journal.sessionId !== id)
       throw new Error("Stop the recording from its primary session.");
     if (capture.saving)
-      return capture.saving;
+      return this.status(id);
     capture.end = now();
-    this.recordState(id, this.status(id));
+    const saving = this.status(id);
+    try {
+      this.recordState(id, saving);
+    } catch {}
     capture.saving = (async () => {
       try {
-        await delay(this.drainMs);
+        await delay2(this.drainMs);
         this.flushPending();
         for (const sessionId of capture.sessions) {
           const path = this.sessions.get(sessionId)?.transcript;
@@ -1827,7 +2160,12 @@ class Collector {
         capture.journal.close(capture.end, incomplete);
         const summary = publish(capture.journal.directory);
         const result = { state: "saved", ...summary };
-        this.recordState(id, result);
+        try {
+          this.recordState(id, result);
+          this.terminalResults.delete(id);
+        } catch {
+          this.rememberTerminal(id, result);
+        }
         return result;
       } catch (error) {
         const result = {
@@ -1836,31 +2174,97 @@ class Collector {
           journal: capture.journal.directory,
           error: String(error)
         };
-        this.recordState(id, result);
-        writeFileSync3(join3(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
+        try {
+          this.recordState(id, result);
+          this.terminalResults.delete(id);
+        } catch {
+          this.rememberTerminal(id, result);
+        }
+        try {
+          writeFileSync4(join4(capture.journal.directory, "error.txt"), String(error), { mode: 384 });
+        } catch {}
         return result;
       } finally {
+        const waiting = [...this.pendingGenerations].filter(([pendingId]) => this.captureFor(pendingId) === capture);
         this.captures.delete(id);
-        this.lastActivity = Date.now();
+        for (const [pendingId, pending] of waiting) {
+          this.pendingGenerations.delete(pendingId);
+          this.sessions.set(pendingId, pending);
+          if (pending.autoStart && !pending.parent && !pending.ended)
+            try {
+              this.start(pendingId);
+            } catch {}
+        }
       }
     })();
-    return capture.saving;
+    return saving;
   }
-  async hook(data, pid, timestamp, autoStart = false) {
+  async hook(data, pid, timestamp, autoStart = false, requestedContents = this.captureContents, reportedMarker) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !["SubagentStart", "SubagentStop"].includes(event))
       data = { ...data, parent_session: data.session_id, session_id: data.agent_id };
     const id = string(data.session_id);
     if (!validId(id) || !Number.isInteger(pid) || pid <= 0)
       throw new Error("Invalid hook identity.");
-    this.lastActivity = Date.now();
     let session = this.sessions.get(id);
+    const marker = reportedMarker && /^\d+$/.test(reportedMarker) ? reportedMarker : this.identity.start(pid);
+    const pending = this.pendingGenerations.get(id);
+    if (pending) {
+      if (pending.pid !== pid || pending.processStartMarker && marker && pending.processStartMarker !== marker)
+        throw new Error("Another Codex process generation is waiting for its prior recording to save.");
+      if (data.transcript_path)
+        pending.transcript = string(data.transcript_path);
+      if (data.model)
+        pending.model = string(data.model);
+      if (event === "SessionEnd")
+        pending.ended = true;
+      if (event === "UserPromptSubmit") {
+        const command = string(data.prompt).trim();
+        if (/^tracing status$/.test(command))
+          return { decision: "block", reason: "Agent Profiler: previous recording is saving; use tracing_status to check publication." };
+        if (/^tracing (?:start|stop)(?:\s|$)/.test(command))
+          return { decision: "block", reason: "Agent Profiler: previous recording is saving. Retry this control after publication." };
+        if (pending.prompt)
+          pending.skippedEvents = (pending.skippedEvents ?? 0) + 1;
+        pending.prompt = { source: "codex.hook", timestamp, data: pending.captureContents ? data : { ...data, prompt: undefined, prompt_length: string(data.prompt).length } };
+      } else if (event !== "SessionStart")
+        pending.skippedEvents = (pending.skippedEvents ?? 0) + 1;
+      return {};
+    }
+    const changed = !!session && (session.pid !== pid || !!session.processStartMarker && !!marker && session.processStartMarker !== marker);
+    if (changed) {
+      if (event !== "SessionStart")
+        throw new Error("Codex process generation changed; start a new session before recording more work.");
+      const previous = this.captureFor(id);
+      if (previous && !previous.end)
+        this.stop(previous.journal.sessionId, true);
+      if (previous) {
+        this.pendingGenerations.set(id, {
+          id,
+          pid,
+          processStartMarker: marker,
+          cwd: string(data.cwd),
+          transcript: string(data.transcript_path),
+          model: string(data.model),
+          parent: session?.parent,
+          captureContents: requestedContents && this.captureContents,
+          autoStart: autoStart && ["startup", "resume"].includes(string(data.source))
+        });
+        return { systemMessage: "Previous Agent Profiler recording is saving; this Codex process can record after publication." };
+      }
+      session = undefined;
+    }
     const firstStart = !session || session.ended;
     if (!session) {
-      session = { id, pid, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model) };
+      session = { id, pid, processStartMarker: marker, cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model) };
       this.sessions.set(id, session);
     }
+    session.captureContents = session.captureContents !== false && requestedContents && this.captureContents;
+    const liveCapture = this.captureFor(id);
+    if (session.captureContents === false && liveCapture)
+      liveCapture.journal.captureContents = false;
     session.pid = pid;
+    session.processStartMarker = marker ?? session.processStartMarker;
     if (data.cwd)
       session.cwd = string(data.cwd);
     if (data.transcript_path && event !== "SubagentStart")
@@ -1889,7 +2293,7 @@ class Collector {
           capture.journal.add(observation);
         let result;
         try {
-          result = control[1] === "start" ? this.start(id, control[2]) : control[1] === "stop" ? await this.stop(id) : this.status(id);
+          result = control[1] === "start" ? this.start(id, control[2]) : control[1] === "stop" ? this.stop(id) : this.status(id);
         } catch (error) {
           result = { state: "error", error: String(error) };
         }
@@ -1899,7 +2303,7 @@ class Collector {
         const message = status.state === "recording" ? `Recording to ${status.output}` : status.state === "saved" ? `Saved ${status.output}` : status.state === "saving" ? `Saving ${status.output}` : status.state === "idle" ? "Not recording." : string(status.error) || string(status.message);
         return { decision: "block", reason: `Agent Profiler: ${message}` };
       }
-      session.prompt = { source: "codex.hook", timestamp, data };
+      session.prompt = { source: "codex.hook", timestamp, data: session.captureContents ? data : { ...data, prompt: undefined, prompt_length: string(data.prompt).length } };
     }
     if (event === "SubagentStart" || event === "SubagentStop") {
       const childId = string(data.agent_id);
@@ -1924,7 +2328,14 @@ class Collector {
       capture.sessions.add(id);
       if (data.agent_id)
         capture.sessions.add(string(data.agent_id));
-      this.add(capture, { source: "codex.hook", timestamp, data });
+      const response = object(data.tool_response);
+      this.add(capture, { source: "codex.hook", timestamp, data: session.captureContents && capture.journal.captureContents ? data : {
+        ...data,
+        prompt: undefined,
+        prompt_length: typeof data.prompt === "string" ? data.prompt.length : data.prompt_length,
+        ...typeof response.exit_code === "number" ? { exit_code: response.exit_code } : {},
+        ...typeof response.isError === "boolean" ? { is_error: response.isError } : {}
+      } });
     }
     if (event === "Stop" || event === "Interrupt")
       session.prompt = undefined;
@@ -1937,8 +2348,9 @@ class Collector {
     return {};
   }
   ingest(data) {
-    const rows = [{ source: "otel", timestamp: now(), data }];
-    const parsed = readOtel(rows);
+    if ([...this.captures.values()].some((c) => !c.journal.captureContents))
+      tagControlScripts(data);
+    const parsed = readOtel([{ source: "otel", timestamp: now(), data: omitContent(data) }]);
     const remember = (trace, id) => {
       if (!trace || !id)
         return;
@@ -1963,7 +2375,7 @@ class Collector {
           if (!capture)
             continue;
           const row = { source: "/v1/logs", timestamp: now(), data: { resourceLogs: [{ scopeLogs: [{ logRecords: [log] }] }] } };
-          const at = readOtel([row]).logs[0]?.at;
+          const at = ns(object(log).timeUnixNano) || isoTime(attrs["event.timestamp"]);
           if (at === undefined || at < BigInt(capture.journal.start) || capture.end && at > BigInt(capture.end))
             continue;
           capture.sessions.add(id);
@@ -1975,7 +2387,10 @@ class Collector {
         for (const wire of array(object(scope).spans)) {
           const value = object(wire), key = `${value.traceId}:${value.spanId}`, span = parsed.spans.get(key);
           if (span) {
-            const bytes = Buffer.byteLength(JSON.stringify(wire));
+            const bytes = Buffer.byteLength(JSON.stringify(omitContent(wire))) + array(value.attributes).reduce((total, raw) => {
+              const text = object(object(raw).value).stringValue;
+              return total + (typeof text === "string" ? text.length * 6 : 0);
+            }, 0);
             this.pendingBytes += bytes - (this.pending.get(key)?.bytes ?? 0);
             this.pending.set(key, { span, wire, bytes });
           }
@@ -2031,21 +2446,29 @@ class Collector {
         if (Date.now() - this.lastClock >= 60000)
           capture.journal.clock();
         const root = this.sessions.get(capture.journal.sessionId);
-        if (root && !alive(root.pid)) {
+        if (root && !this.identity.same(root.pid, root.processStartMarker)) {
           root.ended = true;
           this.stop(root.id, true);
         }
       }
     if (Date.now() - this.lastClock >= 60000)
       this.lastClock = Date.now();
-    return !this.captures.size && Date.now() - this.lastActivity > 15000 && [...this.sessions.values()].every((session) => session.ended || !alive(session.pid));
+    for (const [id, session] of this.sessions)
+      if (!this.captureFor(id) && (session.ended || !this.identity.same(session.pid, session.processStartMarker)))
+        this.sessions.delete(id);
   }
 }
 async function serve(state) {
   const connection = readConnection(state), collector = new Collector(state);
+  const build = createHash4("sha256").update(readFileSync7(fileURLToPath(import.meta.url))).digest("hex");
+  let timer;
   const server = createServer2(async (request, response) => {
     const reply = (status, data) => {
-      response.writeHead(status, { "content-type": "application/json" });
+      response.writeHead(status, {
+        "content-type": "application/json",
+        ...connection.generation ? { "x-agentprof-generation": connection.generation } : {},
+        "x-agentprof-build": build
+      });
       response.end(JSON.stringify(data));
     };
     if (request.method !== "POST" || request.headers.authorization !== `Bearer ${connection.token}`)
@@ -2066,18 +2489,34 @@ async function serve(state) {
         body = gunzipSync(body, { maxOutputLength: 8 * 1024 * 1024 });
       const data = object(JSON.parse(body.toString("utf8")));
       if (request.url === "/health")
-        return reply(200, { ready: true });
+        return reply(200, {
+          ready: true,
+          generation: connection.generation,
+          build,
+          active_captures: collector.captures.size
+        });
+      if (request.url === "/shutdown") {
+        if (collector.captures.size)
+          return reply(409, { error: "Recording is still active." });
+        reply(200, { stopping: true });
+        setTimeout(() => {
+          if (timer)
+            clearInterval(timer);
+          server.close();
+        }, 0);
+        return;
+      }
       if (request.url === "/v1/logs" || request.url === "/v1/traces") {
         collector.ingest(data);
         return reply(200, {});
       }
       if (request.url === "/hook")
-        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true));
+        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false, string(data.process_start_marker) || undefined));
       const id = string(data.session_id);
       if (request.url === "/start")
-        return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined));
+        return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === "/stop")
-        return reply(200, await collector.stop(id));
+        return reply(200, collector.stop(id));
       if (request.url === "/status")
         return reply(200, collector.status(id));
       reply(404, { error: "Unknown operation" });
@@ -2090,16 +2529,20 @@ async function serve(state) {
     server.once("error", reject);
     server.listen(connection.port, "127.0.0.1", done);
   });
-  const timer = setInterval(() => {
-    if (collector.tick()) {
-      clearInterval(timer);
-      server.close();
-    }
+  writeFileSync4(join4(state, "receiver-owner.json"), JSON.stringify({
+    pid: process.pid,
+    marker: processStartMarker(process.pid),
+    generation: connection.generation
+  }), { mode: 384 });
+  timer = setInterval(() => {
+    collector.tick();
   }, 1000);
 }
 
 // packages/codex-tracing/plugin.ts
-var script = fileURLToPath(import.meta.url);
+var script = fileURLToPath2(import.meta.url);
+var buildId = createHash5("sha256").update(readFileSync8(script)).digest("hex");
+var captureContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
 var args = process.argv.slice(2);
 var command = args.shift();
 function option(name) {
@@ -2113,45 +2556,132 @@ function option(name) {
   return value;
 }
 var state = resolve3(option("--state") ?? stateDirectory(option("--plugin-data")));
+
+class TransportError extends Error {
+}
+
+class VersionError extends Error {
+}
 async function request(path, data = {}) {
   const connection = readConnection(state);
-  const response = await fetch(`http://127.0.0.1:${connection.port}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${connection.token}` },
-    body: JSON.stringify(data),
-    signal: AbortSignal.timeout(12000)
-  });
+  let response;
+  try {
+    response = await fetch(`http://127.0.0.1:${connection.port}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${connection.token}` },
+      body: JSON.stringify({ ...object(data), capture_contents: captureContents }),
+      signal: AbortSignal.timeout(path === "/stop" ? 30000 : 12000)
+    });
+  } catch (error) {
+    throw new TransportError(`Local recorder connection failed: ${String(error)}`);
+  }
+  if (connection.generation && response.headers.get("x-agentprof-generation") !== connection.generation)
+    throw new Error(`Unexpected receiver on port ${connection.port}. Reinstall Agent Profiler and restart Codex; native OTLP endpoints cannot change mid-run.`);
+  const endingHook = path === "/hook" && object(object(data).hook).hook_event_name === "SessionEnd";
+  if (!["/health", "/shutdown", "/stop", "/status"].includes(path) && !endingHook && response.headers.get("x-agentprof-build") !== buildId)
+    throw new VersionError("Receiver build differs from this plugin. Finish active recordings before upgrading the receiver.");
   const result = object(await response.json());
   if (!response.ok)
-    throw new Error(string(result.error) || `Recorder returned ${response.status}`);
+    throw new Error(response.status === 403 ? `Receiver authentication failed on port ${connection.port}; reinstall Agent Profiler and restart Codex if another process owns this port.` : string(result.error) || `Recorder returned ${response.status}`);
   return result;
 }
-async function ensureReceiver() {
-  readConnection(state);
+async function legacyReceiver(port) {
   try {
-    await request("/health");
-    return;
-  } catch {}
-  const log = openSync2(join4(state, "receiver.log"), "a", 384);
-  const child = spawn(process.execPath, [script, "serve", "--state", state], { detached: true, windowsHide: true, stdio: ["ignore", log, log] });
-  closeSync2(log);
-  await new Promise((done, reject) => {
-    child.once("spawn", done);
-    child.once("error", reject);
-  });
-  child.unref();
-  for (let attempt = 0;attempt < 30; attempt++) {
-    try {
-      await request("/health");
-      return;
-    } catch {}
-    await delay2(50);
+    const challenge = await fetch(`http://127.0.0.1:${port}/health`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer invalid-agentprof-probe" },
+      body: "{}",
+      signal: AbortSignal.timeout(1500)
+    });
+    if (challenge.status !== 403 || object(await challenge.json()).error !== "Forbidden")
+      return "other";
+    const id = randomUUID3(), status = await request("/status", { session_id: id });
+    return status.state === "idle" && status.session_id === id ? "legacy" : "unknown";
+  } catch {
+    return "unknown";
   }
-  throw new Error("Local recorder did not start. Check agentprof/receiver.log in your Codex home.");
+}
+var portOccupied = (port) => new Promise((resolve) => {
+  const socket = connect({ host: "127.0.0.1", port });
+  let done = false;
+  const finish = (occupied) => {
+    if (done)
+      return;
+    done = true;
+    socket.destroy();
+    resolve(occupied);
+  };
+  socket.once("connect", () => finish(true));
+  socket.once("error", () => finish(false));
+  socket.setTimeout(200, () => finish(false));
+});
+async function ensureReceiver() {
+  const health = async (expected = readConnection(state)) => {
+    try {
+      const status = await request("/health");
+      return status.ready === true && (!expected.generation || status.generation === expected.generation) ? status : null;
+    } catch {
+      return null;
+    }
+  };
+  if ((await health())?.build === buildId)
+    return;
+  const release = await acquireDirectoryLease(join5(state, "receiver-lifecycle.lock"), 3000);
+  try {
+    const connection = readConnection(state);
+    const current = await health(connection);
+    if (current?.build === buildId)
+      return;
+    if (current) {
+      if (Number(current.active_captures) > 0)
+        throw new Error("Receiver upgrade is waiting for active recordings to finish. Retry installation afterward.");
+      try {
+        await request("/shutdown");
+      } catch {
+        throw new Error("Old receiver cannot shut down safely. Stop it after saving recordings, then retry installation.");
+      }
+      for (let attempt = 0;attempt < 30 && await portOccupied(connection.port); attempt++)
+        await delay3(50);
+    }
+    if (await portOccupied(connection.port))
+      throw new Error(`Receiver port ${connection.port} is occupied by another process. Run agentprof-codex install and restart Codex; the current OTLP profile cannot change ports mid-run.`);
+    const log = openSync2(join5(state, "receiver.log"), "a", 384);
+    let child;
+    try {
+      child = spawn2(process.execPath, [script, "serve", "--state", state], { detached: true, windowsHide: true, stdio: ["ignore", log, log] });
+    } finally {
+      closeSync2(log);
+    }
+    await new Promise((done, reject) => {
+      child.once("spawn", done);
+      child.once("error", reject);
+    });
+    child.unref();
+    for (let attempt = 0;attempt < 40; attempt++) {
+      if ((await health(connection))?.build === buildId)
+        return;
+      await delay3(50);
+    }
+    if (await portOccupied(connection.port))
+      throw new Error(`Receiver port ${connection.port} is occupied but did not authenticate. Reinstall Agent Profiler and restart Codex.`);
+    throw new Error("Local recorder did not start. Check agentprof/receiver.log in your Codex home.");
+  } finally {
+    release();
+  }
+}
+async function requestWithReceiver(path, data) {
+  try {
+    return await request(path, data);
+  } catch (error) {
+    if (!(error instanceof TransportError || error instanceof VersionError))
+      throw error;
+    await ensureReceiver();
+    return request(path, data);
+  }
 }
 var tools = ["start", "stop", "status"].map((action) => ({
   name: `tracing_${action}`,
-  description: action === "start" ? "Start a local Agent Profiler recording of this Codex session and its subagents. Returns the trace output path." : action === "stop" ? "Stop and save this session’s Agent Profiler trace. Waits for batched telemetry and returns the saved trace path." : "Get this session’s recording state and trace path.",
+  description: action === "start" ? "Start a local Agent Profiler recording of this Codex session and its subagents. Returns the trace output path." : action === "stop" ? "Stop this recording and begin saving asynchronously. Returns a saving state and output path immediately; call tracing_status later to confirm saved or error." : "Get this session’s recording state and trace path.",
   inputSchema: { type: "object", properties: action === "start" ? { output_path: { type: "string", description: "Optional new .pftrace path, relative to the session working directory." } } : {}, additionalProperties: false },
   annotations: { readOnlyHint: action === "status", destructiveHint: false, openWorldHint: false }
 }));
@@ -2186,8 +2716,7 @@ async function mcp() {
       const id = string(metadata.threadId) || string(object(metadata["x-codex-turn-metadata"]).thread_id);
       if (!id)
         throw new Error("Codex did not supply the current session identity. Requires Codex CLI 0.160.0 or compatible.");
-      await ensureReceiver();
-      const result = await request(`/${name.slice("tracing_".length)}`, { ...object(params.arguments), session_id: id });
+      const result = await requestWithReceiver(`/${name.slice("tracing_".length)}`, { ...object(params.arguments), session_id: id });
       reply(message.id, { content: [{ type: "text", text: JSON.stringify(result) }], isError: result.state === "error" });
     } catch (error) {
       reply(message.id, { isError: true, content: [{ type: "text", text: `${String(error)}
@@ -2208,16 +2737,48 @@ try {
   else if (command === "mcp")
     await mcp();
   else if (command === "hook") {
-    const timestamp = now(), hook = object(JSON.parse(readFileSync6(0, "utf8")));
+    const timestamp = now(), hook = object(JSON.parse(readFileSync8(0, "utf8")));
     try {
-      await ensureReceiver();
-      console.log(JSON.stringify(await request("/hook", { hook, pid: process.ppid, timestamp, auto_start: args.includes("--auto-start") })));
+      console.log(JSON.stringify(await requestWithReceiver("/hook", {
+        hook,
+        pid: process.ppid,
+        timestamp,
+        process_start_marker: processStartMarker(process.ppid),
+        auto_start: args.includes("--auto-start")
+      })));
     } catch (error) {
       const message = `Agent Profiler: ${String(error)}. Run agentprof-codex install and restart with codex --no-daemon -p agentprof.`;
       const control = hook.hook_event_name === "UserPromptSubmit" && /^tracing (start|stop|status)(?:\s|$)/.test(string(hook.prompt).trim());
       console.log(JSON.stringify(control ? { decision: "block", reason: message } : { systemMessage: message }));
     }
   } else if (command === "install") {
+    const hasConnection = existsSync5(join5(state, "connection.json"));
+    let mustRebind = false;
+    if (hasConnection) {
+      let current;
+      try {
+        current = await request("/health");
+      } catch (error) {
+        if (!(error instanceof TransportError))
+          mustRebind = await portOccupied(readConnection(state).port);
+      }
+      if (current?.ready === true && current.build === undefined) {
+        const owner = await legacyReceiver(readConnection(state).port);
+        if (owner === "legacy")
+          throw new Error("An older Agent Profiler receiver is still running and cannot be upgraded safely. Finish or exit existing Codex sessions, wait for its receiver to exit, then retry install. The tracing profile was not changed.");
+        if (owner === "unknown")
+          throw new Error("Cannot verify the receiver on the configured port. Stop it and retry install; the tracing profile was not changed.");
+        mustRebind = true;
+      }
+      if (!mustRebind)
+        try {
+          await ensureReceiver();
+        } catch (error) {
+          if (!String(error).includes("Receiver port"))
+            throw error;
+          mustRebind = true;
+        }
+    }
     const root = resolve3(dirname3(script), "../../..");
     const market = spawnSync("codex", ["plugin", "marketplace", "add", root], { stdio: "inherit" });
     if (market.status !== 0)
@@ -2226,22 +2787,38 @@ try {
     if (install.status !== 0)
       throw new Error(`Codex plugin installation failed: ${install.stderr || install.error || install.status}`);
     const installed = object(JSON.parse(install.stdout));
-    const runtime = join4(string(installed.installedPath), "runtime/codex-tracing.mjs");
-    const profile = await configure(state, dirname3(state), runtime, args.includes("--auto-start"));
+    const runtime = join5(string(installed.installedPath), "runtime/codex-tracing.mjs");
+    let profile = await configure(state, dirname3(state), runtime, args.includes("--auto-start"), mustRebind);
+    for (let attempt = 0;attempt < 3; attempt++)
+      try {
+        await ensureReceiver();
+        break;
+      } catch (error) {
+        if (!String(error).includes("Receiver port") || attempt === 2)
+          throw error;
+        profile = await configure(state, dirname3(state), runtime, args.includes("--auto-start"), true);
+      }
     console.log(`Created ${profile}
-Start Codex with: codex --no-daemon -p agentprof
+Receiver is listening. Start or restart Codex with: codex --no-daemon -p agentprof
 Review and trust the recording hooks in /hooks, then type: tracing start
 Type tracing stop to save, or exit Codex to finish the recording.`);
   } else if (command === "recover" && args[0])
     console.log(JSON.stringify(publish(resolve3(args[0]), args[1])));
-  else if (["start", "stop", "status"].includes(command ?? "")) {
+  else if (command === "receiver-stop") {
+    try {
+      console.log(JSON.stringify(await request("/shutdown")));
+    } catch (error) {
+      if (!(error instanceof TransportError))
+        throw error;
+      console.log(JSON.stringify({ state: "idle", message: "Receiver is not running." }));
+    }
+  } else if (["start", "stop", "status"].includes(command ?? "")) {
     const id = option("--session");
     if (!id)
       throw new Error("Provide --session SESSION_ID, or use the recording tools inside Codex.");
-    await ensureReceiver();
-    console.log(JSON.stringify(await request(`/${command}`, { session_id: id, output_path: args[0] })));
+    console.log(JSON.stringify(await requestWithReceiver(`/${command}`, { session_id: id, output_path: args[0] })));
   } else {
-    console.log("Usage: agentprof-codex install | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]");
+    console.log("Usage: agentprof-codex install | start [OUTPUT.pftrace] --session ID | stop --session ID | status --session ID | receiver-stop | recover CAPTURE_DIRECTORY [OUTPUT.pftrace]");
     if (command && command !== "--help")
       process.exitCode = 2;
   }

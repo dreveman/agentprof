@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-05",
-  "harnessVersion": "0.160.0",
+  "recordedAt": "2026-10-08",
+  "harnessVersion": "0.161.0",
   "recorder": "interactive-plugin",
   "description": "Fix interval union duration and peak concurrency, add four regression tests, and run all tests.",
   "bundledFile": "coding.pftrace",
-  "sha256": "c1d16e80ff6e634bcea8fb756c0adf2bb4a2af29e9c3220f064ce29fc1311d62",
+  "sha256": "1496f1cd3d96feac2199c23568b4442b6d56307a3460c3478f48334df3d23cc9",
   "promptSha256": "38170f889fd5d37cc968c0d265a84e3c3c49a5978445cd62062d8e6da83ee290",
   "redactions": [
     "Scratch workspace paths replaced with /workspace/intervals; measurements and session identity are unchanged."
@@ -15,36 +15,37 @@
     "oracleCases": 500
   },
   "recording": {
-    "sessionId": "01a10bba-0a99-7e12-a22b-a91e22eee305",
+    "sessionId": "01a118ed-09d4-7302-acd6-31cb3dc967cd",
     "harness": "codex",
     "provider": "openai",
     "model": "gpt-6-luna",
     "effort": "low",
-    "inputTokens": 74115,
-    "outputTokens": 1034,
-    "responses": 5,
-    "turns": 5,
-    "tools": 6,
+    "inputTokens": 91168,
+    "outputTokens": 958,
+    "responses": 6,
+    "turns": 6,
+    "tools": 5,
     "contextWindowTokens": 258400,
-    "peakContext": 16861,
+    "peakContext": 16986,
     "incomplete": 0,
-    "startNs": "1791198104940000000",
-    "endNs": "1791198117834000000",
-    "scripts": 4,
-    "nestedTools": 6,
-    "flows": 28
+    "startNs": "1791419551009000000",
+    "endNs": "1791419562485000000",
+    "scripts": 5,
+    "nestedTools": 5,
+    "flows": 27
   },
   "resultSha256": {
-    "additional.test.mjs": "2a172c028996334ce8ffd506bcb2936fd203045ba4d4f8dfa3e44885e994ac94",
-    "intervals.mjs": "a831e14d34c2e07907f0f5bd5c960afebb825486facb84a3afb1d50869f23c37",
-    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f"
+    "intervals.mjs": "9300fc1ab95bceac29549712b81326470c14b354e24a7ab0967202a21a888bbf",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "747851b0a97a9981f2721367821cc1563ff4a14841b95b36149adbf6dee94f7f"
   },
-  "source": "One live Codex run using the interactive recording plugin with automatic start and save on exit.",
-  "contextData": "Re-exported from the original native telemetry and durable session transcript. Category counts use characters/4 and partial transcript attribution; measured timings and usage are unchanged.",
+  "source": "Coding task recorded with the native recording plugin, with automatic start and save on exit.",
+  "contextData": "Context composition recorded from this run\u2019s durable transcript, with partial item attribution. Category estimates remain independent of reported model usage.",
   "originalResultSha256": {
-    "additional.test.mjs": "8d80f5b003c4838cb450157ecd63894033c6d1a5a23ea65233500aee03f17b86",
-    "intervals.mjs": "2a1755c9e769a6f3017d5eefddd93dba602309c8c102ed143032feb35670b723",
-    "intervals.test.mjs": "8699d16f0f812529dc936b685260310994de6883befcccfc5484c6284f16c98b"
+    "intervals.mjs": "9300fc1ab95bceac29549712b81326470c14b354e24a7ab0967202a21a888bbf",
+    "intervals.test.mjs": "49609387ab0d161abc34099c146db0bfed2bc3b4d131a5770ac3903498840b3f",
+    "additional.test.mjs": "747851b0a97a9981f2721367821cc1563ff4a14841b95b36149adbf6dee94f7f"
   },
-  "sourceLicenseNote": "Apache-2.0 headers added to distributed source copies; executable code and original trace measurements are unchanged. Original source checksums are retained in originalResultSha256."
+  "sourceLicenseNote": "Distributed result files have Apache-2.0 headers; original captured source hashes are retained in originalResultSha256.",
+  "originalCaptureSha256": "99b99eeca02caa82b751abd24f09aee6ef6c1ea1fa7147932833a588c91d1ea3"
 }

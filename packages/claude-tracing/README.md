@@ -115,19 +115,34 @@ Direct capture records:
 - Main-session context readings and the window reported by Claude's session API.
   A child's context size comes from its own input usage; its model limit remains
   unknown because the session API describes the main conversation.
-- Native context composition estimates at capture start, model steps and
-  completed compaction, with counts for retained prompts and tool results.
+- Native context composition estimates at capture start, completed turns and
+  completed compaction, with incremental counts for prompts, responses and tool
+  results. Attribution is partial and post-turn samples are not request-input
+  snapshots; model steps no longer scan the whole transcript before dispatch.
   See [context measurements](../../docs/context-data.md) for attribution limits
-  and the Overview card and Context tab. Child breakdowns remain unavailable.
+  and the [synthetic observer benchmark](../../docs/claude-observer-performance.md).
+  Child breakdowns remain unavailable.
 
 The plugin forwards events and results unchanged and does not record response
-text or tool output. It batches observations once per second into private
+text or tool output. Set `AGENTPROF_CAPTURE_CONTENTS=0` before launching Claude,
+or turn off the plugin's `capture_contents` setting, to omit prompt text and tool
+argument values from new direct recordings, checkpoints and raw journals.
+Prompt lengths, tool names/IDs, timing, usage and context counts remain. The
+legacy print-mode launcher honors the same environment opt-out, disables
+Claude's prompt/tool-detail telemetry and filters text before journaling.
+The recording output path, capture directory, session IDs and model/provider
+metadata remain; a journal from an earlier content-on capture is not rewritten.
+It batches observations once per second into private
 `agent.pftrace.capture/` files, with no per-tool helper process or telemetry
 collector. Prompts and tool arguments are bounded and contain potentially
 sensitive task content. The journal is bounded to 64 MiB;
 omitted content is marked, and dropped events mark the recording incomplete.
 An abrupt process kill can lose up to the latest unflushed batch. The journal
-survives; a failed background conversion writes `error.txt` beside it. Recover
+survives; recovery skips malformed complete JSONL records and an interrupted
+final fragment, counts them as `corruptRecords` in `summary.json`, and marks the
+published trace incomplete while retaining later valid records. A damaged
+identity `metadata.json` cannot be safely reconstructed. A failed background
+conversion writes `error.txt` beside the journal. Recover
 with the bundled writer (find the installed plugin path with
 `claude plugin list --json`):
 
@@ -222,7 +237,7 @@ npx bun tools/convert-claude.ts \
 ```
 
 The raw journal is bounded to 128 MiB. Dropped observations appear in the summary.
-The receiver accepts only authenticated requests on loopback. Traces and raw
+The receiver accepts only authenticated requests on loopback. With the default content-on policy, traces and raw
 journals contain prompts and tool inputs, including commands and edit arguments;
 raw telemetry may also contain account metadata supplied by Claude. The hook
 does not copy tool results, and full API bodies and assistant text export are

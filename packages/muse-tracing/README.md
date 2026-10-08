@@ -47,7 +47,12 @@ To record automatically in new sessions where the plugin is enabled:
 agentprof-muse configure --auto-start
 ```
 
-Restore manual recording with `agentprof-muse configure --manual`. Muse's native
+Restore manual recording with `agentprof-muse configure --manual`. For
+metadata-only new captures use `agentprof-muse configure --no-content` or set
+`AGENTPROF_CAPTURE_CONTENTS=0` before launching Muse. To opt back in, use
+`agentprof-muse configure --capture-content` and remove the environment
+opt-out. This setting is stored with each recording for deterministic recovery.
+Muse's native
 plugin API does not expose custom keybindings; use the typed controls or tools.
 Session logging must remain enabled (do not pass `--no-session-log`).
 
@@ -84,7 +89,16 @@ Events use `muse.*` categories and the common Agent Profiler capture schema.
 Sessions are logical tracks under the actual Muse process, with machine identity,
 real-time clock snapshots, token units and counter resets at recording end.
 
-Prompts and bounded tool arguments are included, so review a trace before sharing.
+By default, prompts and bounded tool arguments are included, so review a trace
+before sharing. In metadata-only mode, main and reminder-session prompts and
+tool argument values are dropped during export parsing; prompt lengths, tool
+names/IDs, timing, model/provider, usage and outcomes remain. A raw string
+argument may retain its UTF-16 length for partial context attribution; object
+arguments are not traversed for size or keys. Recording paths, session IDs and
+process metadata remain.
+Muse's own session journal is unaffected, and its export command temporarily
+writes a private full native export that is removed after parsing; this switch
+cannot prevent those upstream/transient copies.
 Provider credentials, model system instructions and encrypted reasoning are not
 copied into the trace or recorder state. Native exports use temporary private
 directories, removed after conversion. Only sessions
@@ -93,7 +107,12 @@ explicitly linked to the recording are exported, with bounded size and time.
 ## Recovery and development
 
 The plugin stores private capture metadata under Muse's
-`plugins/data/agentprof/sessions` directory. Muse's own journal holds the events;
+`plugins/data/agentprof/sessions` directory. Linux host and watcher process
+start markers protect against PID reuse; old state and other platforms fall
+back to PID liveness. Ordinary hooks avoid an extra watcher lock/read; start
+paths ensure the watcher exists. Each host command hook still launches Node;
+see the [synthetic hook latency benchmark](../../docs/hook-latency.md).
+Muse's own journal holds the events;
 the process watcher exits when recording ends. If shutdown or export fails, keep that
 journal and retry:
 
