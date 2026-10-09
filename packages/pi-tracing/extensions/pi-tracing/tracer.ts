@@ -5,6 +5,7 @@
 // drain/fsync/close, and otherwise leaves a repaired parseable .part.
 
 import { constants as fsConstants, readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import {
   mkdir,
   open,
@@ -215,9 +216,7 @@ export function captureClockReadings(): {
 }
 
 function randomToken(): string {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return randomBytes(8).toString("hex");
 }
 
 function safeHost(): string {

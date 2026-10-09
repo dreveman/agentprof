@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import {randomFillSync} from "node:crypto";
 import {CONTEXT_CATEGORIES} from './context.ts';
 // Track model: root process descriptor + named generic child tracks +
 // free-lane tool allocator + one counter track per metric. Categories are
@@ -60,7 +61,7 @@ export const DEFAULT_COUNTERS: CounterSpec[] = [
 export function randomUuid64(used: Set<string>): bigint {
   const values = new BigUint64Array(1);
   for (let attempts = 0; attempts < 100; attempts++) {
-    crypto.getRandomValues(values);
+    randomFillSync(values);
     const candidate = values[0] ?? 0n;
     if (candidate === 0n) continue;
     const key = candidate.toString(16);
@@ -73,7 +74,7 @@ export function randomUuid64(used: Set<string>): bigint {
 
 export function randomSeqId(): number {
   const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
+  randomFillSync(values);
   const candidate = values[0] ?? 0;
   return candidate === 0 ? 1 : candidate;
 }
@@ -341,7 +342,7 @@ function buildChildLaneDescriptorPacket(args: {
 export function randomFlowId(used: Set<string>): bigint {
   for (let attempts = 0; attempts < 100; attempts++) {
     const values = new BigUint64Array(1);
-    crypto.getRandomValues(values);
+    randomFillSync(values);
     const candidate = values[0] ?? 0n;
     if (candidate === 0n) continue;
     const key = `flow:${candidate.toString(16)}`;

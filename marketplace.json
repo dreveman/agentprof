@@ -10,7 +10,7 @@
         "source": "./packages/muse-tracing"
       },
       "integrity": {
-        "digest": "sha256:ebc6f2137067c2c6c3dd3b5cc4ff86dca53be3614885e81940093db2e1366ebb"
+        "digest": "sha256:6df18c6338d5cd318c08a09484fccf52882bd2bbcac9528ea8fdf82aa8ba39a3"
       },
       "availability": {
         "status": "available"

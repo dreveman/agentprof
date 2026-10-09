@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import {findLast} from '../agent-tracing/find-last.ts';
 import {spawn, execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createInterface} from 'node:readline';
@@ -165,7 +166,7 @@ export async function control(data: string, id: string, action: string, output?:
       await atomicJson(path, record);
       const sessions = await exportSessions(record, data);
       if (action === 'finish' && record.stopping) {
-        const end = sessions[0]?.records.findLast(r => r.kind === 'session_end');
+        const end = findLast(sessions[0]?.records, r => r.kind === 'session_end');
         if (end && BigInt(end.at) >= BigInt(record.capture.start) && BigInt(end.at) <= BigInt(record.capture.end)) record.capture.end = end.at;
         if ((!end && !sameProcess(record.pid, record.capture.processStartMarker)) ||
             (end?.data.exit_reason && end.data.exit_reason !== 'clean')) record.capture.incomplete = true;

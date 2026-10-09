@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import {findLast} from '../agent-tracing/find-last.ts';
 import {attachContext} from '../agent-tracing/context.ts';
 import {ContextTracker, estimateContextTokens, type ContextItem} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Attrs, type Slice, type Session, type Counter} from '../agent-tracing/trace.ts';
@@ -57,8 +58,8 @@ export function convert(capture: Capture, native: NativeSession[]) {
     const emittedTasks = new Set<string>();
     const results = new Map<string, {exit_code?: number; terminal_status?: string}>();
     const configuration = (at: bigint, model?: string) => {
-      const hook = capture.hooks.findLast(h => h.session === id && h.event === 'PreLLMCall' && BigInt(h.at) <= at);
-      const run = records.findLast(r => r.kind === 'run_model' && BigInt(r.at) <= at);
+      const hook = findLast(capture.hooks, h => h.session === id && h.event === 'PreLLMCall' && BigInt(h.at) <= at);
+      const run = findLast(records, r => r.kind === 'run_model' && BigInt(r.at) <= at);
       const name = model || hook?.model || string(run?.data.model_id) || string(session.attrs.model);
       const provider = hook?.provider || string(run?.data.provider_id) || string(session.attrs.provider);
       const limit = capture.catalog.find(m => m.model === name && m.provider === provider)?.context;
@@ -184,7 +185,7 @@ export function convert(capture: Capture, native: NativeSession[]) {
             ...(result?.exit_code !== undefined ? {exit_code: result.exit_code, outcome: result.terminal_status!} : {}),
             ...(incomplete ? {incomplete: true} : {is_error: Boolean(failed)}),
             ...(!result && outcome.kind ? {outcome: string(outcome.kind)} : {})});
-        if (tool) {tools.set(string(d.call_id), tool); edge(responses.findLast(s => s.end! <= tool.start), tool);}
+        if (tool) {tools.set(string(d.call_id), tool); edge(findLast(responses, s => s.end! <= tool.start), tool);}
       }
       if (d.child_session_id && at <= last) {
         const task = tasks.get(r.task);
@@ -206,7 +207,7 @@ export function convert(capture: Capture, native: NativeSession[]) {
         {kind: 'tool-execution', name, ...(call ? {call_id: string(call.call_id),
           ...(captureContents ? toolArgumentAnnotations(args, true) : {})} : {}),
           ...(task.end ? {is_error: Boolean(task.error)} : {incomplete: true})});
-      if (tool) {if (call) tools.set(call.call_id, tool); edge(responses.findLast(s => s.end! <= tool.start), tool);}
+      if (tool) {if (call) tools.set(call.call_id, tool); edge(findLast(responses, s => s.end! <= tool.start), tool);}
     }
     // A request with no completion is visible, but never receives invented usage.
     for (const [key, task] of tasks) if (task.kind.startsWith('model.') && !responses.some(r => r.start >= task.start && r.start <= (task.end ?? last))) {

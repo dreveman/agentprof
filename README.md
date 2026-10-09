@@ -47,7 +47,7 @@ content out of new recordings; timing, usage, IDs and metadata remain. Pi's
 legacy `PI_TRACING_CAPTURE_CONTENTS=0` continues to omit tool arguments only.
 See each harness guide for raw-journal and native-export limitations.
 
-For Claude Code (2.1.289+ with mods enabled, Node.js 22+), install the
+For Claude Code (2.1.289+ with mods enabled, Node.js 16.20.2+), install the
 [interactive plugin](packages/claude-tracing/README.md):
 
 ```sh

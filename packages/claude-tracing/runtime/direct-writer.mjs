@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 import { constants as fsConstants, readFileSync as readFileSync2 } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { hostname, uptime } from "node:os";
 
 // packages/pi-tracing/extensions/pi-tracing/encoder.ts
@@ -520,9 +521,18 @@ function captureClockReadings() {
   };
 }
 function randomToken() {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return randomBytes(8).toString("hex");
+}
+
+// packages/agent-tracing/find-last.ts
+function findLast(values, predicate) {
+  if (!values)
+    return;
+  for (let index = values.length - 1;index >= 0; index--) {
+    const value = values[index];
+    if (predicate(value))
+      return value;
+  }
 }
 
 // packages/agent-tracing/context.ts
@@ -724,7 +734,7 @@ function convertDirectObservations(rows) {
   }
   for (const session of sessions.values()) {
     if (!session.attrs.parent_session) {
-      const closed = events.findLast((r) => scope(r.data) === session.id && r.data.event === "session" && r.data.phase === "end");
+      const closed = findLast(events, (r) => scope(r.data) === session.id && r.data.event === "session" && r.data.phase === "end");
       if (!closed || closed.data.dropped || rows.some((r) => r.source === "recovery"))
         session.attrs.incomplete = true;
       if (closed)
@@ -807,7 +817,7 @@ function convertDirectObservations(rows) {
     if (context.every((v) => v !== undefined))
       attrs.context_tokens = context.reduce((n, v) => n + v, 0);
     if (!d.agent_id) {
-      const reading = contextRows.find((v) => scope(v.data) === session.id && v.data.id === d.id && BigInt(v.timestamp) >= end) ?? contextRows.findLast((v) => scope(v.data) === session.id && BigInt(v.timestamp) <= start);
+      const reading = contextRows.find((v) => scope(v.data) === session.id && v.data.id === d.id && BigInt(v.timestamp) >= end) ?? findLast(contextRows, (v) => scope(v.data) === session.id && BigInt(v.timestamp) <= start);
       const window = tokens(object(d.context).window) ?? (reading?.data.model === model ? tokens(object(reading.data.context).window) : undefined);
       if (window)
         attrs.context_window_tokens = window;

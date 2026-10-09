@@ -3,7 +3,7 @@
 Record interactive Codex sessions into a Perfetto trace that opens directly in
 Agent Profiler's Overview. The plugin provides agent tools, typed recording
 controls, automatic recording and save on exit. Requires Codex CLI 0.160.0 or
-compatible hooks and Node.js 22 or later. Native hook/MCP discovery was
+compatible hooks and Node.js 16.20.2 or later. Native hook/MCP discovery was
 validated without model credentials on Linux with Codex CLI 0.159.3; a real
 0.160.0 run remains to be checked on the user's Codex host. The Unix-socket
 implementation is expected to work on macOS but is not yet validated there;

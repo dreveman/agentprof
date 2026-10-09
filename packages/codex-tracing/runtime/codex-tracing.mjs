@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // packages/codex-tracing/plugin.ts
 import { spawn as spawn2 } from "node:child_process";
-import { createHash as createHash4, randomBytes } from "node:crypto";
+import { createHash as createHash4, randomBytes as randomBytes2 } from "node:crypto";
 import { existsSync as existsSync5, mkdirSync as mkdirSync4, openSync as openSync2, closeSync as closeSync2, readFileSync as readFileSync8, renameSync as renameSync2, rmdirSync as rmdirSync2, rmSync as rmSync2, unlinkSync as unlinkSync3 } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
@@ -70,6 +70,7 @@ import { randomUUID } from "node:crypto";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 import { constants as fsConstants, readFileSync as readFileSync3 } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { hostname, uptime } from "node:os";
 
 // packages/pi-tracing/extensions/pi-tracing/encoder.ts
@@ -689,9 +690,18 @@ function captureClockReadings() {
   };
 }
 function randomToken() {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return randomBytes(8).toString("hex");
+}
+
+// packages/agent-tracing/find-last.ts
+function findLast(values, predicate) {
+  if (!values)
+    return;
+  for (let index = values.length - 1;index >= 0; index--) {
+    const value = values[index];
+    if (predicate(value))
+      return value;
+  }
 }
 
 // packages/agent-tracing/context.ts
@@ -1057,7 +1067,7 @@ function convertObservations(rows) {
   if (!pid || !capture || !processStart)
     throw new Error("Missing recorded Codex process identity");
   const captureContents = processStart.data.capture_contents !== false;
-  const first = BigInt(processStart.timestamp), processEnd = rows.findLast((r) => r.source === "process_end");
+  const first = BigInt(processStart.timestamp), processEnd = findLast(rows, (r) => r.source === "process_end");
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const { spans, logs } = readOtel(rows);
   const plugin = processStart.data.recorder === "codex-plugin-1";
@@ -1190,7 +1200,7 @@ function convertObservations(rows) {
   }
   for (const [id, values] of configurations) {
     values.sort((a, b) => compareTime(a.at, b.at));
-    const initial = values.findLast((value) => value.at <= first) ?? values[0];
+    const initial = findLast(values, (value) => value.at <= first) ?? values[0];
     const session = getSession(id);
     if (initial.model)
       session.attrs.model = initial.model;
@@ -1267,7 +1277,7 @@ function convertObservations(rows) {
     const start = request?.start ?? log.at, end = request?.end ?? log.at;
     const warm = request !== undefined && prewarm(request);
     const compaction = extra.some((slice) => slice.session === id && slice.attrs.kind === "compaction" && slice.start <= start && slice.end >= end);
-    const configuration = configurations.get(id)?.findLast((value) => value.at <= start);
+    const configuration = findLast(configurations.get(id), (value) => value.at <= start);
     const attrs = {
       kind: warm ? "startup" : compaction ? "compaction-response" : "assistant-message",
       model: string(log.attrs.model) || configuration?.model || string(getSession(id).attrs.model),
@@ -1319,7 +1329,7 @@ function convertObservations(rows) {
       for (const sample of samples) {
         if (!sessions.has(id) || integer(sample.usage.input_tokens) === undefined && integer(sample.usage.output_tokens) === undefined)
           continue;
-        const configuration = configurations.get(id)?.findLast((value) => value.at <= sample.at);
+        const configuration = findLast(configurations.get(id), (value) => value.at <= sample.at);
         const session = getSession(id);
         const compact = extra.some((slice) => slice.session === id && slice.attrs.kind === "compaction" && slice.start <= sample.at && slice.end !== undefined && slice.end >= sample.at);
         const attrs = {
@@ -2752,9 +2762,9 @@ try {
     throw new Error("The Codex plugin recorder requires a private Unix socket; Windows is not supported yet.");
   if (command === "serve") {
     mkdirSync4(state, { recursive: true, mode: 448 });
-    const generation = randomBytes(16).toString("hex"), socket = privateSocketPath(generation);
+    const generation = randomBytes2(16).toString("hex"), socket = privateSocketPath(generation);
     try {
-      await serve(state, { socket, token: randomBytes(32).toString("hex"), generation, run: true });
+      await serve(state, { socket, token: randomBytes2(32).toString("hex"), generation, run: true });
     } catch (error) {
       rmSync2(dirname4(socket), { recursive: true, force: true });
       throw error;
