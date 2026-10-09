@@ -41,6 +41,39 @@ jobs:
       - name: Check bundled example is current
         run: git diff --exit-code -- 'third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/*example_trace.ts'
 
+  node-runtime:
+    name: Recording runtimes (Node ${{ matrix.node }})
+    needs: traces
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['16.20.2', '22']
+    env:
+      PERFETTO_TRACE_PROCESSOR: ${{ github.workspace }}/third_party/src/perfetto/tools/trace_processor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - name: Set up pinned Perfetto Trace Processor
+        run: python3 tools/perfetto setup
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # Bun runs the TypeScript tests; packaged hooks, MCP servers and writer
+      # subprocesses resolve node from PATH and use the selected runtime.
+      - name: Test packaged recording runtimes
+        run: |
+          node --version
+          npm run test:node-runtime
+
   ui:
     name: Build and test UI
     needs: traces

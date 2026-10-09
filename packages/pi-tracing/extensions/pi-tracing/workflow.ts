@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import {createHash} from "node:crypto";
+import {createHash, randomBytes} from "node:crypto";
 
 // Pure, testable helpers for child-agent (workflow) tracing. No Pi imports:
 // parent-side launch description, child session extraction, and child-side
@@ -33,9 +33,7 @@ function ownValue(value: Record<string, unknown>, key: string): unknown {
 }
 
 export function randomCorrelationId(): string {
-  const bytes = new Uint8Array(4);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return randomBytes(4).toString("hex");
 }
 
 /** Append our extension path to a comma-separated `--extension` list without

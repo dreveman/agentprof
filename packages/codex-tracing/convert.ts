@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import {findLast} from '../agent-tracing/find-last.ts';
 import {attachContext} from '../agent-tracing/context.ts';
 import type {ContextSnapshot} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Attrs, type Observation, type Slice, type Session, type Counter} from '../agent-tracing/trace.ts';
@@ -18,7 +19,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   const pid = integer(processStart?.data.pid), capture = string(processStart?.data.captureId);
   if (!pid || !capture || !processStart) throw new Error('Missing recorded Codex process identity');
   const captureContents = processStart.data.capture_contents !== false;
-  const first = BigInt(processStart.timestamp), processEnd = rows.findLast(r => r.source === 'process_end');
+  const first = BigInt(processStart.timestamp), processEnd = findLast(rows, r => r.source === 'process_end');
   const last = BigInt(processEnd?.timestamp ?? rows.at(-1)?.timestamp ?? processStart.timestamp);
   const {spans, logs} = readOtel(rows);
   const plugin = processStart.data.recorder === 'codex-plugin-1';
@@ -119,7 +120,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
   }
   for (const [id, values] of configurations) {
     values.sort((a, b) => compareTime(a.at, b.at));
-    const initial = values.findLast(value => value.at <= first) ?? values[0]!;
+    const initial = findLast(values, value => value.at <= first) ?? values[0]!;
     const session = getSession(id);
     if (initial.model) session.attrs.model = initial.model;
     if (initial.effort) session.attrs.effort = initial.effort;
@@ -176,7 +177,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
     const warm = request !== undefined && prewarm(request);
     const compaction = extra.some(slice => slice.session === id && slice.attrs.kind === 'compaction' &&
       slice.start <= start && slice.end! >= end);
-    const configuration = configurations.get(id)?.findLast(value => value.at <= start);
+    const configuration = findLast(configurations.get(id), value => value.at <= start);
     const attrs: Attrs = {kind: warm ? 'startup' : compaction ? 'compaction-response' : 'assistant-message', model: string(log.attrs.model) || configuration?.model || string(getSession(id).attrs.model),
       ...(getSession(id).attrs.provider ? {provider: getSession(id).attrs.provider!} : {}), timing: request ? 'native-stream' : 'unmeasured',
       ...(request ? {is_error: request.error, ...(request.attrs['capture.incomplete'] ? {incomplete: true} : {})} : {incomplete: true})};
@@ -207,7 +208,7 @@ export function convertObservations(rows: Observation[]): {trace: Uint8Array; su
         (integer(sample.usage.input_tokens) === undefined && integer(sample.usage.output_tokens) === undefined)) continue;
     // The transcript reports completion usage, not when the model request
     // began or when its first bytes arrived. Never invent those durations.
-    const configuration = configurations.get(id)?.findLast(value => value.at <= sample.at);
+    const configuration = findLast(configurations.get(id), value => value.at <= sample.at);
     const session = getSession(id);
     const compact = extra.some(slice => slice.session === id && slice.attrs.kind === 'compaction' &&
       slice.start <= sample.at && slice.end !== undefined && slice.end >= sample.at);

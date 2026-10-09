@@ -32,6 +32,11 @@ Install Node.js 22+, npm, Python 3.11+, Git, and a C/C++ build environment.
 Perfetto downloads its pinned UI toolchain. The first build includes the WASM
 Trace Processor and takes longer than subsequent builds.
 
+The packaged recording runtimes are tested with Node.js 16.20.2 and 22.
+Run `npm run test:node-runtime` with the desired `node` on `PATH`; Bun runs the
+TypeScript tests while recording subprocesses use that Node version. Harnesses
+have their own runtime requirements.
+
 ```bash
 npm ci
 python3 tools/perfetto build-ui

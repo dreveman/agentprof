@@ -1,7 +1,7 @@
 # Muse Code tracing
 
 Record your normal Muse Code session into one `.pftrace` file for Agent Profiler.
-Requires Muse Code 1.4.1 or later with native plugins available, and Node.js 22+.
+Requires Muse Code 1.4.1 or later with native plugins available, and Node.js 16.20.2 or later.
 
 ```sh
 muse plugins marketplace add agentprof dreveman/agentprof

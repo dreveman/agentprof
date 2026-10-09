@@ -8,6 +8,17 @@ import { dirname as dirname2, resolve as resolve2, join as join2 } from "node:pa
 import { fileURLToPath } from "node:url";
 import { createInterface as createInterface2 } from "node:readline";
 
+// packages/agent-tracing/find-last.ts
+function findLast(values, predicate) {
+  if (!values)
+    return;
+  for (let index = values.length - 1;index >= 0; index--) {
+    const value = values[index];
+    if (predicate(value))
+      return value;
+  }
+}
+
 // packages/muse-tracing/record.ts
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -20,6 +31,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 // packages/pi-tracing/extensions/pi-tracing/tracer.ts
 import { constants as fsConstants, readFileSync as readFileSync2 } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { hostname, uptime } from "node:os";
 
 // packages/pi-tracing/extensions/pi-tracing/encoder.ts
@@ -531,9 +543,7 @@ function captureClockReadings() {
   };
 }
 function randomToken() {
-  const bytes = new Uint8Array(8);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return randomBytes(8).toString("hex");
 }
 
 // packages/agent-tracing/context.ts
@@ -848,8 +858,8 @@ function convert(capture, native) {
     const emittedTasks = new Set;
     const results = new Map;
     const configuration = (at, model) => {
-      const hook = capture.hooks.findLast((h) => h.session === id && h.event === "PreLLMCall" && BigInt(h.at) <= at);
-      const run = records.findLast((r) => r.kind === "run_model" && BigInt(r.at) <= at);
+      const hook = findLast(capture.hooks, (h) => h.session === id && h.event === "PreLLMCall" && BigInt(h.at) <= at);
+      const run = findLast(records, (r) => r.kind === "run_model" && BigInt(r.at) <= at);
       const name = model || hook?.model || string(run?.data.model_id) || string(session.attrs.model);
       const provider = hook?.provider || string(run?.data.provider_id) || string(session.attrs.provider);
       const limit = capture.catalog.find((m) => m.model === name && m.provider === provider)?.context;
@@ -1040,7 +1050,7 @@ function convert(capture, native) {
         });
         if (tool) {
           tools.set(string(d.call_id), tool);
-          edge(responses.findLast((s) => s.end <= tool.start), tool);
+          edge(findLast(responses, (s) => s.end <= tool.start), tool);
         }
       }
       if (d.child_session_id && at <= last) {
@@ -1077,7 +1087,7 @@ function convert(capture, native) {
         if (tool) {
           if (call)
             tools.set(call.call_id, tool);
-          edge(responses.findLast((s) => s.end <= tool.start), tool);
+          edge(findLast(responses, (s) => s.end <= tool.start), tool);
         }
       }
     for (const [key, task] of tasks)
@@ -1429,7 +1439,7 @@ async function control(data, id, action, output) {
       await atomicJson(path, record);
       const sessions = await exportSessions(record, data);
       if (action === "finish" && record.stopping) {
-        const end = sessions[0]?.records.findLast((r) => r.kind === "session_end");
+        const end = findLast(sessions[0]?.records, (r) => r.kind === "session_end");
         if (end && BigInt(end.at) >= BigInt(record.capture.start) && BigInt(end.at) <= BigInt(record.capture.end))
           record.capture.end = end.at;
         if (!end && !sameProcess(record.pid, record.capture.processStartMarker) || end?.data.exit_reason && end.data.exit_reason !== "clean")

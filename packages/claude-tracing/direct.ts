@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import {findLast} from '../agent-tracing/find-last.ts';
 import {attachContext} from '../agent-tracing/context.ts';
 import {ContextTracker, instructionCategory, type ContextItem} from '../pi-tracing/extensions/pi-tracing/context.ts';
 import {writeTrace, compareTime, type Observation, type Session, type Slice, type Counter, type Attrs} from '../agent-tracing/trace.ts';
@@ -77,7 +78,7 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
   }
   for (const session of sessions.values()) {
     if (!session.attrs.parent_session) {
-      const closed = events.findLast(r => scope(r.data) === session.id && r.data.event === 'session' && r.data.phase === 'end');
+      const closed = findLast(events, r => scope(r.data) === session.id && r.data.event === 'session' && r.data.phase === 'end');
       if (!closed || closed.data.dropped || rows.some(r => r.source === 'recovery')) session.attrs.incomplete = true;
       if (closed) session.attrs.stop_reason = text(closed.data.reason);
       if (closed?.data.dropped) session.attrs.dropped_events = tokens(closed.data.dropped)!;
@@ -134,7 +135,7 @@ export function convertDirectObservations(rows: Observation[]): {trace: Uint8Arr
     // Context APIs describe only the main conversation, not an arbitrary child.
     if (!d.agent_id) {
       const reading = contextRows.find(v => scope(v.data) === session.id && v.data.id === d.id && BigInt(v.timestamp) >= end) ??
-        contextRows.findLast(v => scope(v.data) === session.id && BigInt(v.timestamp) <= start);
+        findLast(contextRows, v => scope(v.data) === session.id && BigInt(v.timestamp) <= start);
       const window = tokens(object(d.context).window) ?? (reading?.data.model === model ? tokens(object(reading.data.context).window) : undefined);
       if (window) attrs.context_window_tokens = window;
     }

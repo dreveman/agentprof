@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { randomFillSync } from "node:crypto";
 
 // Runtime capability probe. Pure and testable: no Pi imports, no filesystem
 // writes, bounded to ~200 ms. Every source reports pass/fail with observed
@@ -142,7 +143,7 @@ export function probeOptionalModules(): ProbeResult[] {
 export function probeCryptoRandom(): ProbeResult {
   try {
     const values = new BigUint64Array(2);
-    crypto.getRandomValues(values);
+    randomFillSync(values);
     const first = values[0] ?? 0n;
     const second = values[1] ?? 0n;
     if (first === 0n && second === 0n) return { name: "crypto-random", ok: false, detail: "returned zeroes" };

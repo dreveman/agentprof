@@ -6,7 +6,7 @@ Recording does not require a separate launcher or telemetry collector.
 
 ## Install
 
-Requires Claude Code **2.1.289 or later**, with mods enabled, and **Node.js 22 or
+Requires Claude Code **2.1.289 or later**, with mods enabled, and **Node.js 16.20.2 or
 later** on `PATH`. Tested with 2.1.289. After this version is published to GitHub:
 
 ```sh
