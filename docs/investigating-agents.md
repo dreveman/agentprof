@@ -1,9 +1,10 @@
 # Investigating an agent run
 
 Load a supported agent recording to open **Overview**. The Summary tab shows recorded activity,
-model responsiveness, tool work, concurrency, and capture health. **Responses**,
-**Tools**, and **Sessions** provide detail tables. Select a response's session or a
-tool call to reveal that event in the timeline; **Open timeline** opens the Agent Profiler
+model responsiveness, tool work, concurrency, and capture health. **Turns** groups
+recorded user interactions; expand a turn for a simplified model/tool timeline.
+**Tools** and **Sessions** provide detail tables. Select an operation to reveal it
+in the timeline; **Open timeline** opens the Agent Profiler
 workspace. The command palette (`Ctrl+Shift+P`) provides the `Agent Profiler:` SQL
 queries for additional investigation; **More options → Query (SQL)** supports custom queries.
 
@@ -17,9 +18,21 @@ only for one captured session with one known model; model changes and unknown
 metadata use neutral headings. Aggregate charts state their session scope.
 
 Start with **Capture health** to check for dropped events and lane overflows. **Slow tools** shows recorded errors and
-incomplete spans; **Responses** shows optional usage and stream timings.
+incomplete spans; **Turns** retains model-response usage and stream timing details.
 The default Perfetto workspace remains available for runtime counters and the
 full original track hierarchy.
+
+## Inspect turns
+
+A turn is a recorded prompt interaction, not one model response or native
+model/tool iteration. Its header shows the distinct recorded model/provider pairs
+once, including multiple pairs if responses within the turn use different identities.
+Its waterfall keeps operations on a shared relative time
+axis; overlapping work is visible rather than summed into elapsed time. Complete
+turns use recorded prompt boundaries. Incomplete turns show only observed work,
+not the capture end or the time until the next prompt. Unattributed gaps are not
+assumed waiting. Recordings without prompt boundaries retain a model-response
+fallback; ambiguous/background work remains available in the full timeline.
 
 ## Find where the time went
 

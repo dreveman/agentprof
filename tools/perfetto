@@ -133,6 +133,8 @@ def main():
     if args.command == "smoke-ui":
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(ROOT / "artifacts/browsers")
         run("ui/node_modules/.bin/playwright", "install", "chromium")
+        run("node", ROOT / "tools/check-turns-ui.mjs",
+            *(["--existing-server"] if args.existing_server else []), cwd=ROOT)
         run("node", ROOT / "tools/check-ui.mjs",
             *(["--existing-server"] if args.existing_server else []), cwd=ROOT)
         return

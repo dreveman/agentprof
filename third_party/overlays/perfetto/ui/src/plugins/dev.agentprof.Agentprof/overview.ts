@@ -15,13 +15,16 @@ import {OVERVIEW_QUERIES} from './overview_queries';
 import {OverviewLoader, type OverviewTab} from './overview_loader';
 import {ContextView, contextSummary} from './context_view';
 import {toolDescription} from './tool_description';
+import {modelDisplayName} from './model_display';
+import {turnEventsQuery, turnsPageQuery} from './turns_queries';
+import {TurnsView} from './turns_view';
 import './overview.scss';
 
 type Row = Record<string, SqlValue>;
 type Section = keyof typeof OVERVIEW_QUERIES;
 type Tab = OverviewTab;
 interface State {rows?: Row[]; error?: string}
-interface Attrs {trace: Trace}
+interface Attrs {trace: Trace; loadTurns: () => Promise<unknown>}
 
 function number(value: SqlValue | undefined): number {return Number(value ?? 0);}
 function value(v: SqlValue | undefined): string {
@@ -186,7 +189,7 @@ function modelIdentity(row: Row): m.Children {
     const provider = value(identity.provider);
     // Keep the exact model ID for grouping and inspection; omit Claude's
     // dated snapshot suffix from the visible label.
-    const label = model.replace(/^(claude-.+)-\d{8}$/, '$1');
+    const label = modelDisplayName(model);
     return m('.ap-model-identity', {title: `${provider} / ${model}`},
       m('span.ap-model-name', label),
       provider !== 'Not recorded' && m('span.ap-model-provider', provider));
@@ -201,14 +204,22 @@ export class Overview implements m.ClassComponent<Attrs> {
   private loader?: OverviewLoader<Row>;
 
   oninit({attrs}: m.Vnode<Attrs>) {
-    this.loader = new OverviewLoader(async key => {
-      const result = await attrs.trace.engine.query(OVERVIEW_QUERIES[key]);
+    const ensureTurns = attrs.loadTurns;
+    const readRows = async (sql: string) => {
+      const result = await attrs.trace.engine.query(sql);
       const rows: Row[] = [];
       for (const it = result.iter({}); it.valid(); it.next()) {
         rows.push(Object.fromEntries(result.columns().map(c => [c, it.get(c)])));
       }
       return rows;
-    }, () => m.redraw(), this.data);
+    };
+    this.loader = new OverviewLoader(async key => {
+      if (key === 'turns' || key === 'turn_unassigned') await ensureTurns();
+      return readRows(OVERVIEW_QUERIES[key]);
+    }, () => m.redraw(), this.data, {
+      details: async id => {await ensureTurns(); return readRows(turnEventsQuery(id));},
+      page: async offset => {await ensureTurns(); return readRows(turnsPageQuery(offset));},
+    });
     this.loader.open(this.tab);
   }
   onremove() {this.loader?.dispose();}
@@ -220,7 +231,10 @@ export class Overview implements m.ClassComponent<Attrs> {
 
   private section(key: Section, render: (rows: Row[]) => m.Children, allowEmpty = false): m.Children {
     const state = this.data[key];
-    if (state?.error) return m('.ap-error', {role: 'alert'}, `Could not read this section: ${state.error}`);
+    if (state?.error) return m('.ap-error', {role: 'alert'}, `Could not read this section: ${state.error}`,
+      (key === 'turns' || key === 'turn_unassigned') && m(Button, {
+        label: 'Retry turns', onclick: () => this.loader?.retryTurns(),
+      }));
     if (!state?.rows) return m('.ap-muted', {role: 'status'}, 'Reading the trace…');
     if (!allowEmpty && state.rows.length === 0) return m('.ap-muted', 'Not recorded in this trace.');
     return render(state.rows);
@@ -486,7 +500,7 @@ export class Overview implements m.ClassComponent<Attrs> {
             })),
           this.card('What filled the context?', 'Combined composition from each session’s latest recorded breakdown.',
             this.section('context_latest', contextSummary, true), 'Context'),
-          this.card(singleModel ? 'How responsive was the model?' : 'How responsive were model responses?', `Responses grouped by provider and model across ${scope}. First content is measured from message start and may include thinking or tool-call content.`, models(), 'Responses'),
+          this.card(singleModel ? 'How responsive was the model?' : 'How responsive were model responses?', `Responses grouped by provider and model across ${scope}. First content is measured from message start and may include thinking or tool-call content.`, models(), 'Turns'),
           this.card('Which tools took the most time?', `Completed tool work across ${scope}. Work can overlap; its sum is not elapsed wall time.`, tools(), 'Tools'),
           this.card('Was work happening in parallel?', `Concurrency of completed tools across ${scope}, over their measured active time.`,
             this.section('activity', ([a]) => !aligned ? answer('Combined concurrency is unavailable because clock conversion errors were reported.') : [
@@ -512,9 +526,15 @@ export class Overview implements m.ClassComponent<Attrs> {
             ]),
             m('p.ap-muted', 'Approval waits, queue delays, retries, and full child execution are not yet summarized. Absence of capture counters does not establish a clean capture.'),
           ]),
-        ] : this.tab === 'Responses' ? [
-          this.card('Responses by provider and model', `Responses across ${scope}. Token sums cover reported values only. Coverage counts show responses with usage.`, models()),
-          this.card('Recorded responses', 'First 200 responses. Select a session to reveal the message event in the timeline.',
+        ] : this.tab === 'Turns' ? [
+          this.card('Recorded turns', 'One user interaction with its model responses and tool work. Expand a turn for a simplified timeline. Unattributed time is not assumed waiting.',
+            this.section('turns', rows => rows.length > 0 && this.loader ?
+              m(TurnsView, {trace, rows, loader: this.loader, clockAligned: aligned}) :
+              m('p.ap-muted', 'No prompt-level interaction boundaries were retained. Recorded model responses and the full timeline remain available.'), true)),
+          this.section('turn_unassigned', ([row]) => number(row?.events) > 0 &&
+            m('p.ap-muted', `${value(row.events)} operations could not be attributed unambiguously to a turn. Inspect them in the full timeline.`)),
+          this.card('Model responses by provider and model', `Responses across ${scope}. Token sums cover reported values only. Coverage counts show responses with usage.`, models()),
+          this.data.turns?.rows?.length === 0 && this.card('Recorded model responses', 'First 200 responses; no user-turn boundaries are available in this recording.',
             m('.ap-recorded-responses', this.section('responses', rows => this.table(rows,
               [['session', 'Session'], ['model', 'Model'], ['first_content_ms', 'First content'],
                 ['duration_ms', 'Message duration'], ['input_tokens', 'Input tokens'],
@@ -539,7 +559,7 @@ export class Overview implements m.ClassComponent<Attrs> {
               rows, trace, aligned, activitySeries(seriesRows))))),
       );
     const tabs: [Tab, string][] = [
-      ['Summary', 'dashboard'], ['Responses', 'forum'],
+      ['Summary', 'dashboard'], ['Turns', 'forum'],
       ['Tools', 'build'], ['Context', 'data_usage'], ['Sessions', 'account_tree'],
     ];
     return m('.ap-page', m('.ap-inner',

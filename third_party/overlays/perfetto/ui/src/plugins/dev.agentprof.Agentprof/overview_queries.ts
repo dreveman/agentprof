@@ -2,6 +2,7 @@
 
 import {CONTEXT_SETUP_SQL, CONTEXT_QUERIES} from './context_queries';
 import {SESSION_HIERARCHY_SQL} from './session_hierarchy';
+import {turnsPageQuery, TURN_UNASSIGNED_QUERY} from './turns_queries';
 
 export const OVERVIEW_SETUP_SQL = `
 ${SESSION_HIERARCHY_SQL}
@@ -50,7 +51,7 @@ WITH configuration AS (
     GROUP BY m.capture_id
   ), captures AS (
     SELECT capture_id, session, MIN(ts) AS start_ts, MAX(ts + MAX(dur, 0)) AS end_ts,
-      SUM(kind = 'turn') AS turns, SUM(kind = 'assistant-message') AS responses,
+      SUM(kind = 'prompt') AS turns, SUM(kind = 'assistant-message') AS responses,
       SUM(kind = 'tool-execution') AS tools, SUM(incomplete) AS incomplete,
       (MAX(ts + MAX(dur, 0)) - MIN(ts)) / 1e6 AS duration_ms
     FROM agentprof_slices GROUP BY capture_id, session
@@ -156,6 +157,8 @@ function activitySeriesSql(includeSubagents: boolean): string {
 }
 
 export const OVERVIEW_QUERIES = {
+  turns: turnsPageQuery(),
+  turn_unassigned: TURN_UNASSIGNED_QUERY,
   ...CONTEXT_QUERIES,
   runs: `WITH totals AS (
     SELECT h.root_capture_id AS capture_id, MIN(r.start_ts) AS start_ts,
@@ -233,7 +236,7 @@ export const OVERVIEW_QUERIES = {
         (category IN ('pi.metadata', 'claude.metadata', 'codex.metadata', 'muse.metadata', 'agentprof.metadata') AND (name IN ('tracing', 'tracing-start', 'run-configuration')
           OR name GLOB 'profile ([0-9]*)'))
     )) AS single_model,
-    SUM(kind = 'turn') AS turns, SUM(kind = 'assistant-message') AS responses,
+    SUM(kind = 'prompt') AS turns, SUM(kind = 'assistant-message') AS responses,
     SUM(kind = 'script') AS scripts,
     SUM(kind = 'tool-execution') AS tools, SUM(incomplete) AS incomplete,
     SUM(CASE WHEN kind = 'capture' THEN COALESCE(EXTRACT_ARG(arg_set_id, 'debug.unavailable_child_sessions'), 0) ELSE 0 END) AS unavailable_children,

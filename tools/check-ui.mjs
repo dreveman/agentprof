@@ -264,7 +264,7 @@ try {
   for (const width of [390, 1201, 1440]) {
     await page.setViewportSize({width, height: 1000});
     for (const [tab, heading] of [
-      ['Responses', 'Responses by provider and model'],
+      ['Turns', 'Recorded turns'],
       ['Tools', 'Tool summary'],
       ['Sessions', 'Captured sessions'],
     ]) {
@@ -277,16 +277,16 @@ try {
       }));
       assert.ok(overflow.page <= 1 && overflow.tables.every(extra => extra <= 1),
         `${tab} has no horizontal overflow at ${width}px: ${JSON.stringify(overflow)}`);
-      if (tab === 'Responses') {
-        await page.locator('.ap-recorded-responses tbody tr').first().waitFor();
-        const sessionLinksFit = await page.locator('.ap-recorded-responses tbody tr').evaluateAll(rows =>
-          rows.every(row => {
-            const cell = row.querySelector('td:first-child');
-            const link = cell?.querySelector('.ap-table-link');
-            return cell && link && link.getBoundingClientRect().right <=
-              cell.getBoundingClientRect().right + 1;
-          }));
-        assert.ok(sessionLinksFit, `Recorded response sessions fit their cells at ${width}px`);
+      if (tab === 'Turns') {
+        await page.waitForFunction(() => document.querySelector('.ap-turn') || document.querySelector('.ap-recorded-responses'));
+        if (await page.locator('.ap-turn').count()) {
+          const expand = page.getByRole('button', {name: /^Expand turn /}).first();
+          if (await expand.count()) await expand.click();
+          await page.locator('.ap-turn-details').first().waitFor();
+        } else {
+          await page.locator('.ap-recorded-responses tbody tr').first().waitFor();
+        }
+        assert.equal(await page.locator('.ap-page').evaluate(el => el.scrollWidth > el.clientWidth), false);
       }
     }
   }
@@ -411,6 +411,7 @@ try {
   await page.reload();
   await overview().waitFor({timeout: 60000});
   const runSummary = page.locator('.ap-card').filter({has: page.getByRole('heading', {name: 'What happened in this recording?', exact: true})});
+  await runSummary.locator('.ap-headline-label').nth(3).waitFor();
   assert.deepEqual(await runSummary.locator('.ap-headline-label').allTextContents(),
     ['TOKENS/S', 'WALL WINDOW', 'MODEL BUSY', 'PEAK RESPONSES']);
   const recorded = JSON.parse(await readFile('examples/pi-opus-5/recording.json', 'utf8'));
@@ -422,7 +423,7 @@ try {
       const family = r.sessionId === recorded.workflow.parentSessionId
         ? recordings.filter(c => c.sessionId === r.sessionId || childIds.has(c.sessionId)) : [r];
       const totals = {...r};
-      for (const key of ['inputTokens', 'outputTokens', 'turns', 'responses', 'toolCalls'])
+      for (const key of ['inputTokens', 'outputTokens', 'responses', 'toolCalls'])
         totals[key] = family.reduce((sum, c) => sum + c[key], 0);
       return totals;
     });
@@ -589,12 +590,12 @@ try {
   await page.locator('.ap-banner').filter({hasText: 'synthetic.pftrace'}).waitFor({timeout: 60000});
   await page.getByText('Up to 2 tools ran at once.', {exact: true}).waitFor();
   const runCells = await runSummary.locator('tbody tr td').allTextContents();
-  assert.equal(runCells[2], 'agentprof-exampl...');
+  assert.equal(runCells[2], 'Synthetic multi-cycle user requestopen_in_new');
   assert.deepEqual(runCells.slice(0, 2), ['', 'opus-5synthetic']);
   assert.deepEqual(runCells.slice(3, 7), ['280', '65', '50', '0.2%']);
   assert.match(runCells[8], /^\d+\.\d%$/);
   assert.equal(runCells.length, 9);
-  assert.equal(await runSummary.locator('.ap-prompt-link').count(), 0);
+  assert.equal(await runSummary.locator('.ap-prompt-link').count(), 1);
   await assertTokenCounters(4);
   await assertMainThreads(1);
   assert.equal(await runSummary.getByRole('columnheader', {name: 'Incomplete operations', exact: true}).count(), 0);
@@ -609,13 +610,14 @@ try {
   const incompleteFact = page.locator('.ap-session-table > tbody > .ap-session-expanded .ap-session-fact')
     .filter({has: page.getByText('Incomplete operations', {exact: true})});
   await incompleteFact.waitFor();
-  assert.equal(await incompleteFact.locator('.ap-session-fact__value').textContent(), '1');
+  assert.equal(await incompleteFact.locator('.ap-session-fact__value').textContent(), '2');
   await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
   await page.getByRole('button', {name: /Full recording/}).click();
   await page.locator('.pf-menu-item').filter({hasText: 'Full recording'}).click();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Responses', {exact: true}).click();
-  await page.getByRole('heading', {name: 'Recorded responses', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'agentprof-example', exact: true}).first().click();
+  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+  await page.getByRole('heading', {name: 'Recorded turns', exact: true}).waitFor();
+  await page.getByRole('button', {name: /^Expand turn /}).first().click();
+  await page.locator('.ap-turn-event-link').first().click();
   await page.getByText('pi-example 1001', {exact: true}).waitFor();
   await page.locator('a[href="#!/agentprof"]').click();
   await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).waitFor();

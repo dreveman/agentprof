@@ -4,7 +4,7 @@ Agent Profiler uses `agentprof` as its code name and repository identifier.
 
 See where the time went in an AI coding agent run.
 
-[Getting started](#getting-started) · [Investigation guide](docs/investigating-agents.md) · [Development](CONTRIBUTING.md)
+[Why record traces?](#why-record-a-trace-instead-of-only-reading-a-transcript) · [Getting started](#getting-started) · [Investigation guide](docs/investigating-agents.md) · [Development](CONTRIBUTING.md)
 
 ## What is Agent Profiler?
 
@@ -25,6 +25,48 @@ The integrations let you:
 or load your recordings. Captured subagent sessions appear within their primary
 session. Multiple files can be opened together with clock alignment from the
 recorded snapshots.
+
+## Why record a trace instead of only reading a transcript?
+
+A session transcript is useful for understanding what an agent said, requested,
+and produced. It is not a substitute for a performance recording. The recording
+plugins and extensions observe the running harness and preserve timing,
+overlap, runtime measurements, and capture boundaries in a Perfetto artifact.
+Some integrations also use transcript-reported usage or context; the two sources
+complement each other.
+
+- **Choose the capture range interactively.** Start and stop recording around
+  the turn or slow phase you want to investigate, using keyboard bindings and
+  recording controls rather than recording the whole session. Pi supports
+  `Ctrl+Shift+T`; Claude Code provides a recording strip with focused keyboard
+  controls. Start/stop commands are also available. Capture the full operation
+  for complete timing; starting or stopping partway through can leave incomplete
+  observations.
+- **Measure runtime and OS behavior that does not belong in a conversation
+  log.** For example, Pi records process CPU time, OS resident memory (RSS), and
+  JavaScript heap usage, alongside native process/main-thread tracks where
+  available. Correlate these measurements with model responses and tool work to
+  investigate resource pressure and concurrency. Measurements vary by harness
+  and platform: these are not promises of system-wide CPU profiling or thread
+  scheduling data, and a transcript cannot supply missing runtime measurements.
+- **Align multiple sessions and harnesses on one timeline.** The integrations
+  add machine identity and clock snapshots that map capture clocks to shared
+  wall-clock time. Open recordings from Pi, Claude Code, Codex, and Muse Code
+  together to compare timing offsets, overlapping work, and delegated activity
+  on one timeline. Recordings from different machines can be aligned too;
+  accuracy depends on their wall clocks being synchronized.
+- **Keep performance evidence while excluding sensitive conversation content.**
+  Set `AGENTPROF_CAPTURE_CONTENTS=0` before launching a supported harness to omit
+  prompt text and tool-argument values from new recordings while retaining
+  timings, usage counters, and operational metadata. This is useful when you
+  need a performance artifact but cannot include the code or conversation being
+  investigated. Metadata-only is not anonymization: names, identifiers, and some
+  paths can remain. Review artifacts before sharing, and check each harness
+  guide for raw-journal and native-export limitations.
+
+See the [Pi extension guide](packages/pi-tracing/README.md),
+[Claude Code plugin guide](packages/claude-tracing/README.md), and
+[trace data contract](docs/trace-data.md) for controls and measurement boundaries.
 
 ## Getting started
 
@@ -171,24 +213,17 @@ Recordings can also be opened in the
 This provides the generic timeline; Agent Profiler's views are described in
 the [investigation guide](docs/investigating-agents.md).
 
-## Why Agent Profiler?
-
-A conversation transcript describes what an agent said and did. A timeline
-helps explain how long it took, which operations overlapped, and what delayed
-the next step. Agent Profiler aims to connect those timing questions to the agent's
-turns, tools, and delegated work.
-
 ## How it works
 
 ```text
-Pi harness              Perfetto trace               Agent Profiler UI
-existing tracing   ->   recorded run on disk    ->   timeline and analysis
+Harness recording plugin/extension -> Perfetto trace on disk -> Agent Profiler UI
 ```
 
-Pi remains responsible for recording events. Perfetto supplies the trace
-format, query engine, and timeline foundation. Agent Profiler adds session grouping
-and queries. The [trace data contract](docs/trace-data.md) documents available
-fields, timing semantics, and the next instrumentation priorities.
+The harness integrations record events and available measurements. Perfetto
+supplies the trace format, query engine, and timeline foundation. Agent Profiler
+adds session grouping and queries. The [trace data contract](docs/trace-data.md)
+documents available fields, timing semantics, and the next instrumentation
+priorities.
 
 The repository maintains a specialized Perfetto UI with an upstream revision pin,
 a small patch series, and permanent overlay files. See the

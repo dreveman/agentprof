@@ -86,6 +86,7 @@ SELECT s.*, COALESCE(t.name, th.name || ' ' || th.tid, 'Thread ' || th.tid) AS t
   COALESCE(CASE WHEN s.name = 'codemode' AND s.category = 'pi.tools' THEN 'script' END,
     COALESCE(EXTRACT_ARG(s.arg_set_id, 'debug.kind'), EXTRACT_ARG(s.arg_set_id, 'debug.agentprof_event_kind')),
     CASE
+      WHEN (',' || s.category || ',') GLOB '*,pi.agent,*' AND s.name = 'prompt' THEN 'prompt'
       WHEN s.category = 'pi.agent' AND s.name = 'turn' THEN 'turn'
       WHEN s.category = 'pi.llm' AND s.name IN ('request', 'provider-request') THEN 'provider-request'
       WHEN s.category = 'pi.tools' AND (t.name IN ('tools', 'Tools') OR t.name GLOB 'tools.lane.*') THEN 'tool-execution'

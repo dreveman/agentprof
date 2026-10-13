@@ -31,6 +31,8 @@ await new Promise((resolve) => setTimeout(resolve, 4100));
 const base = recorder.captureTimestamp() - 4_000_000_000n;
 const at = (ms: number) => base + BigInt(ms) * 1_000_000n;
 recorder.recordContextTokens(100, at(0));
+const prompt = recorder.beginSlice({cat: "agent", trackUuid: tracks.sessionUuid, name: "prompt", tNs: at(0),
+  annotations: {kind: "prompt", text: "Synthetic multi-cycle user request"}})!;
 const turn = recorder.beginSlice({cat: "agent", trackUuid: tracks.sessionUuid, name: "turn", tNs: at(0),
   annotations: {"kind": "turn", "index": 0}})!;
 const provider = recorder.beginSlice({cat: "llm", trackUuid: tracks.providerUuid, name: "request", tNs: at(0),
@@ -71,6 +73,7 @@ recorder.emitEnd(thirdResponse, assistantAnnotations({model: "opus-5", provider:
 recorder.recordTokenUsage({}, at(3600));
 recorder.recordContextTokens(null, at(3650));
 recorder.emitEnd(nextTurn, undefined, at(3700));
+recorder.emitEnd(prompt, undefined, at(3700));
 // The final pre-compaction estimate can exceed the last sampled gauge value.
 const compact = recorder.beginSlice({cat: "session", trackUuid: tracks.compactionUuid,
   name: "compact", tNs: at(3700), annotations: {"kind": "compaction",
@@ -80,6 +83,8 @@ recorder.invalidateContextTokens(at(3750));
 recorder.emitEnd(compact, {"status": "success", "context_after_known": false}, at(3750));
 // A later estimate restores the context gauge after the unknown interval.
 recorder.recordContextTokens(120, at(3780));
+recorder.beginSlice({cat: "agent", trackUuid: tracks.sessionUuid, name: "prompt", tNs: at(3800),
+  annotations: {kind: "prompt"}});
 // The final tool deliberately remains open to exercise incomplete handling.
 recorder.beginToolSlice("example-incomplete", "unfinished", at(3800));
 const manifest = await recorder.stop("example");
