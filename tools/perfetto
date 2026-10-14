@@ -15,7 +15,35 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKOUT = ROOT / "third_party/src/perfetto"
 OVERLAYS = ROOT / "third_party/overlays/perfetto"
 PATCHES = ROOT / "third_party/patches/perfetto"
+SKILL_WORKFLOWS = ROOT / "ai/skills/dev.agentprof/workflows"
 OUT = CHECKOUT / "out/agentprof"
+
+
+def overlay_files():
+    roots = ((OVERLAYS, Path(".")),
+             (SKILL_WORKFLOWS, Path("ai/skills/perfetto/workflows")))
+    files = [(source, prefix / source.relative_to(root))
+             for root, prefix in roots
+             for source in sorted(root.rglob("*")) if source.is_file()]
+    destinations = [relative for _, relative in files]
+    if len(set(destinations)) != len(destinations):
+        sys.exit("Overlay collision between source trees.")
+    return files
+
+
+def link_overlays():
+    files = overlay_files()
+    for source, relative in files:
+        dest = CHECKOUT / relative
+        if dest.is_symlink() and dest.resolve() == source.resolve():
+            continue
+        if os.path.lexists(dest):
+            sys.exit(f"Overlay collision; preserve or relocate this file first: {dest}")
+    for source, relative in files:
+        dest = CHECKOUT / relative
+        if not dest.is_symlink():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.symlink_to(os.path.relpath(source, dest.parent))
 
 
 def run(*args, cwd=CHECKOUT):
@@ -40,7 +68,7 @@ def capture():
     if output("git", "diff", "HEAD", "--name-only"):
         sys.exit("Commit upstream-file edits in the Perfetto checkout before capture.")
     changed = set(output("git", "diff", "--name-only", f"{pin()}..HEAD").splitlines())
-    overlays = {str(p.relative_to(OVERLAYS)) for p in OVERLAYS.rglob("*") if p.is_file()}
+    overlays = {str(relative) for _, relative in overlay_files()}
     if changed & overlays:
         sys.exit("Overlay files must not be committed into the upstream patch series.")
     if not output("git", "rev-list", f"{pin()}..HEAD"):
@@ -102,16 +130,7 @@ def setup():
         for patch in patches[len(commits):]:
             run("git", "-c", "user.name=Agentprof", "-c",
                 "user.email=agentprof@localhost", "-c", "commit.gpgsign=false", "am", patch)
-    # Never replace an upstream file or an unrelated local file with an overlay.
-    sources = sorted(p for p in OVERLAYS.rglob("*") if p.is_file())
-    for source in sources:
-        dest = CHECKOUT / source.relative_to(OVERLAYS)
-        if dest.is_symlink() and dest.resolve() == source.resolve():
-            continue
-        if os.path.lexists(dest):
-            sys.exit(f"Overlay collision; preserve or relocate this file first: {dest}")
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.symlink_to(os.path.relpath(source, dest.parent))
+    link_overlays()
     print(f"Perfetto ready: {CHECKOUT}")
 
 

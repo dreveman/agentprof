@@ -18,6 +18,7 @@ the headers and package metadata. Preserve third-party copyright and license not
 | `packages/claude-tracing/`, `packages/codex-tracing/`, `packages/muse-tracing/` | Harness recording plugins and tests |
 | `packages/agent-tracing/` | Shared trace serialization |
 | `tools/` | Checkout manager and synthetic trace/browser validation |
+| `ai/skills/dev.agentprof/` | Portable workflows overlaid onto the upstream Perfetto skill |
 | `third_party/perfetto.toml` | Upstream Perfetto URL and initial revision pin |
 | `third_party/patches/perfetto/` | Patches to upstream-owned files |
 | `third_party/overlays/perfetto/` | Agent Profiler-owned files, mirroring upstream paths |
@@ -122,6 +123,32 @@ For revision updates, capture your work, preserve and move the old checkout
 aside, change the pin, and run setup. Resolve conflicts with `git am --continue`
 inside the new checkout, then capture the resulting series. Rebuild and run
 trace/browser checks before landing the update.
+
+## AgentProf AI workflows
+
+Keep portable workflow pages and SQL under
+`ai/skills/dev.agentprof/workflows/agentprof/`. This namespace is an overlay source,
+not another installed skill. Setup links it into the pinned Perfetto skill;
+changes to the upstream router remain a small ordered patch. Reuse shared
+Perfetto references and packaging instead of copying them.
+
+```bash
+npm run build:skills-sql
+python3 tools/perfetto setup
+PERFETTO_TRACE_PROCESSOR=/path/to/local/trace_processor npm run test:skills
+cd third_party/src/perfetto
+python3 tools/release/build_ai_agents.py --output ../../../artifacts/ai-agents
+```
+
+The upstream command only assembles local output without a commit/push option.
+The installed skill is `artifacts/ai-agents/plugins/perfetto/skills/perfetto/`.
+The SQL exports are checked against the UI reader, but run with only a trace
+and Trace Processor. Tests cover packaging, overlay collisions, all four harness
+recordings, missing measurements, prompt-level turns, capture scoping and overlap.
+No model calls are needed. Run model-based Perfetto evals separately only with
+explicit approval; do not attach private traces to eval artifacts.
+
+See [ai/README.md](ai/README.md) for upstream contribution and overlay import.
 
 ## Useful bug reports
 
