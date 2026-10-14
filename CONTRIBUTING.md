@@ -78,8 +78,11 @@ Run `check-ui` after a full build has generated the protobuf/WASM bindings.
 to test the running development server). It downloads Chromium into
 `artifacts/browsers/`, opens and reloads the bundled example in the browser's
 WASM engine, verifies Overview and timeline drill-downs, and saves screenshots
-under `artifacts/screenshots/`. Synthetic fixtures exercise missing usage,
-model/tool overlap, parallel tools, errors, and incomplete work.
+under `artifacts/screenshots/`. The smoke command also runs the focused Turns
+suite against all four harness examples, verifies setup retry after partial failure,
+and exercises 100,000 operations with 1,000,000 unrelated indexed flow rows in
+the browser WASM engine. Synthetic fixtures cover missing usage, model/tool
+overlap, parallel tools, errors, and incomplete work.
 
 To check extension loading without calling a model:
 

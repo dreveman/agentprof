@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import {expect, test} from 'bun:test';
-import {OverviewLoader, TAB_QUERIES, type OverviewSection} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_loader.ts';
+import {OverviewLoader, TAB_QUERIES, createTurnSetup, type OverviewSection} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_loader.ts';
 import {OVERVIEW_QUERIES} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
 import {Database} from 'bun:sqlite';
 
@@ -19,7 +19,7 @@ test('Overview fetches only visible tabs and caches shared/in-flight sections', 
   expect(requested).not.toContain('context_changes');
   expect(requested).not.toContain('responses');
   expect(requested).not.toContain('script_calls');
-  loader.open('Responses'); loader.open('Responses');
+  loader.open('Turns'); loader.open('Turns');
   loader.open('Context');
   await turn();
   expect(requested.filter(key => key === 'models')).toHaveLength(1);
@@ -137,6 +137,109 @@ test('context detail SQL caps recent rows without losing the latest sample of an
     // Perfetto's EXTRACT_ARG is unavailable in Bun SQLite; its bounded SQL
     // is checked structurally below and by the pinned processor in CI.
   } finally {db.close();}
+});
+
+test('Turns details are lazy, cached by prompt, retryable and disposed safely', async () => {
+  const requested: number[] = [];
+  let finish!: (rows: string[]) => void;
+  let changed = 0;
+  const loader = new OverviewLoader<string>(async key => [key], () => {changed++;}, {}, {
+    details: id => {requested.push(id); return id === 2 ? Promise.reject(new Error('bad turn')) : new Promise(resolve => {finish = resolve;});},
+    page: async () => [],
+  });
+  loader.open('Turns'); await turn();
+  expect(requested).toEqual([]);
+  loader.openTurn(1); loader.openTurn(1); loader.openTurn(2); await turn();
+  expect(requested).toEqual([1, 2]);
+  expect(loader.turnDetails.get(2)?.error).toContain('bad turn');
+  loader.retryTurn(2); await turn();
+  expect(requested).toEqual([1, 2, 2]);
+  const before = changed;
+  loader.dispose(); finish(['late']); await turn();
+  expect(loader.turnDetails.size).toBe(0);
+  expect(changed).toBe(before);
+});
+
+test('turn setup is trace-scoped and reused after Overview remount', async () => {
+  let starts = 0;
+  const setup = createTurnSetup(async () => {starts++; return 'ready';});
+  const first = setup();
+  expect(setup()).toBe(first);
+  await first;
+  // A new Overview uses the same page callback for this trace.
+  expect(await setup()).toBe('ready');
+  expect(starts).toBe(1);
+});
+
+test('failed setup can retry once and remains reusable across Overview remounts', async () => {
+  let starts = 0;
+  const setup = createTurnSetup(async () => {
+    if (++starts === 1) throw new Error('setup failed once');
+    return 'ready';
+  });
+  const requested: OverviewSection[] = [];
+  const query = async (key: OverviewSection) => {
+    requested.push(key);
+    if (key === 'turns' || key === 'turn_unassigned') await setup();
+    return [key];
+  };
+  const loader = new OverviewLoader(query, () => {});
+  loader.open('Turns'); await turn();
+  expect(starts).toBe(1);
+  expect(loader.data.turns?.error).toContain('setup failed once');
+  expect(loader.data.turn_unassigned?.error).toContain('setup failed once');
+  loader.retryTurns(); loader.retryTurns(); await turn();
+  expect(starts).toBe(2);
+  expect(loader.data.turns?.rows).toEqual(['turns']);
+  expect(loader.data.turn_unassigned?.rows).toEqual(['turn_unassigned']);
+  expect(requested.filter(key => key === 'models')).toHaveLength(1);
+  loader.dispose();
+  const remounted = new OverviewLoader(query, () => {});
+  remounted.open('Turns'); await turn();
+  expect(starts).toBe(2);
+  expect(remounted.data.turns?.rows).toEqual(['turns']);
+});
+
+test('retrying Turns ignores stale section, detail and pagination results', async () => {
+  let finishSection!: (rows: string[]) => void;
+  let finishDetails!: (rows: string[]) => void;
+  let finishPage!: (rows: string[]) => void;
+  let unassignedStarts = 0;
+  const loader = new OverviewLoader<string>(key => {
+    if (key === 'turn_unassigned' && ++unassignedStarts === 1) {
+      return new Promise(resolve => {finishSection = resolve;});
+    }
+    return Promise.resolve([`fresh-${key}`]);
+  }, () => {}, {turns: {rows: ['original']}}, {
+    details: () => new Promise(resolve => {finishDetails = resolve;}),
+    page: () => new Promise(resolve => {finishPage = resolve;}),
+  });
+  loader.open('Turns'); loader.openTurn(1); loader.moreTurns(); await turn();
+  loader.data.turns = {error: 'retryable'};
+  loader.retryTurns(); await turn();
+  expect(loader.data.turns?.rows).toEqual(['fresh-turns']);
+  expect(loader.data.turn_unassigned?.rows).toEqual(['fresh-turn_unassigned']);
+  finishSection(['stale-section']); finishDetails(['stale-detail']); finishPage(['stale-page']);
+  await turn();
+  expect(loader.data.turns?.rows).toEqual(['fresh-turns']);
+  expect(loader.data.turn_unassigned?.rows).toEqual(['fresh-turn_unassigned']);
+  expect(loader.turnDetails.size).toBe(0);
+  expect(loader.loadingMoreTurns).toBe(false);
+  loader.dispose(); loader.retryTurns();
+});
+
+test('Turns pagination preserves loaded rows and avoids duplicate in-flight requests', async () => {
+  const offsets: number[] = [];
+  let finish!: (rows: string[]) => void;
+  const loader = new OverviewLoader<string>(async () => [], () => {}, {turns: {rows: ['first', 'second']}}, {
+    details: async () => [],
+    page: offset => {offsets.push(offset); return new Promise(resolve => {finish = resolve;});},
+  });
+  loader.moreTurns(); loader.moreTurns(); await turn();
+  expect(offsets).toEqual([2]); expect(loader.loadingMoreTurns).toBe(true);
+  finish(['third']); await turn();
+  expect(loader.data.turns?.rows).toEqual(['first', 'second', 'third']);
+  expect(loader.loadingMoreTurns).toBe(false);
 });
 
 test('context detail queries are bounded while Summary keeps latest per capture', () => {

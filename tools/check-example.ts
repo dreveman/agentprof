@@ -10,6 +10,7 @@ import {toolDescription} from '../third_party/overlays/perfetto/ui/src/plugins/d
 import { QUERIES, SETUP_SQL } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts";
 
 import { OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts";
+import {TURNS_SETUP_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/turns_queries.ts';
 
 const binary = process.env.PERFETTO_TRACE_PROCESSOR ?? resolve("third_party/src/perfetto/tools/trace_processor");
 const path = resolve("artifacts/examples/synthetic.pftrace");
@@ -19,7 +20,7 @@ function query(sql: string, tracePath = path): string {
   return result.stdout;
 }
 for (const [name, sql] of Object.entries({...QUERIES, ...OVERVIEW_QUERIES})) {
-  query(`${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${sql}`);
+  query(`${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${TURNS_SETUP_SQL}\n${sql}`);
   console.log(`PASS ${name}`);
 }
 const result = query(`${SETUP_SQL}
@@ -167,7 +168,7 @@ const runSummary = query(`${SETUP_SQL}
     (SELECT input_tokens FROM (${OVERVIEW_QUERIES.runs})) = 280 AND
     (SELECT output_tokens FROM (${OVERVIEW_QUERIES.runs})) = 65 AND
     (SELECT peak_context FROM (${OVERVIEW_QUERIES.runs})) = 450 AND
-    (SELECT prompt_text FROM (${OVERVIEW_QUERIES.runs})) IS NULL AND
+    (SELECT prompt_text FROM (${OVERVIEW_QUERIES.runs})) = 'Synthetic multi-cycle user request' AND
     (SELECT context_window_tokens FROM (${OVERVIEW_QUERIES.runs})) = 200000 AND
     ABS((SELECT context_share FROM (${OVERVIEW_QUERIES.runs})) - 0.00225) < 0.0000001 AND
     ABS((SELECT tokens_per_s FROM (${OVERVIEW_QUERIES.runs})) -
@@ -188,7 +189,7 @@ const runSummary = query(`${SETUP_SQL}
     (SELECT turns FROM (${OVERVIEW_QUERIES.runs})) = 2 AND
     (SELECT responses FROM (${OVERVIEW_QUERIES.runs})) = 3 AND
     (SELECT tools FROM (${OVERVIEW_QUERIES.runs})) = 5 AND
-    (SELECT incomplete FROM (${OVERVIEW_QUERIES.runs})) = 1 AND
+    (SELECT incomplete FROM (${OVERVIEW_QUERIES.runs})) = 2 AND
     (SELECT single_model FROM (${OVERVIEW_QUERIES.summary})) = 1
   THEN 'SUMMARY_OK' ELSE 'SUMMARY_FAILED' END AS result`);
 if (!runSummary.includes('SUMMARY_OK')) throw new Error(runSummary);
@@ -224,7 +225,7 @@ for (const [i, label] of ['code-mode', 'classic', 'unknown'].entries()) {
   const started = await recorder.start(label);
   if (!started.started) throw new Error(started.message);
   for (let turn = 0; turn <= i; turn++) {
-    const span = recorder.beginSlice({cat: 'agent', trackUuid: recorder.trackSet()!.sessionUuid, name: 'turn'});
+    const span = recorder.beginSlice({cat: 'agent', trackUuid: recorder.trackSet()!.sessionUuid, name: 'prompt', annotations: {kind: 'prompt'}});
     if (span !== null) recorder.emitEnd(span);
   }
   recorder.recordTokenUsage({usage: {input: 100 + i * 80, output: 20 + i * 25}});

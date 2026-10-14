@@ -63,7 +63,7 @@ for (const run of manifest.recordings) {
   checks.push(`EXISTS (SELECT 1 FROM runs WHERE session = ${quote(run.sessionId)}
     AND model = ${quote(run.model)} AND provider = ${quote(run.provider)} AND effort = ${quote(run.effort)}
     AND input_tokens = ${run.inputTokens} AND output_tokens = ${run.outputTokens}
-    AND turns = ${run.responses} AND tools = ${run.toolCalls} AND incomplete = 0
+    AND turns = 1 AND tools = ${run.toolCalls} AND incomplete = 0
     AND prompt_text = ${quote(prompt)} AND duration_ms > 0
     AND ${run.mode === 'codemode' ? `session_labels = '["codemode"]'` : 'session_labels IS NULL'})`);
   checks.push(`(SELECT COUNT(*) FROM agentprof_tool_calls WHERE kind = 'script'

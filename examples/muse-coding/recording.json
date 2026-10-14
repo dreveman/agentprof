@@ -24,7 +24,7 @@
       "inputTokens": 229820,
       "outputTokens": 1378,
       "responses": 8,
-      "turns": 8,
+      "turns": 1,
       "tools": 8,
       "contextWindowTokens": 1007997,
       "peakContext": 31733,

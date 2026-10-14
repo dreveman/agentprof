@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: Apache-2.0
+.ap-page .ap-turns {
+  --ap-turn-model: var(--pf-color-accent);
+  --ap-turn-tool: var(--pf-color-warning, #d89535);
+  --ap-turn-other: var(--pf-color-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  .ap-turn {
+    border: 1px solid var(--pf-color-border);
+    border-radius: 6px;
+    min-width: 0;
+  }
+  .ap-turn-summary {
+    padding: 12px;
+    border-radius: inherit;
+    min-width: 0;
+    cursor: pointer;
+  }
+  .ap-turn-summary:hover {
+    background: var(--pf-color-background-secondary);
+  }
+  .ap-turn-body {
+    padding: 0 12px 12px;
+  }
+  .ap-turn-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+  .ap-turn-number,
+  .ap-turn-toggle {
+    flex: none;
+  }
+  .ap-turn-session {
+    color: var(--pf-color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .ap-turn-models {
+    min-width: 0;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ap-turn-duration {
+    margin-left: auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--pf-font-size-l);
+  }
+  .ap-turn-prompt {
+    margin: 8px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .ap-turn-activity {
+    height: 8px;
+    display: flex;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--pf-color-border);
+  }
+  .ap-turn-activity--model,
+  .ap-turn-dot--model,
+  .ap-turn-interval--model {
+    background: var(--ap-turn-model);
+  }
+  .ap-turn-activity--tool,
+  .ap-turn-dot--tool,
+  .ap-turn-interval--tool {
+    background: var(--ap-turn-tool);
+  }
+  .ap-turn-activity--overlap,
+  .ap-turn-dot--overlap {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--ap-turn-model) 0 3px,
+      var(--ap-turn-tool) 3px 6px
+    );
+  }
+  .ap-turn-activity--gap,
+  .ap-turn-dot--gap {
+    background: var(--pf-color-border);
+  }
+  .ap-turn-interval--other {
+    background: var(--ap-turn-other);
+  }
+  .ap-turn-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 8px 0;
+    color: var(--pf-color-text-muted);
+    font-size: var(--pf-font-size-m);
+  }
+  .ap-turn-legend i {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+  .ap-turn-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 0;
+    border-top: 1px solid var(--pf-color-border);
+    padding-top: 12px;
+  }
+  .ap-turn-axis {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 112px 0 44%;
+    color: var(--pf-color-text-muted);
+    font-size: var(--pf-font-size-xs);
+  }
+  .ap-turn-event {
+    display: grid;
+    grid-template-columns: minmax(0, 44%) minmax(0, 1fr) 100px;
+    gap: 12px;
+    align-items: center;
+    min-width: 0;
+  }
+  .ap-turn-event-label {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ap-turn-event-label--nested {
+    padding-left: 18px;
+  }
+  .ap-turn-event-link {
+    max-width: 100%;
+    align-self: stretch;
+    justify-content: flex-start;
+    text-align: left;
+    padding-left: 0;
+  }
+  .ap-turn-run > .pf-button {
+    justify-self: start;
+  }
+  .ap-turn-event-link > .pf-button__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .ap-turn-description {
+    display: block;
+    color: var(--pf-color-text-muted);
+    font-size: var(--pf-font-size-s);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .ap-turn-event-duration {
+    text-align: right;
+    color: var(--pf-color-text-muted);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--pf-font-size-s);
+  }
+  .ap-turn-track {
+    height: 16px;
+    background: var(--pf-color-background-secondary);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ap-turn-interval {
+    position: absolute;
+    height: 100%;
+    border-radius: 3px;
+    min-width: 2px;
+  }
+  .ap-turn-interval--point {
+    width: 2px;
+    transform: translateX(-1px);
+  }
+  .ap-turn-interval--incomplete {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent 0 3px,
+      var(--pf-color-background) 3px 5px
+    );
+  }
+  .ap-turn-badge {
+    font-size: var(--pf-font-size-xs);
+    color: var(--pf-color-danger);
+  }
+  .ap-turn-error {
+    color: var(--pf-color-danger);
+  }
+  @media (max-width: 760px) {
+    .ap-turn-header {
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .ap-turn-session {
+      max-width: 40%;
+    }
+    .ap-turn-models {
+      max-width: 100%;
+    }
+    .ap-turn-duration {
+      font-size: var(--pf-font-size-m);
+    }
+    .ap-turn-event {
+      grid-template-columns: minmax(0, 1fr) 100px;
+      gap: 4px 8px;
+    }
+    .ap-turn-event-label {
+      grid-column: 1 / -1;
+    }
+    .ap-turn-run > .pf-button {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+    .ap-turn-axis {
+      margin-left: 0;
+      margin-right: 108px;
+    }
+  }
+}

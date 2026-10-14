@@ -4,6 +4,8 @@ import type {PerfettoPlugin} from '../../public/plugin';
 import m from 'mithril';
 import {markExample, navigate} from './navigation';
 import {Overview} from './overview';
+import {createTurnSetup} from './overview_loader';
+import {TURNS_SETUP_SQL} from './turns_queries';
 import {OVERVIEW_SETUP_SQL} from './overview_queries';
 import type {App} from '../../public/app';
 import type {Trace} from '../../public/trace';
@@ -71,7 +73,8 @@ export default class implements PerfettoPlugin {
     if (detected.firstRow({count: NUM}).count === 0) return;
     await trace.engine.query(SETUP_SQL);
     await trace.engine.query(OVERVIEW_SETUP_SQL);
-    trace.pages.registerPage({route: '/agentprof', render: () => m(Overview, {trace, key: trace.engine.engineId})});
+    const loadTurns = createTurnSetup(() => trace.engine.query(TURNS_SETUP_SQL));
+    trace.pages.registerPage({route: '/agentprof', render: () => m(Overview, {trace, loadTurns, key: trace.engine.engineId})});
     trace.commands.registerCommand({
       id: `${devId()}.OpenOverview`, name: 'Open Agent Profiler overview',
       callback: () => navigate(trace, '/agentprof'),

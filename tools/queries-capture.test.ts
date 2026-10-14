@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {test, expect} from 'bun:test';
 import {Database} from 'bun:sqlite';
-import {SLICE_CAPTURE_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
+import {SLICE_CAPTURE_SQL, SETUP_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
 
 test('indexed child lookup handles a deep slice chain without repeated full scans', () => {
   const db = new Database(':memory:');
@@ -70,5 +70,22 @@ test('nearest enclosing marker assigns each slice once, across non-agent parents
     expect(db.query(`SELECT COALESCE(m.capture_id, 999) AS capture_id
       FROM slice s LEFT JOIN agentprof_slice_capture m USING(id) WHERE s.id = 8`).get())
       .toEqual({capture_id: 999});
+  } finally {db.close();}
+});
+
+test('legacy Pi prompt boundaries are distinct from model iterations and prompt-input points', () => {
+  const db = new Database(':memory:');
+  try {
+    db.exec(`CREATE TABLE source(name TEXT, category TEXT, arg_set_id INTEGER);
+      CREATE TABLE track(name TEXT); INSERT INTO track VALUES ('Agent');
+      INSERT INTO source VALUES ('prompt','pi.agent,pi.prompt-data',0),
+        ('prompt','pi.agent',0), ('turn','pi.agent',0), ('prompt-input','pi.agent',0),
+        ('prompt','pi.agent-other',0), ('prompt','unrelated.category',0);`);
+    const expression = SETUP_SQL.slice(SETUP_SQL.indexOf("COALESCE(CASE WHEN s.name = 'codemode'"),
+      SETUP_SQL.indexOf('END) AS kind') + 'END)'.length)
+      .replace(/EXTRACT_ARG\(s\.arg_set_id, '[^']+'\)/g, 'NULL');
+    expect(db.query(`SELECT ${expression} AS kind FROM source s CROSS JOIN track t`).all())
+      .toEqual([{kind: 'prompt'}, {kind: 'prompt'}, {kind: 'turn'},
+        {kind: 'other'}, {kind: 'other'}, {kind: 'other'}]);
   } finally {db.close();}
 });

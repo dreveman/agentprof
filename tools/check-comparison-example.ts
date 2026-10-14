@@ -76,7 +76,7 @@ try {
     assert.equal(run.model, manifest.model);
     assert.equal(run.provider, 'anthropic');
     assert.equal(run.responses, expected.primaryResponses);
-    assert.equal(run.turns, expected.primaryResponses);
+    assert.equal(run.turns, 1);
     assert.equal(run.tools, expected.primaryExecutedCalls - expected.scriptCalls);
     assert.equal(run.input_tokens, expected.usage.input_tokens);
     assert.equal(run.output_tokens, expected.usage.output_tokens);
