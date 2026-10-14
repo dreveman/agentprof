@@ -1,0 +1,73 @@
+name: AgentProf AI skill
+
+on:
+  pull_request:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-skill-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  build:
+    name: Build and verify AI release artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Prepare pinned Perfetto skill and AgentProf overlay
+        run: python3 tools/perfetto setup
+      - name: Test release packaging
+        run: python3 -m unittest discover -s tools/release -p 'test_*.py'
+      - name: Build and verify the extracted release artifact
+        run: |
+          python3 tools/release/build-ai-skill.py \
+            --revision "$GITHUB_SHA" \
+            --epoch "$(git show -s --format=%ct HEAD)" \
+            --verify
+      - name: Retain verified artifact for PR review or release upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentprof-ai-skill
+          path: |
+            artifacts/ai-release/agentprof-ai-skill.zip
+            artifacts/ai-release/agentprof-ai-skill.zip.sha256
+            artifacts/ai-release/agentprof-ai-skill.provenance.json
+            artifacts/ai-release/agentprof-ai-skill.verification.json
+          if-no-files-found: error
+
+  publish:
+    name: Attach AI skill to published release
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: agentprof-ai-skill
+          path: ai-release
+      - name: Upload missing matching assets without overwriting
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 tools/release/upload-ai-skill.py \
+            --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --dir ai-release --publish

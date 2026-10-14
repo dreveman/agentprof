@@ -13,6 +13,9 @@ The workflows ship standalone SQL. `tools/generate-skills-sql.ts` exports the
 shared reader and turn-attribution SQL from AgentProf's tested UI queries, with
 an isolated `agentprof_skill_*` namespace and without prompt/tool payloads. This
 is an AgentProf maintenance step, not a runtime or upstream packaging dependency.
+The two reader exports are marked generated and retain the reader's explicit
+index hints; do not independently format them. Authored query resources use the
+pinned Perfetto SQL formatter, checked by `tools/perfetto check-skills-format`.
 `npm run build:skills-sql` refreshes the two exports; `npm run check` verifies them.
 
 For an upstream Perfetto contribution, copy `skills/dev.agentprof/workflows/`

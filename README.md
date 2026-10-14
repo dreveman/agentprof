@@ -26,6 +26,33 @@ or load your recordings. Captured subagent sessions appear within their primary
 session. Multiple files can be opened together with clock alignment from the
 recorded snapshots.
 
+## AI analysis skills
+
+The recording integrations and analysis skills are installed separately. Download
+`agentprof-ai-skill.zip` and its `.sha256` file from an
+[AgentProf release](https://github.com/dreveman/agentprof/releases), verify the
+checksum, and extract the archive into a temporary directory. It contains one
+`perfetto/` skill folder; place that folder in your agent's skills directory.
+The ZIP becomes available with releases containing this workflow. Before the
+first release, build it from source as described in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+The skill combines upstream Perfetto instructions with AgentProf workflows for
+slow runs, model performance, tools/delegation, context pressure, run comparisons
+and runtime resources. It bundles Perfetto's Trace Processor launcher, which
+downloads and verifies a pinned native binary on first use. No AgentProf checkout
+or UI is needed for analysis.
+
+**Do not silently overwrite an existing `perfetto` skill.** This is an
+AgentProf-enhanced replacement, not a second side-by-side skill. Back up the
+existing installation and replace it only deliberately; other installed skills
+should remain untouched. The `dev.agentprof` name identifies the source overlay,
+not the installed skill. The archive does not contain a marketplace installer.
+
+For example, ask your agent: “Use the Perfetto skill to investigate the slowest
+turns in this AgentProf trace. Report measurement coverage and do not quote tool
+arguments or prompts.” Review trace contents before sharing them; the skills do
+not upload recordings or call a model to generate test traces.
+
 ## Why record a trace instead of only reading a transcript?
 
 A session transcript is useful for understanding what an agent said, requested,

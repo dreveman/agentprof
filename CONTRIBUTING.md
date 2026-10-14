@@ -132,9 +132,15 @@ not another installed skill. Setup links it into the pinned Perfetto skill;
 changes to the upstream router remain a small ordered patch. Reuse shared
 Perfetto references and packaging instead of copying them.
 
+The two reader exports are generated from UI SQL and preserve its explicit
+`INDEXED BY` hints. Do not independently format these generated files: the pinned
+formatter drops those hints. Format authored query resources with Perfetto's
+formatter; CI checks them after the UI build prepares its toolchain.
+
 ```bash
-npm run build:skills-sql
 python3 tools/perfetto setup
+npm run build:skills-sql
+python3 tools/perfetto check-skills-format
 PERFETTO_TRACE_PROCESSOR=/path/to/local/trace_processor npm run test:skills
 cd third_party/src/perfetto
 python3 tools/release/build_ai_agents.py --output ../../../artifacts/ai-agents
@@ -147,6 +153,42 @@ and Trace Processor. Tests cover packaging, overlay collisions, all four harness
 recordings, missing measurements, prompt-level turns, capture scoping and overlap.
 No model calls are needed. Run model-based Perfetto evals separately only with
 explicit approval; do not attach private traces to eval artifacts.
+
+### Build the AI release artifact
+
+After `python3 tools/perfetto setup`, run:
+
+```bash
+python3 -m unittest discover -s tools/release -p 'test_*.py'
+python3 tools/release/build-ai-skill.py \
+  --revision FULL_AGENTPROF_COMMIT_SHA \
+  --epoch SOURCE_COMMIT_UNIX_SECONDS \
+  --verify
+```
+
+Replace the two provenance placeholders with the source commit's full SHA and
+Unix timestamp. The builder invokes Perfetto's existing packager and writes
+`artifacts/ai-release/agentprof-ai-skill.zip`, its SHA-256, provenance and a runtime
+verification report. The ZIP contains only the assembled `perfetto/` skill,
+including licenses and the exact upstream wrapper, not Google's marketplace
+metadata. ZIP paths, timestamps and permissions are deterministic for identical
+inputs.
+
+`--verify` extracts the ZIP, verifies its contents and executable permissions,
+independently hashes the native prebuilt selected by its wrapper, runs the SQL
+suite against the extracted resources and reviewed recordings, and exercises a
+warm Unix-socket session with the packaged launcher. It does not substitute a
+Meta or locally built Trace Processor. The initial native download needs network
+access; a missing/incompatible runtime is a failure, not a skipped release check.
+
+The **Build and verify AI release artifact** PR check in
+`.github/workflows/ai-skill.yml` runs this path and retains the ZIP/checksums/report
+as an Actions artifact for review before landing. Existing recorder/UI checks
+remain unchanged. Only a `release.published` event enables the separate upload
+job; it attaches assets to that existing release without creating a release or
+overwriting existing assets. A rerun compares existing assets byte-for-byte,
+accepts matching ones and uploads only missing files; a mismatch fails without
+replacement. No model calls or new captures are required.
 
 See [ai/README.md](ai/README.md) for upstream contribution and overlay import.
 
