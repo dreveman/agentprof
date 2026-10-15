@@ -106,6 +106,8 @@ jobs:
           key: perfetto-ui-${{ runner.os }}-${{ hashFiles('third_party/perfetto.toml') }}
       - name: Build UI and Trace Processor WASM
         run: python3 tools/perfetto build-ui
+      - name: Check authored AgentProf SQL formatting
+        run: python3 tools/perfetto check-skills-format --skip-deps
       - name: Typecheck UI
         run: python3 tools/perfetto check-ui --skip-deps
       - name: Install Chromium and system dependencies

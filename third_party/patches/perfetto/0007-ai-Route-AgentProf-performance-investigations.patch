@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Wed, 14 Oct 2026 12:41:55 -0700
+Subject: [PATCH 7/7] ai: Route AgentProf performance investigations
+
+Add domain routes for agent recordings without changing the shared skill bootstrap.
+
+Tests: AgentProf workflow packaging and deterministic trace-query checks.
+---
+ ai/skills/perfetto/SKILL-template.md | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/ai/skills/perfetto/SKILL-template.md b/ai/skills/perfetto/SKILL-template.md
+index 02915e38..395650a0 100644
+--- a/ai/skills/perfetto/SKILL-template.md
++++ b/ai/skills/perfetto/SKILL-template.md
+@@ -5,7 +5,9 @@ description: >-
+   analyzing them. Analysis covers loading a trace, running PerfettoSQL queries,
+   inspecting available tables/columns/stdlib, and guided investigations such as
+   Android Java heap dumps (leaks, retention, clustering many dumps, caching to
+-  cut memory). Routes to the right workflow and reference files.
++  cut memory), and AgentProf agent/harness/model performance (slow turns,
++  model latency, tools/delegation, context pressure, run comparisons and runtime
++  resources). Routes to the right workflow and reference files.
+ ---
+ 
+ # Perfetto
+@@ -87,6 +89,17 @@ Workflows above are self-contained (they carry their own queries); read
+ > - When asked how to cluster multiple heap dumps or reduce noise across dumps, explain the clustering workflow (preprocessing paths, TF-IDF, K-Means clustering) and recommend running `scripts/cluster_paths.py` directly in your response.
+ > - When asked for next steps after running clustering or generating `clustered_output.csv`, respond directly recommending running `scripts/summarize_clusters.py clustered_output.csv report.html`. Do NOT attempt shell execution of Python scripts yourself.
+ 
++## Agent profiling
++
++For AgentProf recordings from Pi, Claude Code, Codex or Muse:
++
++*   **Slow run or unfamiliar recording:** [Investigate a run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md).
++*   **Response latency and token throughput:** [Model performance]($SKILL_ROOT/workflows/agentprof/analyze_model_performance.md).
++*   **Slow tools, scripts or child agents:** [Tools and delegation]($SKILL_ROOT/workflows/agentprof/analyze_tools_and_delegation.md).
++*   **Context growth or compaction:** [Context pressure]($SKILL_ROOT/workflows/agentprof/analyze_context_pressure.md).
++*   **Before/after or harness/model comparisons:** [Compare runs]($SKILL_ROOT/workflows/agentprof/compare_agent_runs.md).
++*   **Recorded process CPU/RSS/heap:** [Runtime resources]($SKILL_ROOT/workflows/agentprof/correlate_runtime_resources.md).
++
+ ## Finishing any analysis
+ 
+ Whichever path you took — a guided workflow or ad-hoc queries — end by
