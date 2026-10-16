@@ -12,7 +12,7 @@
     "packages/pi-tracing"
   ],
   "scripts": {
-    "check": "node tools/check-licenses.mjs && bun tools/generate-skills-sql.ts --check && npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json && tsc -p packages/claude-tracing/tsconfig.json && tsc -p packages/codex-tracing/tsconfig.json && bun tools/build-claude-direct.ts --check && bun tools/build-codex-plugin.ts --check && tsc -p packages/muse-tracing/tsconfig.json && bun tools/build-muse-plugin.ts --check && node tools/check-muse-marketplace.mjs",
+    "check": "node tools/check-licenses.mjs && bun tools/generate-icon.ts --check && bun tools/generate-skills-sql.ts --check && npm run check --workspace pi-tracing && tsc -p examples/pi-opus-5/tsconfig.json && tsc -p packages/claude-tracing/tsconfig.json && tsc -p packages/codex-tracing/tsconfig.json && bun tools/build-claude-direct.ts --check && bun tools/build-codex-plugin.ts --check && tsc -p packages/muse-tracing/tsconfig.json && bun tools/build-muse-plugin.ts --check && node tools/check-muse-marketplace.mjs",
     "test": "npm run test --workspace pi-tracing && bun test packages/agent-tracing/*.test.ts packages/claude-tracing packages/codex-tracing packages/muse-tracing tools/check-example-privacy.test.ts tools/overview-loader.test.ts tools/queries-capture.test.ts tools/turns.test.ts && npm run test:skills",
     "build:skills-sql": "bun tools/generate-skills-sql.ts",
     "test:skills": "python3 tools/test_skills_overlay.py && python3 tools/test_skills_sql.py && python3 -m unittest discover -s tools/release -p 'test_*.py'",

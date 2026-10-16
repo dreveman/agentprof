@@ -25,6 +25,11 @@ export function privacyFindings(text: string): string[] {
   return [...findings];
 }
 
+export function patchPrivacyFindings(text: string): string[] {
+  const reviewedAuthor = /^(From [0-9a-f]{40} Mon Sep 17 00:00:00 2001\r?\n)From: David Reveman <dreveman@gmail\.com>(?=\r?\nDate:)/;
+  return privacyFindings(text.replace(reviewedAuthor, '$1From: David Reveman <author@example.com>'));
+}
+
 export function tracePrivacyFindings(bytes: Uint8Array, depth = 0): string[] {
   assert.ok(depth < 8, 'Unexpected compressed trace nesting');
   // These patterns remain visible in protobuf string fields. Also inspect any
@@ -56,7 +61,9 @@ if (import.meta.main) {
       assert.ok(match, `Missing bundled trace in ${file}`);
       findings = tracePrivacyFindings(Buffer.from(match[1]!, 'base64'));
       traces++;
-    } else if (file.startsWith('examples/') || file.startsWith('third_party/patches/')) {
+    } else if (file.startsWith('third_party/patches/')) {
+      findings = patchPrivacyFindings(readFileSync(file, 'utf8'));
+    } else if (file.startsWith('examples/')) {
       findings = privacyFindings(readFileSync(file, 'utf8'));
     } else continue;
     // Report locations and categories without echoing potentially private data.
@@ -64,5 +71,5 @@ if (import.meta.main) {
   }
   assert.ok(traces > 0, 'No tracked example traces found');
   assert.deepEqual(failures, [], 'Review private data before publishing examples');
-  console.log(`PASS example privacy: ${traces} source/bundled traces, example files and patch headers`);
+  console.log(`PASS example privacy: ${traces} source/bundled traces, example files and patches`);
 }
