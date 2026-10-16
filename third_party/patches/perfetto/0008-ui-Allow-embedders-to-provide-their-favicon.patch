@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Reveman <dreveman@gmail.com>
+Date: Fri, 16 Oct 2026 08:52:00 -0700
+Subject: [PATCH 8/8] ui: Allow embedders to provide their favicon
+
+Select an optional embedder icon with a stock Perfetto fallback and copy SVG image assets into the UI distribution.
+
+Tests: AgentProf build and browser favicon checks.
+---
+ ui/build.mjs                     |  7 +++++--
+ ui/src/core/embedder/embedder.ts |  2 ++
+ ui/src/frontend/index.ts         | 11 ++++++++---
+ 3 files changed, 15 insertions(+), 5 deletions(-)
+
+diff --git a/ui/build.mjs b/ui/build.mjs
+index 8b6ee9d6..cb6db1c8 100644
+--- a/ui/build.mjs
++++ b/ui/build.mjs
+@@ -128,7 +128,7 @@ const RULES = [
+   {r: /ui\/src\/open_perfetto_trace\/index.html/, f: copyOpenPerfettoTraceHtml},
+   // engine_bench page; no-op without --enable-engine-bench.
+   {r: /ui\/src\/engine_bench\/bench\.html$/, f: copyEngineBenchHtml},
+-  {r: /ui\/src\/assets\/((.*)[.]png)/, f: copyAssets},
++  {r: /ui\/src\/assets\/((.*)[.](?:png|svg))/, f: copyAssets},
+   {r: /ui\/src\/assets\/(data_explorer\/base-page\.json)/, f: copyAssets},
+   {r: /ui\/src\/assets\/(data_explorer\/examples\/(.*)[.]json)/, f: copyAssets},
+   {r: /ui\/src\/assets\/(data_explorer\/node_info\/(.*)[.]md)/, f: copyAssets},
+@@ -1374,7 +1374,10 @@ function walk(dir, callback, skipRegex) {
+     if (skipRegex !== undefined && skipRegex.test(child)) continue;
+     if (stat.isDirectory()) {
+       walk(childPath, callback, skipRegex);
+-    } else if (!stat.isSymbolicLink()) {
++    } else if (
++      !stat.isSymbolicLink() ||
++      (fs.existsSync(childPath) && fs.statSync(childPath).isFile())
++    ) {
+       callback(childPath);
+     }
+   }
+diff --git a/ui/src/core/embedder/embedder.ts b/ui/src/core/embedder/embedder.ts
+index 8deef447..e8152aab 100644
+--- a/ui/src/core/embedder/embedder.ts
++++ b/ui/src/core/embedder/embedder.ts
+@@ -51,6 +51,8 @@ export interface BrandingBadge {
+  * vs a third-party embedding).
+  */
+ export interface Embedder {
++  // Icon asset relative to the serving root. Undefined keeps the Perfetto icon.
++  readonly favicon?: {readonly src: string; readonly type: string};
+   readonly title?: string;
+   readonly brandLogo?: {readonly src: string; readonly alt: string};
+   readonly homePage?: m.ComponentTypes<{app: App}>;
+diff --git a/ui/src/frontend/index.ts b/ui/src/frontend/index.ts
+index 97505605..21a749b8 100644
+--- a/ui/src/frontend/index.ts
++++ b/ui/src/frontend/index.ts
+@@ -310,7 +310,9 @@ function main() {
+   css.onerror = (err) => cssLoadPromise.reject(err);
+   const favicon = document.head.querySelector('#favicon');
+   if (favicon instanceof HTMLLinkElement) {
+-    favicon.href = assetSrc('assets/favicon.png');
++    const icon = AppImpl.instance.embedder.favicon;
++    favicon.href = assetSrc(icon?.src ?? 'assets/favicon.png');
++    favicon.type = icon?.type ?? 'image/png';
+   }
+   document.body.classList.add('pf-fonts-loading');
+   document.head.append(css);
+@@ -361,8 +363,11 @@ function onCssLoaded(app: AppImpl) {
+   document.body.innerHTML = '';
+ 
+   const pages = app.pages;
+-  pages.registerPage({route: '/', render: () => app.embedder.homePage
+-    ? m(app.embedder.homePage, {app}) : m(HomePage)});
++  pages.registerPage({
++    route: '/',
++    render: () =>
++      app.embedder.homePage ? m(app.embedder.homePage, {app}) : m(HomePage),
++  });
+   const router = new Router();
+   router.onRouteChanged = routeChange;
+ 

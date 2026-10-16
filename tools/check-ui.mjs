@@ -26,6 +26,15 @@ try {
   const cookieButton = page.getByText('OK', {exact: true});
   if (await cookieButton.isVisible()) await cookieButton.click();
   const home = () => page.getByRole('heading', {name: 'See where your agent spends its time.', exact: true});
+  const assertFavicon = async () => {
+    await page.waitForFunction(() => document.querySelector('#favicon')?.getAttribute('href')?.endsWith('/assets/agentprof-icon.svg'));
+    const icon = page.locator('#favicon');
+    assert.equal(await icon.getAttribute('type'), 'image/svg+xml');
+    const response = await page.request.get(await icon.getAttribute('href'));
+    assert.ok(response.ok());
+    assert.match(response.headers()['content-type'], /image\/svg\+xml/);
+    assert.equal(await response.text(), await readFile('third_party/overlays/perfetto/ui/src/assets/agentprof-icon.svg', 'utf8'));
+  };
   const more = () => page.getByRole('button', {name: 'More options', exact: true}).click();
   const action = async name => {
     const direct = page.locator('.ap-navigation-actions').getByRole('button', {name, exact: true});
@@ -127,6 +136,7 @@ try {
     }
   };
   await home().waitFor();
+  await assertFavicon();
   assert.equal(await page.title(), 'Agent Profiler');
   assert.equal(await page.locator('.ap-home h1').evaluate(el => getComputedStyle(el).fontSize), '36px');
   assert.equal(await page.locator('.pf-sidebar').count(), 0);
@@ -294,6 +304,7 @@ try {
   await page.setViewportSize({width: 1440, height: 1000});
   await page.screenshot({path: 'artifacts/screenshots/agentprof-example-overview.png'});
   await page.reload();
+  await assertFavicon();
   await exampleCard.locator('.ap-model-name').filter({hasText: 'claude-opus-5'}).waitFor({timeout: 60000});
   assert.equal(await exampleCard.locator('tbody tr').count(), 1);
   await page.getByRole('navigation', {name: 'Main navigation'})

@@ -7,6 +7,10 @@ import {AgentprofNavigation, AgentprofActions} from './agentprof_topbar';
 
 export class AgentprofEmbedder implements Embedder {
   readonly title = 'Agent Profiler';
+  readonly favicon = {
+    src: 'assets/agentprof-icon.svg',
+    type: 'image/svg+xml',
+  };
   readonly analyticsId = undefined;
   readonly extensionServer = undefined;
   readonly brandingBadge = undefined;
