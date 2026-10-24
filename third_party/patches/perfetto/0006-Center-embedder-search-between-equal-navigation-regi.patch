@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sun, 27 Sep 2026 15:49:11 -0400
-Subject: [PATCH 6/6] Center embedder search between equal navigation regions
+Subject: [PATCH 6/8] Center embedder search between equal navigation regions
 
 ---
  ui/src/frontend/topbar.scss | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/ui/src/frontend/topbar.scss b/ui/src/frontend/topbar.scss
-index b848b8f8..256973d7 100644
+index b848b8f83a..256973d771 100644
 --- a/ui/src/frontend/topbar.scss
 +++ b/ui/src/frontend/topbar.scss
 @@ -28,8 +28,11 @@

@@ -1,14 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sat, 26 Sep 2026 03:19:57 -0400
-Subject: [PATCH 3/6] ui: distinguish trace details from agent overview
+Subject: [PATCH 3/8] ui: distinguish trace details from agent overview
 
 ---
  ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts b/ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts
-index df1b70ec..f57a3ddd 100644
+index df1b70ecaf..f57a3ddd8b 100644
 --- a/ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts
 +++ b/ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts
 @@ -29,7 +29,7 @@ export default class implements PerfettoPlugin {

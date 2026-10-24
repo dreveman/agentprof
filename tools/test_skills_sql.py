@@ -83,8 +83,9 @@ class SkillsSqlTest(unittest.TestCase):
 
     def test_all_resources_on_empty_trace_and_repeat_setup(self):
         out = self.query(SETUP + SETUP + TURNS + TURNS +
-                         "SELECT COUNT(*) AS captures FROM agentprof_skill_capture_runs;")
-        self.assertTrue(out.rstrip().endswith("0"), out[-1000:])
+                         "SELECT CASE WHEN COUNT(*) = 0 THEN 'SKILLS_OK' ELSE 'FAILED' END AS result "
+                         "FROM agentprof_skill_capture_runs;")
+        self.assertIn("SKILLS_OK", out, out[-1000:])
         for resource in QUERIES:
             with self.subTest(resource=resource.name):
                 self.query_resource(resource)
@@ -217,11 +218,12 @@ class ResourceInvocationTest(unittest.TestCase):
 
     def test_empty_results_do_not_hide_batched_output(self):
         case = SkillsSqlTest("test_all_resources_on_empty_trace_and_repeat_setup")
-        with patch.object(case, "query", return_value="0") as query:
+        with patch.object(case, "query", return_value="| result |\n|---|\n| SKILLS_OK |\n") as query:
             case.test_all_resources_on_empty_trace_and_repeat_setup()
         self.assertEqual(1 + len(QUERIES), query.call_count)
         self.assertEqual(SETUP + SETUP + TURNS + TURNS +
-                         "SELECT COUNT(*) AS captures FROM agentprof_skill_capture_runs;",
+                         "SELECT CASE WHEN COUNT(*) = 0 THEN 'SKILLS_OK' ELSE 'FAILED' END AS result "
+                         "FROM agentprof_skill_capture_runs;",
                          query.call_args_list[0].args[0])
         self.assertEqual([SETUP + TURNS + resource.read_text() for resource in QUERIES],
                          [call.args[0] for call in query.call_args_list[1:]])
