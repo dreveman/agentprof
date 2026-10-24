@@ -58,7 +58,7 @@ jobs:
             artifacts/browsers
           key: perfetto-ui-${{ runner.os }}-${{ hashFiles('third_party/perfetto.toml') }}
       - name: Build UI and Trace Processor WASM
-        run: python3 tools/perfetto build-ui
+        run: python3 tools/perfetto build-ui --no-source-maps
       - name: Typecheck UI
         run: python3 tools/perfetto check-ui --skip-deps
       - name: Install Chromium and system dependencies
