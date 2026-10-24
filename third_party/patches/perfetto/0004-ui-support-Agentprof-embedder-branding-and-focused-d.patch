@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sat, 26 Sep 2026 03:49:58 -0400
-Subject: [PATCH 4/6] ui: support Agentprof embedder branding and focused
+Subject: [PATCH 4/8] ui: support Agentprof embedder branding and focused
  defaults
 
 ---
@@ -14,7 +14,7 @@ Subject: [PATCH 4/6] ui: support Agentprof embedder branding and focused
  6 files changed, 26 insertions(+), 25 deletions(-)
 
 diff --git a/ui/src/core/embedder/create_embedder.ts b/ui/src/core/embedder/create_embedder.ts
-index a30050be..25a88c04 100644
+index a30050be97..25a88c046f 100644
 --- a/ui/src/core/embedder/create_embedder.ts
 +++ b/ui/src/core/embedder/create_embedder.ts
 @@ -13,22 +13,9 @@
@@ -44,7 +44,7 @@ index a30050be..25a88c04 100644
 +  return new AgentprofEmbedder();
  }
 diff --git a/ui/src/core/embedder/embedder.ts b/ui/src/core/embedder/embedder.ts
-index bdde74c3..f485a616 100644
+index bdde74c313..f485a61693 100644
 --- a/ui/src/core/embedder/embedder.ts
 +++ b/ui/src/core/embedder/embedder.ts
 @@ -12,6 +12,9 @@
@@ -69,7 +69,7 @@ index bdde74c3..f485a616 100644
    // should not be enabled for this embedder.
    readonly analyticsId: string | undefined;
 diff --git a/ui/src/frontend/index.ts b/ui/src/frontend/index.ts
-index e6fb1105..97505605 100644
+index e6fb11051d..97505605de 100644
 --- a/ui/src/frontend/index.ts
 +++ b/ui/src/frontend/index.ts
 @@ -361,7 +361,8 @@ function onCssLoaded(app: AppImpl) {
@@ -83,7 +83,7 @@ index e6fb1105..97505605 100644
    router.onRouteChanged = routeChange;
  
 diff --git a/ui/src/frontend/ui_main.ts b/ui/src/frontend/ui_main.ts
-index 7ad231f4..cdc4e2d4 100644
+index 7ad231f40d..cdc4e2d43d 100644
 --- a/ui/src/frontend/ui_main.ts
 +++ b/ui/src/frontend/ui_main.ts
 @@ -42,12 +42,13 @@ export class UiMain implements m.ClassComponent {
@@ -103,7 +103,7 @@ index 7ad231f4..cdc4e2d4 100644
    }
  
 diff --git a/ui/src/frontend/views/sidebar.ts b/ui/src/frontend/views/sidebar.ts
-index e6a7ba5f..dc91320e 100644
+index e6a7ba5fcd..dc91320ef0 100644
 --- a/ui/src/frontend/views/sidebar.ts
 +++ b/ui/src/frontend/views/sidebar.ts
 @@ -82,7 +82,10 @@ export class Sidebar implements m.ClassComponent<SidebarAttrs> {
@@ -119,10 +119,10 @@ index e6a7ba5f..dc91320e 100644
          m(
            'span.pf-sidebar__branding-badge',
 diff --git a/ui/vite.config.mjs b/ui/vite.config.mjs
-index f6f9258c..28175108 100644
+index 8a2029822d..eac6751add 100644
 --- a/ui/vite.config.mjs
 +++ b/ui/vite.config.mjs
-@@ -258,12 +258,14 @@ const BUNDLE = process.env.BUNDLE;
+@@ -460,12 +460,14 @@ const BUNDLE = process.env.BUNDLE;
  // Resolve imports in Agentprof's linked source files from their checkout paths.
  // Preserve pnpm's normal realpath behavior for third-party dependencies.
  function pluginAgentprofOverlays() {

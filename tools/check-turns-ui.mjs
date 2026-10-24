@@ -14,7 +14,7 @@ const {chromium} = require('@playwright/test');
 const url = 'http://127.0.0.1:10000';
 
 export async function checkTurns(page) {
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
   await page.locator('.ap-turn').first().waitFor();
   assert.equal(await page.locator('.ap-turn-details').count(), 0, 'Details are lazy');
   const rows = await page.evaluate(async () => {
@@ -96,7 +96,7 @@ export async function checkTurns(page) {
   await page.waitForURL(/#!\/viewer/);
   await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
   await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('link', {name: 'Overview', exact: true}).click();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
   await page.locator('.ap-turn').first().waitFor();
   assert.equal(await page.locator('.ap-error').count(), 0, 'Setup survives remount after timeline navigation');
   const expandAgain = page.locator('.ap-turn').first().getByRole('button', {name: /^Expand turn /});
@@ -126,7 +126,7 @@ async function checkSetupRetry(page) {
       return original(sql);
     };
   });
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
   await page.getByRole('button', {name: 'Retry turns', exact: true}).first().click();
   await page.locator('.ap-turn').first().waitFor();
   assert.equal(await page.locator('.ap-error').count(), 0, 'Retry recovers after a partially completed native setup');
@@ -225,7 +225,7 @@ async function main() {
       await page.getByRole('group', {name: 'Recording agent'}).getByRole('button', {name: agent, exact: true}).click();
       await page.locator('.ap-home__example').click();
       await page.locator('.ap-session-summary tbody tr').first().waitFor({timeout: 60000});
-      await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+      await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
       await page.locator('.ap-turn').first().waitFor({timeout: 60000});
       await page.locator('.ap-turn').first().getByRole('button', {name: /^Expand turn /}).click();
       await page.locator('.ap-turn-details').first().waitFor();

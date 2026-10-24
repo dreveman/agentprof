@@ -25,7 +25,7 @@ export class AgentprofEmbedder implements Embedder {
     'dev.perfetto.CoreCommands',
     'dev.perfetto.MultiTraceOpen',
     'dev.perfetto.Timeline',
-    'dev.perfetto.FlowEventsPanel',
+    'dev.perfetto.FlowEvents',
     'dev.perfetto.TraceInfoPage',
     'dev.perfetto.SettingsPage',
     'dev.agentprof.Agentprof',

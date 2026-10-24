@@ -219,11 +219,11 @@ try {
     await page.locator('.ap-session-summary tbody tr').waitFor();
     await page.screenshot({path: `artifacts/screenshots/agentprof-${route}-example.png`});
     await page.getByRole('heading', {name: 'What filled the context?', exact: true}).waitFor();
-    await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Context', {exact: true}).click();
+    await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Context', {exact: true}).click();
     await page.locator('.ap-context-chart polygon').first().waitFor();
     assert.ok(await page.locator('.ap-context-category').count() > 0, `${agent} example includes context composition`);
     await page.screenshot({path: `artifacts/screenshots/agentprof-${route}-context.png`});
-    await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
+    await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
     if (agent === 'Muse Code') {
       const manifest = JSON.parse(await readFile('examples/muse-coding/recording.json', 'utf8'));
       if (manifest.unavailableChildren > 0) await page.getByText(`${manifest.unavailableChildren} child sessions have no retained recording. Their model work and token usage are unavailable.`, {exact: true}).waitFor();
@@ -234,7 +234,7 @@ try {
       assert.equal(captures, manifest.recordings.length);
     }
     if (agent === 'Codex') {
-      await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+      await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
       await page.locator('.ap-script-row').first().waitFor();
       const manifest = JSON.parse(await readFile('examples/codex-coding/recording.json', 'utf8'));
       assert.equal(await page.locator('.ap-script-row').count(), manifest.recording.scripts);
@@ -278,7 +278,7 @@ try {
       ['Tools', 'Tool summary'],
       ['Sessions', 'Captured sessions'],
     ]) {
-      await page.locator('.ap-tabs .pf-tabs__tab-title').getByText(tab, {exact: true}).click();
+      await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText(tab, {exact: true}).click();
       await page.getByRole('heading', {name: heading, exact: true}).waitFor();
       const overflow = await page.locator('.ap-page').evaluate(el => ({
         page: el.scrollWidth - el.clientWidth,
@@ -300,7 +300,7 @@ try {
       }
     }
   }
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   await page.setViewportSize({width: 1440, height: 1000});
   await page.screenshot({path: 'artifacts/screenshots/agentprof-example-overview.png'});
   await page.reload();
@@ -373,13 +373,16 @@ try {
     await trace.selection.selectSqlEvent('slice', links[0].source);
     return links[0];
   });
-  await page.waitForFunction(link => window.app.trace.flows.connectedFlows.some(
-    flow => flow.begin.sliceId === link.source && flow.end.sliceId === link.target), delegation);
-  await page.screenshot({path: 'artifacts/screenshots/agentprof-delegation-flow.png'});
-  await page.evaluate(async link => {
+  await page.waitForFunction(async link => {
     const trace = window.app.trace;
-    await trace.selection.selectSqlEvent('slice', link.target, {scrollToSelection: true});
+    const selection = trace.selection.selection;
+    if (selection.kind !== 'track_event') return false;
+    if (selection.eventId === link.target) return true;
+    if (selection.eventId !== link.source) throw new Error('Flow navigation selected an unexpected slice');
+    await trace.commands.runCommand('dev.perfetto.MoveNextFlow');
+    return false;
   }, delegation);
+  await page.screenshot({path: 'artifacts/screenshots/agentprof-delegation-flow.png'});
   await page.waitForFunction(() => {
     const trace = window.app.trace;
     const selection = trace.selection.selection;
@@ -403,15 +406,15 @@ try {
     return Number(result.iter({}).get('count'));
   });
   assert.ok(expectedFlows > 0);
-  await page.waitForFunction(count => window.app.trace.flows.selectedFlows.length === count, expectedFlows);
   await page.getByText('Flow Events', {exact: true}).click();
   const flowGrid = page.locator('.pf-grid').filter({has: page.getByText('Flow Category', {exact: true})});
+  assert.equal(await flowGrid.locator('.pf-grid-cell').nth(1).textContent(), String(expectedFlows));
   const showAll = flowGrid.locator('label.pf-checkbox').first();
   await showAll.click();
-  await page.waitForFunction(() => window.app.trace.flows.visibleCategories.get('_all_') === true);
+  assert.ok(await showAll.locator('input').isChecked());
   await page.screenshot({path: 'artifacts/screenshots/agentprof-flow-events.png'});
   await showAll.click();
-  await page.waitForFunction(() => window.app.trace.flows.visibleCategories.get('_all_') === false);
+  assert.ok(!await showAll.locator('input').isChecked());
   await page.evaluate(() => window.app.trace.selection.clearSelection());
   await nav().getByRole('link', {name: 'Overview', exact: true}).click();
   await overview().waitFor();
@@ -498,7 +501,7 @@ try {
   };
   await assertRecordedRuns(recorded.recordings.filter(r => recorded.bundledFiles.includes(r.file)));
   await assertTokenCounters(16);
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Sessions', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Sessions', {exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
   const capturedRows = page.locator('.ap-session-table:not(.ap-session-table--subagents) > tbody > .ap-session-row');
   const capturedRecordings = recorded.recordings.filter(r => recorded.bundledFiles.includes(r.file));
@@ -554,7 +557,7 @@ try {
   assert.equal(await page.evaluate(() => window.sessionRowClicks), 0);
   await nav().getByRole('link', {name: 'Overview', exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   await overview().waitFor();
   await assertMainThreads(4);
   await page.screenshot({path: 'artifacts/screenshots/agentprof-overview.png'});
@@ -622,17 +625,17 @@ try {
     .filter({has: page.getByText('Incomplete operations', {exact: true})});
   await incompleteFact.waitFor();
   assert.equal(await incompleteFact.locator('.ap-session-fact__value').textContent(), '2');
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   await page.getByRole('button', {name: /Full recording/}).click();
   await page.locator('.pf-menu-item').filter({hasText: 'Full recording'}).click();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Turns', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
   await page.getByRole('heading', {name: 'Recorded turns', exact: true}).waitFor();
   await page.getByRole('button', {name: /^Expand turn /}).first().click();
   await page.locator('.ap-turn-event-link').first().click();
   await page.getByText('pi-example 1001', {exact: true}).waitFor();
   await page.locator('a[href="#!/agentprof"]').click();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).waitFor();
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).waitFor();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
   await page.getByRole('button', {name: 'bash', exact: true}).first().click();
   await page.getByText('pi-example 1001', {exact: true}).waitFor();
   assert.equal(await page.evaluate(() => window.app.trace.currentWorkspace.flatTracks
@@ -688,7 +691,7 @@ try {
   assert.equal(await comparison.locator('tbody tr').filter({hasText: 'model-0'}).locator('td').nth(8).textContent(), 'Not recorded');
   assert.equal(await comparison.locator('.ap-spark').count(), 0);
   assert.equal(await page.locator('.ap-error').count(), 0);
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Sessions', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Sessions', {exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
   const comparisonRows = page.locator('.ap-session-table:not(.ap-session-table--subagents) > tbody > .ap-session-row');
   await comparisonRows.first().waitFor();
@@ -698,7 +701,7 @@ try {
   await classicRow.getByRole('button', {name: /^Show details for session/}).click();
   await classicRow.locator('xpath=following-sibling::tr[1]').locator('code').waitFor();
   assert.equal(await classicRow.locator('xpath=following-sibling::tr[1]').locator('code').count(), 1);
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Summary', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   const actualStarts = await page.evaluate(async () => {
     const result = await window.app.trace.engine.query(`
       SELECT capture, CAST(MIN(ts) AS TEXT) AS start_ns
@@ -867,7 +870,7 @@ try {
   await overview().waitFor({timeout: 60000});
   await page.locator('.ap-session-summary .ap-session-label').first().waitFor();
   assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 2);
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
   await page.getByRole('heading', {name: 'Scripted tool use', exact: true}).waitFor();
   await page.locator('.ap-script-row').first().waitFor();
   const exampleManifest = JSON.parse(await readFile('examples/harness-comparison/recording.json', 'utf8'));
@@ -906,7 +909,7 @@ try {
   await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/codemode/scripts.pftrace'));
   await page.locator('.ap-banner').filter({hasText: 'scripts.pftrace'}).waitFor({timeout: 60000});
   await overview().waitFor({timeout: 60000});
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
   await page.locator('.ap-script-row').first().waitFor();
   assert.equal(await page.locator('.ap-script-row').count(), 2);
   assert.equal(await page.locator('.ap-script-row .ap-tool-description').first().textContent(), 'Inspect tracing hooks');
@@ -928,7 +931,7 @@ try {
   assert.equal(await codexCard.locator('.ap-model-name').textContent(), 'fixture-model');
   assert.match(await codexCard.innerText(), /260/);
   await page.screenshot({path: 'artifacts/screenshots/agentprof-codex.png'});
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Tools', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
   await page.locator('.ap-script-row').waitFor();
   assert.equal(await page.locator('.ap-script-row .ap-tool-description').textContent(), 'JavaScript · 1 line');
   await page.getByRole('button', {name: 'Expand script', exact: true}).click();
@@ -939,7 +942,7 @@ try {
   await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
   await nav().getByRole('link', {name: 'Overview', exact: true}).click();
   await page.waitForURL(/#!\/agentprof/);
-  await page.locator('.ap-tabs .pf-tabs__tab-title').getByText('Context', {exact: true}).click();
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Context', {exact: true}).click();
   await page.getByText('Category breakdown not recorded. Showing total context usage.', {exact: true}).waitFor();
   await more();
   await page.getByRole('button', {name: 'Close recording', exact: true}).click();

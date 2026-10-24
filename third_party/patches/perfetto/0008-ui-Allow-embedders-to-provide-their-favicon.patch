@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: David Reveman <dreveman@gmail.com>
+From: Agentprof <agentprof@localhost>
 Date: Fri, 16 Oct 2026 08:52:00 -0700
 Subject: [PATCH 8/8] ui: Allow embedders to provide their favicon
 
@@ -13,7 +13,7 @@ Tests: AgentProf build and browser favicon checks.
  3 files changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/ui/build.mjs b/ui/build.mjs
-index 8b6ee9d6..cb6db1c8 100644
+index 667f2050b4..26f2c0ff80 100644
 --- a/ui/build.mjs
 +++ b/ui/build.mjs
 @@ -128,7 +128,7 @@ const RULES = [
@@ -25,7 +25,7 @@ index 8b6ee9d6..cb6db1c8 100644
    {r: /ui\/src\/assets\/(data_explorer\/base-page\.json)/, f: copyAssets},
    {r: /ui\/src\/assets\/(data_explorer\/examples\/(.*)[.]json)/, f: copyAssets},
    {r: /ui\/src\/assets\/(data_explorer\/node_info\/(.*)[.]md)/, f: copyAssets},
-@@ -1374,7 +1374,10 @@ function walk(dir, callback, skipRegex) {
+@@ -1368,7 +1368,10 @@ function walk(dir, callback, skipRegex) {
      if (skipRegex !== undefined && skipRegex.test(child)) continue;
      if (stat.isDirectory()) {
        walk(childPath, callback, skipRegex);
@@ -38,7 +38,7 @@ index 8b6ee9d6..cb6db1c8 100644
      }
    }
 diff --git a/ui/src/core/embedder/embedder.ts b/ui/src/core/embedder/embedder.ts
-index 8deef447..e8152aab 100644
+index 8deef44734..e8152aabb5 100644
 --- a/ui/src/core/embedder/embedder.ts
 +++ b/ui/src/core/embedder/embedder.ts
 @@ -51,6 +51,8 @@ export interface BrandingBadge {
@@ -51,7 +51,7 @@ index 8deef447..e8152aab 100644
    readonly brandLogo?: {readonly src: string; readonly alt: string};
    readonly homePage?: m.ComponentTypes<{app: App}>;
 diff --git a/ui/src/frontend/index.ts b/ui/src/frontend/index.ts
-index 97505605..21a749b8 100644
+index 97505605de..21a749b8cb 100644
 --- a/ui/src/frontend/index.ts
 +++ b/ui/src/frontend/index.ts
 @@ -310,7 +310,9 @@ function main() {

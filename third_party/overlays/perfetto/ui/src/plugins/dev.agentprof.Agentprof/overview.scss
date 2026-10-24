@@ -13,7 +13,7 @@
   .ap-label {font-size: var(--pf-font-size-s); text-transform: uppercase; letter-spacing: .5px; color: var(--pf-color-text-muted);}
   .ap-tabs {height: auto;}
   // Keep the divider inside the scroll area so the active tab can cover it.
-  .ap-tabs > .pf-tabs__tabs {
+  .ap-tabs > .pf-tab-strip {
     padding: 0 28px 1px;
     overflow-x: auto;
     border-bottom: none;
@@ -201,7 +201,7 @@
     .ap-session-table > tbody > .ap-session-row {grid-template-columns: minmax(0, 1fr);}
     .ap-session-details > .ap-session-fact:first-child {grid-column: 1 / -1;}
   }
-  @media (max-width: 800px) {.ap-inner {width: 100%;} .ap-header, .ap-content {padding: 16px;} .ap-tabs > .pf-tabs__tabs {padding-inline: 10px;} .ap-headline-row {grid-template-columns: 1fr;}}
+  @media (max-width: 800px) {.ap-inner {width: 100%;} .ap-header, .ap-content {padding: 16px;} .ap-tabs > .pf-tab-strip {padding-inline: 10px;} .ap-headline-row {grid-template-columns: 1fr;}}
 }
 
 .ap-context {

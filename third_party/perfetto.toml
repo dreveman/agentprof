@@ -1,4 +1,4 @@
 # Upstream Perfetto source used by tools/perfetto.
 [perfetto]
 url = "https://github.com/google/perfetto.git"
-pin = "fff30e83b5af315d311a3f18626d70b458631fc5"
+pin = "1e9c61e9844affd7dccd3d42d9ea9f3a3d10cf6d"
