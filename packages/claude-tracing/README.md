@@ -44,6 +44,13 @@ are available as immediate commands:
 /tracing stop
 ```
 
+To record a single turn, type `/trace <prompt>` as your prompt. Recording
+starts before the turn, the saved prompt omits the `/trace` marker (the model
+receives the text as typed), and when the turn completes the recording stops
+and `Saved trace: <path>` is printed. If a recording is already active the
+turn simply joins it and `/trace` changes nothing; stop that recording first
+for an isolated one-turn trace.
+
 `start` prints the absolute output path. With no path, each recording gets a
 unique file under `agentprof-traces/` in the project directory. To choose a path,
 use `/tracing start recordings/task.pftrace`; quote paths containing spaces.

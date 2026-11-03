@@ -128,6 +128,63 @@ test('agent tracing tools publish default and requested paths and report state',
 }, 25000);
 
 const processor = process.env.PERFETTO_TRACE_PROCESSOR;
+test('/trace submits one prompt, publishes at settle, and refuses while recording', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-one-turn-'));
+  try {
+    await writeFile(join(dir, 'pi-tracing.json'), '{"finalizeDeadlineMs":5000}\n');
+    const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
+    const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
+    const driver = join(dir, 'driver.ts');
+    await writeFile(driver, `
+      import tracing from ${JSON.stringify(extension)};
+      import {existsSync, readdirSync, writeFileSync} from 'node:fs';
+      import {join} from 'node:path';
+      export default function(pi) {
+        const hooks = new Map(); const commands = new Map(); const submitted = [];
+        tracing(new Proxy(pi, {get(target, key) {
+          if (key === 'on') return (name, handler) => {hooks.set(name, [...(hooks.get(name) ?? []), handler]); return pi.on(name, handler);};
+          if (key === 'registerCommand') return (name, command) => {commands.set(name, command); return pi.registerCommand(name, command);};
+          if (key === 'sendUserMessage') return prompt => {submitted.push(prompt);};
+          return Reflect.get(target, key);
+        }}));
+        pi.registerCommand('trace-one-turn-test', {handler: async (_, ctx) => {
+          const emit = async (type, data = {}) => {for (const hook of hooks.get(type) ?? []) await hook({type, ...data}, ctx);};
+          await commands.get('trace').handler('   ', ctx);
+          await commands.get('trace').handler('  fix the fixture  ', ctx);
+          await emit('before_agent_start', {prompt: 'fix the fixture'});
+          await emit('agent_start'); await emit('turn_start', {turnIndex: 0});
+          await emit('turn_end'); await emit('agent_end'); await emit('agent_settled');
+          const outDir = join(${JSON.stringify(dir)}, 'pi-tracing');
+          let traces = [];
+          for (let attempt = 0; attempt < 100; attempt++) {
+            traces = existsSync(outDir) ? readdirSync(outDir).filter(name => name.endsWith('.pftrace')) : [];
+            if (traces.length === 1) break;
+            await new Promise(done => setTimeout(done, 50));
+          }
+          // A second /trace while a manual recording is active must not submit.
+          await commands.get('tracing').handler('start manual', ctx);
+          await commands.get('trace').handler('must not run', ctx);
+          await commands.get('tracing').handler('stop', ctx);
+          writeFileSync(join(${JSON.stringify(dir)}, 'one-turn.json'), JSON.stringify({submitted, traces}));
+        }});
+      }
+    `);
+    const result = spawnSync('node', [cli, '--no-extensions', '-e', driver, '--no-skills',
+      '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
+      '--mode', 'json', '-p', '/trace-one-turn-test'], {cwd: dir, encoding: 'utf8', timeout: 20000,
+      env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: ''}});
+    expect(result.status, result.stderr).toBe(0);
+    const output = JSON.parse(await readFile(join(dir, 'one-turn.json'), 'utf8'));
+    expect(output.submitted).toEqual(['fix the fixture']);
+    expect(output.traces).toHaveLength(1);
+    expect((await readFile(join(dir, 'pi-tracing', output.traces[0]))).length).toBeGreaterThan(0);
+    expect(result.stderr).toContain('pi-tracing: tracing one turn');
+    expect(result.stderr).toContain(output.traces[0]);
+  } finally {
+    await rm(dir, {recursive: true, force: true});
+  }
+}, 25000);
+
 test('content-disabled Pi hooks do not inspect tool bodies, scripts or cumulative output', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-no-content-'));
   try {

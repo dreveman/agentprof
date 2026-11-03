@@ -83,7 +83,13 @@ enabled; do not launch with `--no-session-log`.
 
 ## 3. Record one task
 
-Start recording *before* submitting the task and stop after it finishes.
+For a single prompt in Pi or Claude Code, prefer `/trace <prompt>`: it starts
+recording, runs just that prompt, stops when the turn finishes, and prints the
+trace path. It refuses (Pi) or is a no-op (Claude) while another recording is
+already active, so stop that recording first. Codex and Muse have no
+`/trace`; use their manual controls below around the turn.
+
+Otherwise start recording *before* submitting the task and stop after it finishes.
 Starting mid-response excludes or truncates that work, operations still running
 at stop are marked incomplete, and their usage is not invented. One recording
 per task keeps later attribution unambiguous.
