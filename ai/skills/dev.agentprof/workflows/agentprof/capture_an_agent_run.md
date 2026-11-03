@@ -114,7 +114,29 @@ recording on launch exists per harness (`--tracing` for Pi, the plugin's
 `AGENTPROF_MUSE_AUTO_START=1`); prefer explicit start/stop unless repeated
 captures of the same setup are the point.
 
-## 4. Verify the artifact before analyzing it
+## 4. Scripted or always-on capture
+
+When scripts or launchers start the harnesses and no user can type controls,
+set two environment variables for everything they launch:
+
+```bash
+AGENTPROF_AUTO_TRACE=1 AGENTPROF_TRACING_DIR=/path/to/traces \
+AGENTPROF_CAPTURE_CONTENTS=0 your-launcher
+```
+
+Every top-level session that inherits the environment then records from start
+to finish and publishes `<harness>-<session-id>-<timestamp>-<unique>.pftrace`
+into that folder; child sessions join their parent's trace rather than writing
+their own files. `AGENTPROF_TRACING_DIR` also relocates manual recordings
+made without an explicit path. `AGENTPROF_AUTO_TRACE=0` in a nested
+environment suppresses automatic capture for that launch. Expect one file per
+session: analyze them individually, or open several together when their clock
+snapshots allow alignment. Do not assume a quiet folder means no sessions
+ran — confirm the variables reached the harness process (launcher wrappers
+may scrub environments) and check each harness's status/log output for
+recording failures, which are deliberately non-fatal.
+
+## 5. Verify the artifact before analyzing it
 
 Confirm all of the following, and report the actual saved path:
 

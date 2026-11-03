@@ -45,7 +45,12 @@ in the same file; unrelated sessions remain separate.
 
 To record automatically on startup instead, set
 `AGENTPROF_CODEX_AUTO_START=1` in the environment before launching the normal
-`codex` command. Clear it to return to manual start. Starting and stopping
+`codex` command. Clear it to return to manual start. The cross-harness
+`AGENTPROF_AUTO_TRACE=1` enables the same behavior in every supported harness
+that inherits the environment, and `AGENTPROF_AUTO_TRACE=0` suppresses
+automatic capture for one launch. With `AGENTPROF_TRACING_DIR=<folder>` also
+set, automatic recordings are named `codex-<session-id>-<timestamp>-<unique>.pftrace`
+in that folder, and manual starts without a path land there too. Starting and stopping
 repeatedly creates separate recordings. Resuming a session can start
 a new recording with the same native session ID; capture IDs distinguish them.
 

@@ -4,7 +4,7 @@ import {spawn} from 'node:child_process';
 import {existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync} from 'node:fs';
 import {createHash, randomBytes} from 'node:crypto';
 import {createServer} from 'node:net';
-import {dirname, join, resolve} from 'node:path';
+import {basename, dirname, join, resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {readConnection} from './plugin-config.ts';
 
@@ -141,6 +141,29 @@ test('automatic recording starts on the ordinary SessionStart hook', async () =>
     expect(readFileSync(path).length).toBeGreaterThan(100);
   } finally {rmSync(home, {recursive: true, force: true});}
 }, 15000);
+
+test('AGENTPROF_AUTO_TRACE records into TRACING_DIR with the session id; =0 suppresses legacy auto start', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'codex-plugin-auto-trace-'));
+  try {
+    const traces = join(home, 'fleet');
+    const env = {...process.env, AGENTPROF_AUTO_TRACE: '1', AGENTPROF_TRACING_DIR: traces};
+    const started = await hook(home, {hook_event_name: 'SessionStart', source: 'startup'}, env);
+    expect(started.systemMessage).toContain('recording to');
+    const path = started.systemMessage.split('recording to ')[1];
+    expect(path.startsWith(traces + '/')).toBe(true);
+    expect(basename(path)).toMatch(new RegExp(`^codex-${root}-\\d{8}-\\d{6}-[0-9a-f]{6}\\.pftrace$`));
+    await hook(home, {hook_event_name: 'SessionEnd'}, env);
+    await saved(path);
+    expect(readFileSync(path).length).toBeGreaterThan(100);
+  } finally {rmSync(home, {recursive: true, force: true});}
+  const offHome = mkdtempSync(join(tmpdir(), 'codex-plugin-auto-off-'));
+  try {
+    const started = await hook(offHome, {hook_event_name: 'SessionStart', source: 'startup'},
+      {...process.env, AGENTPROF_AUTO_TRACE: '0', AGENTPROF_CODEX_AUTO_START: '1'});
+    expect(started.systemMessage ?? '').not.toContain('recording to');
+    await hook(offHome, {hook_event_name: 'SessionEnd'});
+  } finally {rmSync(offHome, {recursive: true, force: true});}
+}, 20000);
 
 test('concurrent unrelated Codex sessions keep separate private captures', async () => {
   const home = mkdtempSync(join(tmpdir(), 'codex-plugin-parallel-'));

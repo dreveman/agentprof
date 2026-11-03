@@ -393,6 +393,7 @@ export class Recorder {
   private config: TracingConfig;
   private readonly outDir: string;
   private readonly sessionTag: string;
+  private readonly sessionId: string | undefined;
   private readonly identity: ProcessIdentity;
   private readonly captureAnnotations: NormalizedAttrs;
   private readonly machineId: number;
@@ -440,6 +441,8 @@ export class Recorder {
     config: TracingConfig;
     outDir: string;
     sessionTag: string;
+    /** Full session ID for auto-trace filenames (`pi-<id>-<ts>-<unique>`). */
+    sessionId?: string;
     identity: ProcessIdentity;
     captureAnnotations?: NormalizedAttrs;
     /** Opt in to a single recording shared with local descendant processes. */
@@ -454,6 +457,8 @@ export class Recorder {
     this.inheritedRecording = args.recordingDirectory;
     this.outDir = args.outDir;
     this.sessionTag = args.sessionTag;
+    this.sessionId = args.sessionId === undefined ? undefined
+      : args.sessionId.replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 128) || undefined;
     this.identity = args.identity;
     this.captureAnnotations = args.captureAnnotations ?? {};
     const machineId = args.machineId ?? currentMachineIdentity().id;
@@ -553,7 +558,7 @@ export class Recorder {
     return this.state === "RECORDING" && this.config.categories[cat] === true;
   }
 
-  start(name?: string, outputPath?: string): Promise<{ started: boolean; message: string }> {
+  start(name?: string, outputPath?: string, options?: { auto?: boolean }): Promise<{ started: boolean; message: string }> {
     if (this.state === "STARTING" && this.startPromise !== null) return this.startPromise;
     if (this.state !== "OFF") return Promise.resolve({ started: false, message: `cannot start while ${this.state.toLowerCase()}` });
     if (outputPath !== undefined && this.inheritedRecording !== undefined) {
@@ -564,14 +569,14 @@ export class Recorder {
     }
     this.state = "STARTING";
     this.startCancelled = false;
-    const task = this.doStart(name, outputPath).finally(() => {
+    const task = this.doStart(name, outputPath, options?.auto === true).finally(() => {
       this.startPromise = null;
     });
     this.startPromise = task;
     return task;
   }
 
-  private async doStart(name?: string, outputPath?: string): Promise<{ started: boolean; message: string }> {
+  private async doStart(name?: string, outputPath?: string, auto = false): Promise<{ started: boolean; message: string }> {
     let succeeded = false;
     try {
       await mkdir(this.outDir, { recursive: true });
@@ -579,7 +584,12 @@ export class Recorder {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       const slug = (name ?? "").trim().replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 40);
       const suffix = `${process.pid}-${randomToken()}`;
-      const base = slug.length > 0 ? `${this.sessionTag}-${stamp}-${suffix}-${slug}` : `${this.sessionTag}-${stamp}-${suffix}`;
+      // Auto-trace files are attributable without opening them:
+      // pi-<full session id>-<YYYYMMDD-HHMMSS>-<unique>.pftrace
+      const autoBase = auto && this.sessionId !== undefined
+        ? `pi-${this.sessionId}-${stamp.replace("T", "-").replace(/-/g, "").slice(0, 8)}-${stamp.slice(11, 19).replace(/-/g, "")}-${randomToken().slice(0, 6)}`
+        : undefined;
+      const base = autoBase ?? (slug.length > 0 ? `${this.sessionTag}-${stamp}-${suffix}-${slug}` : `${this.sessionTag}-${stamp}-${suffix}`);
       this.recording = this.inheritedRecording !== undefined
         ? await Recording.join(this.inheritedRecording)
         : this.collectChildren ? await Recording.create(this.outDir, base, outputPath) : null;

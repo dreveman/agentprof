@@ -378,7 +378,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", async (_event, ctx) => {
     const { config, warnings } = loadConfig(ctx);
-    const outDir = defaultOutDir(getAgentDir());
+    const outDir = config.traceDir === undefined ? defaultOutDir(getAgentDir()) : resolve(ctx.cwd, config.traceDir);
     try {
       mkdirSync(outDir, { recursive: true });
     } catch {
@@ -397,6 +397,7 @@ export default function (pi: ExtensionAPI) {
       config,
       outDir,
       sessionTag: sessionTagFor(ctx),
+      sessionId: sessionIdFor(ctx),
       identity: identityFor(sessionIdFor(ctx), roleLabel),
       captureAnnotations,
       collectChildren: true,
@@ -445,7 +446,7 @@ export default function (pi: ExtensionAPI) {
     }
     if (config.startupMode === "recording") {
       recorder.setRunConfiguration(runConfiguration(ctx));
-      const started = await recorder.start();
+      const started = await recorder.start(undefined, undefined, { auto: true });
       if (started.started) syncChildEnv();
       try {
         notify(ctx, `pi-tracing: ${started.message}`, started.started ? "info" : "error");
@@ -1052,6 +1053,7 @@ export default function (pi: ExtensionAPI) {
     const sharedContents = captureContentsEnabled(process.env.AGENTPROF_CAPTURE_CONTENTS);
     const lines = [
       `pi-tracing ${TRACE_VERSION} state=${session.recorder.getState()} startupMode=${config.startupMode}`,
+      `auto-trace=${config.autoTrace ? "on" : "off"} tracing-dir=${config.traceDir ?? "(default)"}`,
       `categories on: ${enabled === "" ? "(none)" : enabled}`,
       `clock primary=REALTIME machineId=${machineId === 0 ? "host-default (boot identity unavailable)" : machineId}`,
       `pending=${stats.pending} (${stats.queuedBytes}B) packets=${stats.packets} dropped=${stats.dropped} openSpans=${stats.openSpans} laneOverflows=${stats.laneOverflows}`,

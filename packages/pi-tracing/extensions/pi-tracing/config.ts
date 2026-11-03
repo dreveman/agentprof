@@ -44,6 +44,12 @@ export const ALL_CATEGORIES: CategoryId[] = [
 
 export interface TracingConfig {
   startupMode: StartupMode;
+  /** `AGENTPROF_AUTO_TRACE` cross-harness switch: record every session.
+   * `false` from `=0` also suppresses the legacy Pi autostart switches. */
+  autoTrace: boolean;
+  /** `AGENTPROF_TRACING_DIR`: default output folder for all recordings
+   * without an explicit path. Undefined keeps the built-in default. */
+  traceDir?: string;
   categories: Record<CategoryId, boolean>;
   sampleHz: number;
   maxFileMB: number;
@@ -61,6 +67,7 @@ export interface TracingConfig {
 export function defaultConfig(): TracingConfig {
   return {
     startupMode: "off",
+    autoTrace: false,
     categories: {
       agent: true,
       llm: true,
@@ -256,6 +263,12 @@ export function parseEnv(env: NodeJS.ProcessEnv): EnvOverrides {
       config.childTools = [...new Set(names)];
     }
   }
+  const autoTrace = env["AGENTPROF_AUTO_TRACE"];
+  if (autoTrace === "1" || autoTrace === "true") config.autoTrace = true;
+  else if (autoTrace === "0" || autoTrace === "false") config.autoTrace = false;
+  else if (autoTrace !== undefined && autoTrace !== "") warnings.push(`AGENTPROF_AUTO_TRACE=${autoTrace}: expected 0|1`);
+  const traceDir = env["AGENTPROF_TRACING_DIR"];
+  if (traceDir !== undefined && traceDir.trim() !== "") config.traceDir = traceDir.trim();
   const capture = env["PI_TRACING_CAPTURE_CONTENTS"];
   if (capture === "1" || capture === "true") config.captureContents = true;
   else if (capture === "0" || capture === "false") config.captureContents = false;
@@ -279,6 +292,13 @@ export function applyEnvOverrides(base: TracingConfig, env: NodeJS.ProcessEnv): 
   // The explicit master switch wins over other environment values.
   if (parsed.autostart) config.startupMode = "recording";
   else if (env["PI_TRACING"] === "0" || env["PI_TRACING"] === "false") config.startupMode = "off";
+  // The cross-harness switch wins over the legacy Pi switches in both
+  // directions: =1 records every session, =0 suppresses autostart.
+  if (parsed.config.autoTrace !== undefined) {
+    config.autoTrace = parsed.config.autoTrace;
+    config.startupMode = parsed.config.autoTrace ? "recording" : "off";
+  }
+  if (parsed.config.traceDir !== undefined) config.traceDir = parsed.config.traceDir;
   if (parsed.config.categories !== undefined) {
     for (const [key, value] of Object.entries(parsed.config.categories)) {
       if (value !== undefined) config.categories[key as CategoryId] = value;

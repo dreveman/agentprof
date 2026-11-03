@@ -185,6 +185,29 @@ test('/trace submits one prompt, publishes at settle, and refuses while recordin
   }
 }, 25000);
 
+test('AGENTPROF_AUTO_TRACE records from startup into AGENTPROF_TRACING_DIR with the session id in the name', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'pi-tracing-auto-'));
+  try {
+    await writeFile(join(dir, 'pi-tracing.json'), '{"finalizeDeadlineMs":5000}\n');
+    const cli = fileURLToPath(new URL('./cli.js', import.meta.resolve('@earendil-works/pi-coding-agent')));
+    const extension = fileURLToPath(new URL('./index.ts', import.meta.url));
+    const tracesDir = join(dir, 'fleet-traces');
+    const result = spawnSync('node', [cli, '--no-extensions', '-e', extension, '--no-skills',
+      '--no-context-files', '--no-prompt-templates', '--no-themes', '--no-session',
+      '--mode', 'json', '-p', '/tracing status'], {cwd: dir, encoding: 'utf8', timeout: 20000,
+      env: {...process.env, PI_CODING_AGENT_DIR: dir, PI_TRACING: '0', PI_SUBAGENT_EXTENSIONS: '',
+        AGENTPROF_AUTO_TRACE: '1', AGENTPROF_TRACING_DIR: tracesDir}});
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain('auto-trace=on');
+    const traces = (await readdir(tracesDir)).filter(name => name.endsWith('.pftrace'));
+    expect(traces).toHaveLength(1);
+    expect(traces[0]).toMatch(/^pi-[A-Za-z0-9_-]+-\d{8}-\d{6}-[0-9a-f]{6}\.pftrace$/);
+    expect((await readFile(join(tracesDir, traces[0]!))).length).toBeGreaterThan(0);
+  } finally {
+    await rm(dir, {recursive: true, force: true});
+  }
+}, 25000);
+
 test('content-disabled Pi hooks do not inspect tool bodies, scripts or cumulative output', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'pi-no-content-'));
   try {
@@ -460,20 +483,28 @@ hookTest('Pi hooks consolidate metadata, retain unknown-start completions, and p
     expect(result.status, result.stderr).toBe(0);
     const traces = (await readdir(join(dir, 'pi-tracing'))).filter(name => name.endsWith('.pftrace')).sort();
     expect(traces).toHaveLength(2);
-    const events = (await Promise.all(traces.map(file => readFile(join(dir, 'pi-tracing', file)))))
-      .flatMap(bytes => tracePackets(bytes).flatMap(packet => {
+    const perTrace = (await Promise.all(traces.map(file => readFile(join(dir, 'pi-tracing', file)))))
+      .map(bytes => tracePackets(bytes).flatMap(packet => {
         const event = decodeFields(packet).find(f => f.number === 11)?.bytes;
         return event ? [decodeFields(event)] : [];
       }));
+    const events = perTrace.flat();
     const text = (fields: ReturnType<typeof decodeFields>, number: number) =>
       new TextDecoder().decode(fields.find(f => f.number === number)?.bytes);
-    const capture = events.find(e => text(e, 23) === 'profile (1)')!;
-    const session = capture.filter(f => f.number === 4).map(f => decodeFields(f.bytes!))
-      .find(a => text(a, 10) === 'session_id')!;
-    const childId = childPromptFlowId(text(session, 6))!;
+    // Pair the capture span and the first prompt-input within one trace file;
+    // filename ordering across the two captures is not stable.
+    const paired = perTrace.map(traceEvents => {
+      const capture = traceEvents.find(e => text(e, 23) === 'profile (1)');
+      const session = capture?.filter(f => f.number === 4).map(f => decodeFields(f.bytes!))
+        .find(a => text(a, 10) === 'session_id');
+      const childId = session ? childPromptFlowId(text(session, 6)) : undefined;
+      const firstInput = traceEvents.find(e => text(e, 23) === 'prompt-input');
+      return {traceEvents, childId, firstInput};
+    }).find(({childId, firstInput}) => childId !== undefined && firstInput !== undefined &&
+      firstInput.filter(f => f.number === 47).map(f => f.value).includes(childId));
+    expect(paired).toBeDefined();
+    const childId = paired!.childId!;
     expect(events.filter(e => e.some(f => f.number === 47 && f.value === childId))).toHaveLength(1);
-    const firstInput = events.find(e => text(e, 23) === 'prompt-input')!;
-    expect(firstInput.filter(f => f.number === 47).map(f => f.value)).toContain(childId);
     // Repeated calls returning the same child session must not relink its first prompt.
     for (const id of ['22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333']) {
       const endpoints = events.filter(e => e.some(f => f.number === 47 && f.value === childPromptFlowId(id)));

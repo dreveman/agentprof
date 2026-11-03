@@ -16,11 +16,19 @@ export class Journal {
   private fd: number;
   private bytes = 0;
   dropped = 0;
-  constructor(readonly sessionId: string, pid: number, cwd: string, path?: string, public captureContents = true) {
+  constructor(readonly sessionId: string, pid: number, cwd: string, path?: string, public captureContents = true,
+              traceDir?: string, auto = false) {
     if (path !== undefined && (!path.trim() || !path.endsWith('.pftrace') || path.includes('\0')))
       throw new Error('output_path must name a .pftrace file.');
     const captureId = randomUUID();
-    this.output = resolve(cwd, path ?? join('agentprof-traces', `codex-${new Date().toISOString().replace(/[:.]/g, '-')}-${captureId.slice(0, 8)}.pftrace`));
+    // Auto-trace files carry the full session id:
+    // codex-<id>-<YYYYMMDD-HHMMSS>-<unique>.pftrace. Other default outputs
+    // keep the existing name, relocated into AGENTPROF_TRACING_DIR when set.
+    const ts = new Date().toISOString();
+    const name = auto
+      ? `codex-${sessionId.replace(/[^A-Za-z0-9_-]+/g, '_')}-${ts.slice(0, 10).replace(/-/g, '')}-${ts.slice(11, 19).replace(/:/g, '')}-${captureId.slice(0, 6)}.pftrace`
+      : `codex-${ts.replace(/[:.]/g, '-')}-${captureId.slice(0, 8)}.pftrace`;
+    this.output = resolve(cwd, path ?? (traceDir ? join(traceDir, name) : join('agentprof-traces', name)));
     this.directory = `${this.output}.capture`;
     if (existsSync(this.output)) throw new Error(`Output already exists: ${this.output}`);
     mkdirSync(dirname(this.output), {recursive: true});

@@ -16,7 +16,7 @@ import type {Observation} from './convert.ts';
 import {processStartMarker, sameProcess} from '../agent-tracing/process-identity.ts';
 
 const validId = (id: string) => /^[a-zA-Z0-9_-]{1,128}$/.test(id);
-interface LiveSession {id: string; pid: number; processStartMarker?: string; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean; captureContents?: boolean; skippedEvents?: number}
+interface LiveSession {id: string; pid: number; processStartMarker?: string; cwd: string; transcript: string; model: string; parent?: string; prompt?: Observation; ended?: boolean; captureContents?: boolean; skippedEvents?: number; autoTrace?: boolean; tracingDir?: string}
 interface Capture {journal: Journal; sessions: Set<string>; end?: string; saving?: Promise<Record<string, unknown>>; telemetry: boolean}
 
 export class Collector {
@@ -80,7 +80,8 @@ export class Collector {
     if (capture.end && BigInt(row.timestamp) > BigInt(capture.end)) return;
     capture.journal.add(row);
   }
-  start(id: string, output?: string, requestedContents = this.captureContents): Record<string, unknown> {
+  start(id: string, output?: string, requestedContents = this.captureContents,
+        options?: {traceDir?: string; auto?: boolean}): Record<string, unknown> {
     const session = this.sessions.get(id);
     if (!session || session.ended) throw new Error('No live Codex session. Enable and trust the Agent Profiler hooks.');
     if (session.parent) throw new Error('Start recording in the primary session; its subagents share the trace.');
@@ -91,7 +92,8 @@ export class Collector {
       return this.status(id);
     }
     const policy = this.captureContents && session.captureContents !== false && requestedContents;
-    const journal = new Journal(id, session.pid, session.cwd, output, policy);
+    const journal = new Journal(id, session.pid, session.cwd, output, policy,
+      options?.traceDir ?? session.tracingDir, options?.auto === true);
     journal.dropped += session.skippedEvents ?? 0;
     session.skippedEvents = 0;
     const capture: Capture = {journal, sessions: new Set([id]), telemetry: false};
@@ -155,14 +157,15 @@ export class Collector {
         for (const [pendingId, pending] of waiting) {
           this.pendingGenerations.delete(pendingId);
           this.sessions.set(pendingId, pending);
-          if (pending.autoStart && !pending.parent && !pending.ended) try {this.start(pendingId);} catch {}
+          if (pending.autoStart && !pending.parent && !pending.ended) try {this.start(pendingId, undefined, this.captureContents, {auto: pending.autoTrace === true});} catch {}
         }
       }
     })();
     return saving;
   }
   async hook(data: Record<string, unknown>, pid: number, timestamp: string, autoStart = false,
-             requestedContents = this.captureContents, reportedMarker?: string) {
+             requestedContents = this.captureContents, reportedMarker?: string,
+             autoTrace?: boolean, tracingDir?: string) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !['SubagentStart', 'SubagentStop'].includes(event))
       data = {...data, parent_session: data.session_id, session_id: data.agent_id};
@@ -199,7 +202,8 @@ export class Collector {
         this.pendingGenerations.set(id, {id, pid, processStartMarker: marker,
           cwd: string(data.cwd), transcript: string(data.transcript_path), model: string(data.model), parent: session?.parent,
           captureContents: requestedContents && this.captureContents,
-          autoStart: autoStart && ['startup', 'resume'].includes(string(data.source))});
+          autoTrace, tracingDir,
+          autoStart: (autoTrace === true || (autoTrace !== false && autoStart)) && ['startup', 'resume'].includes(string(data.source))});
         return {systemMessage: 'Previous Agent Profiler recording is saving; this Codex process can record after publication.'};
       }
       session = undefined;
@@ -212,6 +216,8 @@ export class Collector {
     // The hook process, not the shared receiver, owns this session's policy.
     // A disabled setting wins even when another Codex process started the server.
     session.captureContents = session.captureContents !== false && requestedContents && this.captureContents;
+    if (autoTrace !== undefined) session.autoTrace = autoTrace;
+    if (tracingDir !== undefined) session.tracingDir = tracingDir === '' ? undefined : tracingDir;
     const liveCapture = this.captureFor(id);
     if (session.captureContents === false && liveCapture) liveCapture.journal.captureContents = false;
     session.pid = pid;
@@ -221,8 +227,8 @@ export class Collector {
     if (data.model && event !== 'SubagentStart') session.model = string(data.model);
     if (data.parent_session) session.parent = string(data.parent_session);
     if (event === 'SessionStart') session.ended = false;
-    if (event === 'SessionStart' && firstStart && autoStart && ['startup', 'resume'].includes(string(data.source))) {
-      const result = this.start(id);
+    if (event === 'SessionStart' && firstStart && (session.autoTrace === true || (session.autoTrace !== false && autoStart)) && ['startup', 'resume'].includes(string(data.source))) {
+      const result = this.start(id, undefined, this.captureContents, {auto: session.autoTrace === true});
       return {systemMessage: `Agent Profiler: recording to ${result.output}`};
     }
     if (event === 'UserPromptSubmit') {
@@ -393,7 +399,9 @@ export async function serve(state: string, runConnection?: Connection,
       }
       if ((request.url === '/v1/logs' || request.url === '/v1/traces') && !runConnection?.socket) {collector.ingest(data); return reply(200, {});}
       if (request.url === '/hook') return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true,
-        data.capture_contents !== false, string(data.process_start_marker) || undefined));
+        data.capture_contents !== false, string(data.process_start_marker) || undefined,
+        data.auto_trace === true ? true : data.auto_trace === false ? false : undefined,
+        typeof data.tracing_dir === 'string' ? data.tracing_dir : undefined));
       const id = string(data.session_id);
       if (request.url === '/start') return reply(200, collector.start(id, typeof data.output_path === 'string' ? data.output_path : undefined, data.capture_contents !== false));
       if (request.url === '/stop') return reply(200, collector.stop(id));

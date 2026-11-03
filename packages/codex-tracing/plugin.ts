@@ -171,7 +171,10 @@ try {
     try {
       console.log(JSON.stringify(await requestWithReceiver('/hook', {hook, pid: process.ppid, timestamp,
         process_start_marker: processStartMarker(process.ppid),
-        auto_start: args.includes('--auto-start') || process.env.AGENTPROF_CODEX_AUTO_START === '1'})));
+        auto_start: args.includes('--auto-start') || process.env.AGENTPROF_CODEX_AUTO_START === '1',
+        auto_trace: ['1', 'true'].includes((process.env.AGENTPROF_AUTO_TRACE ?? '').toLowerCase()) ? true :
+          ['0', 'false'].includes((process.env.AGENTPROF_AUTO_TRACE ?? '').toLowerCase()) ? false : undefined,
+        tracing_dir: process.env.AGENTPROF_TRACING_DIR?.trim() || undefined})));
     } catch (error) {
       const message = `Agent Profiler: ${String(error)}. Install the native Agent Profiler plugin and review /hooks.`;
       const control = hook.hook_event_name === 'UserPromptSubmit' && /^tracing (start|stop|status)(?:\s|$)/.test(string(hook.prompt).trim());

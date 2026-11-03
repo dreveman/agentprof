@@ -1590,13 +1590,15 @@ class Journal {
   fd;
   bytes = 0;
   dropped = 0;
-  constructor(sessionId, pid, cwd, path, captureContents = true) {
+  constructor(sessionId, pid, cwd, path, captureContents = true, traceDir, auto = false) {
     this.sessionId = sessionId;
     this.captureContents = captureContents;
     if (path !== undefined && (!path.trim() || !path.endsWith(".pftrace") || path.includes("\x00")))
       throw new Error("output_path must name a .pftrace file.");
     const captureId = randomUUID();
-    this.output = resolve2(cwd, path ?? join2("agentprof-traces", `codex-${new Date().toISOString().replace(/[:.]/g, "-")}-${captureId.slice(0, 8)}.pftrace`));
+    const ts = new Date().toISOString();
+    const name = auto ? `codex-${sessionId.replace(/[^A-Za-z0-9_-]+/g, "_")}-${ts.slice(0, 10).replace(/-/g, "")}-${ts.slice(11, 19).replace(/:/g, "")}-${captureId.slice(0, 6)}.pftrace` : `codex-${ts.replace(/[:.]/g, "-")}-${captureId.slice(0, 8)}.pftrace`;
+    this.output = resolve2(cwd, path ?? (traceDir ? join2(traceDir, name) : join2("agentprof-traces", name)));
     this.directory = `${this.output}.capture`;
     if (existsSync2(this.output))
       throw new Error(`Output already exists: ${this.output}`);
@@ -1931,7 +1933,7 @@ class Collector {
       return;
     capture.journal.add(row);
   }
-  start(id, output, requestedContents = this.captureContents) {
+  start(id, output, requestedContents = this.captureContents, options) {
     const session = this.sessions.get(id);
     if (!session || session.ended)
       throw new Error("No live Codex session. Enable and trust the Agent Profiler hooks.");
@@ -1946,7 +1948,7 @@ class Collector {
       return this.status(id);
     }
     const policy = this.captureContents && session.captureContents !== false && requestedContents;
-    const journal = new Journal(id, session.pid, session.cwd, output, policy);
+    const journal = new Journal(id, session.pid, session.cwd, output, policy, options?.traceDir ?? session.tracingDir, options?.auto === true);
     journal.dropped += session.skippedEvents ?? 0;
     session.skippedEvents = 0;
     const capture = { journal, sessions: new Set([id]), telemetry: false };
@@ -2037,14 +2039,14 @@ class Collector {
           this.sessions.set(pendingId, pending);
           if (pending.autoStart && !pending.parent && !pending.ended)
             try {
-              this.start(pendingId);
+              this.start(pendingId, undefined, this.captureContents, { auto: pending.autoTrace === true });
             } catch {}
         }
       }
     })();
     return saving;
   }
-  async hook(data, pid, timestamp, autoStart = false, requestedContents = this.captureContents, reportedMarker) {
+  async hook(data, pid, timestamp, autoStart = false, requestedContents = this.captureContents, reportedMarker, autoTrace, tracingDir) {
     const event = string(data.hook_event_name);
     if (data.agent_id && !["SubagentStart", "SubagentStop"].includes(event))
       data = { ...data, parent_session: data.session_id, session_id: data.agent_id };
@@ -2093,7 +2095,9 @@ class Collector {
           model: string(data.model),
           parent: session?.parent,
           captureContents: requestedContents && this.captureContents,
-          autoStart: autoStart && ["startup", "resume"].includes(string(data.source))
+          autoTrace,
+          tracingDir,
+          autoStart: (autoTrace === true || autoTrace !== false && autoStart) && ["startup", "resume"].includes(string(data.source))
         });
         return { systemMessage: "Previous Agent Profiler recording is saving; this Codex process can record after publication." };
       }
@@ -2105,6 +2109,10 @@ class Collector {
       this.sessions.set(id, session);
     }
     session.captureContents = session.captureContents !== false && requestedContents && this.captureContents;
+    if (autoTrace !== undefined)
+      session.autoTrace = autoTrace;
+    if (tracingDir !== undefined)
+      session.tracingDir = tracingDir === "" ? undefined : tracingDir;
     const liveCapture = this.captureFor(id);
     if (session.captureContents === false && liveCapture)
       liveCapture.journal.captureContents = false;
@@ -2120,8 +2128,8 @@ class Collector {
       session.parent = string(data.parent_session);
     if (event === "SessionStart")
       session.ended = false;
-    if (event === "SessionStart" && firstStart && autoStart && ["startup", "resume"].includes(string(data.source))) {
-      const result = this.start(id);
+    if (event === "SessionStart" && firstStart && (session.autoTrace === true || session.autoTrace !== false && autoStart) && ["startup", "resume"].includes(string(data.source))) {
+      const result = this.start(id, undefined, this.captureContents, { auto: session.autoTrace === true });
       return { systemMessage: `Agent Profiler: recording to ${result.output}` };
     }
     if (event === "UserPromptSubmit") {
@@ -2359,7 +2367,7 @@ async function serve(state, runConnection, persist = writeFileSync2) {
         return reply(200, {});
       }
       if (request.url === "/hook")
-        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false, string(data.process_start_marker) || undefined));
+        return reply(200, await collector.hook(object(data.hook), Number(data.pid), string(data.timestamp), data.auto_start === true, data.capture_contents !== false, string(data.process_start_marker) || undefined, data.auto_trace === true ? true : data.auto_trace === false ? false : undefined, typeof data.tracing_dir === "string" ? data.tracing_dir : undefined));
       const id = string(data.session_id);
       if (request.url === "/start")
         return reply(200, collector.start(id, typeof data.output_path === "string" ? data.output_path : undefined, data.capture_contents !== false));
@@ -2779,7 +2787,9 @@ try {
         pid: process.ppid,
         timestamp,
         process_start_marker: processStartMarker(process.ppid),
-        auto_start: args.includes("--auto-start") || process.env.AGENTPROF_CODEX_AUTO_START === "1"
+        auto_start: args.includes("--auto-start") || process.env.AGENTPROF_CODEX_AUTO_START === "1",
+        auto_trace: ["1", "true"].includes((process.env.AGENTPROF_AUTO_TRACE ?? "").toLowerCase()) ? true : ["0", "false"].includes((process.env.AGENTPROF_AUTO_TRACE ?? "").toLowerCase()) ? false : undefined,
+        tracing_dir: process.env.AGENTPROF_TRACING_DIR?.trim() || undefined
       })));
     } catch (error) {
       const message = `Agent Profiler: ${String(error)}. Install the native Agent Profiler plugin and review /hooks.`;

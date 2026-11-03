@@ -40,6 +40,29 @@ test('manual controls return paths, are idempotent and save on session exit with
     await expect(control(data, '../bad', 'start')).rejects.toThrow('valid session');
   } finally {await rm(temporary, {recursive: true, force: true});}
 });
+test('AGENTPROF_AUTO_TRACE records into TRACING_DIR with the session id; =0 suppresses legacy auto start', async () => {
+  const tracesDir = join(tmpdir(), `muse-auto-traces-${session.slice(0, 8)}`);
+  process.env.AGENTPROF_AUTO_TRACE = '1'; process.env.AGENTPROF_TRACING_DIR = tracesDir;
+  try {
+    const {temporary, data} = await setup();
+    try {
+      const status = await control(data, session, 'status');
+      expect(status.state).toBe('recording');
+      expect(status.output_path!.startsWith(tracesDir + '/')).toBe(true);
+      expect(status.output_path).toMatch(new RegExp(`muse-${session}-\\d{8}-\\d{6}-[0-9a-f]{6}\\.pftrace$`));
+      const end = await hook(data, {hook_event_name: 'SessionEnd', session_id: session}, process.pid);
+      expect(end.systemMessage).toContain('trace saved');
+      expect((await readFile(status.output_path!)).length).toBeGreaterThan(0);
+    } finally {await rm(temporary, {recursive: true, force: true}); await rm(tracesDir, {recursive: true, force: true});}
+  } finally {delete process.env.AGENTPROF_AUTO_TRACE; delete process.env.AGENTPROF_TRACING_DIR;}
+  process.env.AGENTPROF_AUTO_TRACE = '0'; process.env.AGENTPROF_MUSE_AUTO_START = '1';
+  try {
+    const {temporary, data} = await setup();
+    try {expect((await control(data, session, 'status')).state).toBe('idle');}
+    finally {await rm(temporary, {recursive: true, force: true});}
+  } finally {delete process.env.AGENTPROF_AUTO_TRACE; delete process.env.AGENTPROF_MUSE_AUTO_START;}
+});
+
 test('content policy is persisted at Muse capture start for export and recovery', async () => {
   const {temporary, data} = await setup();
   try {
