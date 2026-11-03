@@ -44,7 +44,11 @@ the plugin's MCP server. Start accepts an optional `output_path`. Muse supplies
 the current session ID to the server; tools cannot select a different session.
 
 To record automatically in new sessions where the plugin is enabled, set
-`AGENTPROF_MUSE_AUTO_START=1` before launching ordinary `muse`. Unset it for
+`AGENTPROF_MUSE_AUTO_START=1` before launching ordinary `muse`, or set the
+cross-harness `AGENTPROF_AUTO_TRACE=1` (`AGENTPROF_AUTO_TRACE=0` suppresses
+automatic capture for one launch). With `AGENTPROF_TRACING_DIR=<folder>` also
+set, recordings are named `muse-<session-id>-<timestamp>-<unique>.pftrace` in
+that folder instead of the configured output directory. Unset it for
 manual recording unless you previously saved a persistent auto-start setting;
 in that case run `agentprof-muse configure --manual` as well. For metadata-only
 new captures set

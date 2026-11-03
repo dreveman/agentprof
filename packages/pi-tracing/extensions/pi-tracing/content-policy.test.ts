@@ -17,6 +17,23 @@ test('one opt-out disables Pi prompt text and tool values; legacy switch stays t
   expect(captureContentsEnabled(undefined)).toBe(true);
 });
 
+test('AGENTPROF_AUTO_TRACE wins over legacy Pi switches and TRACING_DIR is captured', () => {
+  const on = applyEnvOverrides(defaultConfig(), {AGENTPROF_AUTO_TRACE: '1', PI_TRACING: '0', AGENTPROF_TRACING_DIR: ' traces '}).config;
+  expect(on.autoTrace).toBe(true);
+  expect(on.startupMode).toBe('recording');
+  expect(on.traceDir).toBe('traces');
+  const off = applyEnvOverrides(defaultConfig(), {AGENTPROF_AUTO_TRACE: '0', PI_TRACING: '1'}).config;
+  expect(off.autoTrace).toBe(false);
+  expect(off.startupMode).toBe('off');
+  const legacy = applyEnvOverrides(defaultConfig(), {PI_TRACING: '1'}).config;
+  expect(legacy.autoTrace).toBe(false);
+  expect(legacy.startupMode).toBe('recording');
+  expect(legacy.traceDir).toBeUndefined();
+  const bad = applyEnvOverrides(defaultConfig(), {AGENTPROF_AUTO_TRACE: 'yes'});
+  expect(bad.config.startupMode).toBe('off');
+  expect(bad.warnings.join(' ')).toContain('AGENTPROF_AUTO_TRACE');
+});
+
 test('metadata-only journals redact nested OTLP text without losing counters and identities', () => {
   const raw = {resourceLogs: [{scopeLogs: [{logRecords: [{attributes: [
     {key: 'event.name', value: {stringValue: 'codex.tool_result'}},

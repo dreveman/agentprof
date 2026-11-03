@@ -52,6 +52,14 @@ Shortcuts (TUI only, headless uses the commands/flags above):
 Flags / env:
 
 - `pi --tracing` (registered boolean flag) or `PI_TRACING=1` — autostart recording.
+- `AGENTPROF_AUTO_TRACE=1` — cross-harness autostart: every session records from
+  start to exit in every supported harness that inherits the environment.
+  `AGENTPROF_AUTO_TRACE=0` suppresses autostart for one launch, winning over
+  `PI_TRACING` in both directions. Automatic files are named
+  `pi-<full-session-id>-<timestamp>-<unique>.pftrace`.
+- `AGENTPROF_TRACING_DIR=<folder>` — cross-harness default output folder for
+  recordings without an explicit path (automatic and manual), instead of the
+  default directory below. Relative paths resolve from Pi's working directory.
   Normal Pi exit finalizes it and prints the trace path to stderr; no manual
   stop is required.
 - `PI_TRACING_STARTUP=off|recording`, `PI_TRACING_CATEGORIES=agent,llm,-tools`,

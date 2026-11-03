@@ -164,11 +164,23 @@ const status = () => ({state: transition !== 'idle' ? transition : capture?.erro
 const statusText = value => value.error ? `Tracing failed: ${value.error}${value.capture_directory ? `\nSaved observations: ${value.capture_directory}` : ''}` :
   value.recording ? `Recording: ${value.path}` : value.published ? `Tracing is idle. Last saved trace: ${value.path}` : 'Tracing is idle.';
 
+// Default output inside AGENTPROF_TRACING_DIR when it is set. Auto-trace
+// files carry the full session id (claude-<id>-<YYYYMMDD-HHMMSS>-<unique>);
+// manual starts keep the writer's existing default name.
+const tracedDefaultPath = async ($, auto) => {
+  const dir = (await $.env.get('AGENTPROF_TRACING_DIR'))?.trim();
+  if (!dir) return undefined;
+  if (!auto) return `${dir}/claude-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID().slice(0, 8)}.pftrace`;
+  const ts = new Date().toISOString(), stamp = `${ts.slice(0, 10).replace(/-/g, '')}-${ts.slice(11, 19).replace(/:/g, '')}`;
+  const id = String(session ?? 'session').replace(/[^A-Za-z0-9_-]+/g, '_');
+  return `${dir}/claude-${id}-${stamp}-${crypto.randomUUID().slice(0, 6)}.pftrace`;
+};
 const startRecording = async ($, path) => {
   if (ending) return {...status(), started: false, error: 'Claude is exiting.'};
   if (capture?.active) return {...status(), started: false, error: 'A recording is already active. Stop it before starting another.'};
   if (path !== undefined && (typeof path !== 'string' || !path.trim() || !path.endsWith('.pftrace') || path.includes('\0')))
     return {...status(), started: false, error: 'output_path must name a .pftrace file.'};
+  if (path === undefined) path = await tracedDefaultPath($, false);
   transition = 'starting';
   try {
     const root = await $.session.id(), model = await $.session.model(), version = (await $.session.version()).version;
@@ -290,8 +302,10 @@ export function register(on, options) {
       inputSchema: {type: 'object', properties: {}, additionalProperties: false}});
     controlTools.set(statusTool.tool, 'status');
     const file = await $.env.get('AGENTPROF_TRACE_FILE');
-    if (!restored && (file || options.auto_start)) {
-      const result = await control($, 'start', file || undefined);
+    const autoSetting = String(await $.env.get('AGENTPROF_AUTO_TRACE') ?? '').toLowerCase();
+    const autoTrace = autoSetting === '1' || autoSetting === 'true';
+    if (!restored && (file || autoTrace || (options.auto_start && autoSetting !== '0' && autoSetting !== 'false'))) {
+      const result = await control($, 'start', file || (autoTrace ? await tracedDefaultPath($, true) : undefined));
       await $.ui.log(result.started ? `Recording to ${result.path}` : statusText(result));
     }
     await checkpoint($);

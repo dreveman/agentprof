@@ -80,7 +80,13 @@ are marked incomplete and their usage is not invented. Start before submitting a
 task and stop after it finishes when you want complete model timings and usage.
 
 To record automatically on each launch, enable **Record automatically** in
-`/plugin configure agentprof@agentprof` (the `auto_start` option). Turn off
+`/plugin configure agentprof@agentprof` (the `auto_start` option), or set the
+cross-harness `AGENTPROF_AUTO_TRACE=1` in the environment before launching
+(any harness that inherits it records every session; `AGENTPROF_AUTO_TRACE=0`
+suppresses automatic capture for one launch). With
+`AGENTPROF_TRACING_DIR=<folder>` also set, automatic recordings are named
+`claude-<session-id>-<timestamp>-<unique>.pftrace` in that folder, and manual
+starts without a path land there too. Turn off
 **Show recording controls** (`show_controls`) to hide the strip; commands and
 tools remain available. Both options also appear in `/config` and take effect
 on the next load. Automatic capture is off by default; controls are on.

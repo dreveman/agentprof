@@ -140,8 +140,10 @@ export async function control(data: string, id: string, action: string, output?:
     if (!record) throw new Error('No session hook received. Install and approve the Agent Profiler plugin, then start a new Muse session.');
     if (action === 'start' && !record.capture) {
       const config = await readJson(join(data, 'config.json'));
-      const target = resolve(record.cwd, output ?? config?.output_directory ?? join(record.cwd, 'agentprof-traces'),
-        ...(output ? [] : [`muse-${new Date().toISOString().replace(/[:.]/g, '-')}-${id.slice(0, 8)}-${randomUUID().slice(0, 8)}.pftrace`]));
+      const ts = new Date().toISOString();
+      const target = resolve(record.cwd,
+        output ?? process.env.AGENTPROF_TRACING_DIR?.trim() ?? config?.output_directory ?? join(record.cwd, 'agentprof-traces'),
+        ...(output ? [] : [`muse-${id.replace(/[^A-Za-z0-9_-]+/g, '_')}-${ts.slice(0, 10).replace(/-/g, '')}-${ts.slice(11, 19).replace(/:/g, '')}-${randomUUID().slice(0, 6)}.pftrace`]));
       if (!target.endsWith('.pftrace')) throw new Error('Output path must end in .pftrace');
       await mkdir(dirname(target), {recursive: true, mode: 0o700});
       try {await stat(target); throw new Error(`Output already exists: ${target}`);} catch (e: any) {if (e.code !== 'ENOENT') throw e;}
@@ -251,8 +253,11 @@ export async function hook(data: string, payload: Record<string, any>, pid = pro
     const message = `Agent Profiler: ${result.state}${result.output_path ? ` — ${result.output_path}` : ''}`;
     return {decision: 'block', reason: message, systemMessage: message};
   }
+  const autoSetting = (process.env.AGENTPROF_AUTO_TRACE ?? '').toLowerCase();
   if (event === 'SessionStart' && payload.source !== 'fork' && !(await readJson(statePath(data, id)))?.parentSession &&
-      (process.env.AGENTPROF_MUSE_AUTO_START === '1' || (await readJson(join(data, 'config.json')))?.auto_start)) {
+      (autoSetting === '1' || autoSetting === 'true' ||
+       (!['0', 'false'].includes(autoSetting) &&
+        (process.env.AGENTPROF_MUSE_AUTO_START === '1' || (await readJson(join(data, 'config.json')))?.auto_start)))) {
     const result = await control(data, id, 'start');
     if (result.state === 'recording') await onWatcherNeeded?.();
     return {systemMessage: `Agent Profiler recording: ${result.output_path}`};

@@ -116,6 +116,12 @@ Recordings include prompt text and tool arguments by default. Set
 content out of new recordings; timing, usage, IDs and metadata remain. Pi's
 legacy `PI_TRACING_CAPTURE_CONTENTS=0` continues to omit tool arguments only.
 See each harness guide for raw-journal and native-export limitations.
+To record every session a script launches, set `AGENTPROF_AUTO_TRACE=1` and
+`AGENTPROF_TRACING_DIR=<folder>` in the environment those harnesses inherit:
+each top-level session records start-to-finish into a
+`<harness>-<session-id>-<timestamp>-<unique>.pftrace` file in that folder
+(child sessions join their parent's trace). `AGENTPROF_AUTO_TRACE=0`
+suppresses automatic capture for one launch.
 
 For Claude Code (2.1.289+ with mods enabled, Node.js 16.20.2+), install the
 [interactive plugin](packages/claude-tracing/README.md):

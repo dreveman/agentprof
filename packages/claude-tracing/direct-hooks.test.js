@@ -294,6 +294,22 @@ test('/trace leaves an active recording and a bare marker untouched', async () =
     .toBe('Work inside the manual recording');
 });
 
+test('AGENTPROF_AUTO_TRACE starts at session start into TRACING_DIR; =0 suppresses auto_start', async () => {
+  const r = await recorder({AGENTPROF_AUTO_TRACE: '1', AGENTPROF_TRACING_DIR: 'fleet'});
+  const status = (await r.tool('status')).result;
+  expect(status).toMatchObject({recording: true});
+  expect(status.path).toMatch(/^\/project\/fleet\/claude-session-\d{8}-\d{6}-[0-9a-f]{6}\.pftrace$/);
+  await r.tool('stop');
+  // A manual start with no path also lands in the tracing dir.
+  const manual = await recorder({AGENTPROF_TRACING_DIR: 'fleet'});
+  await manual.tool('start');
+  expect((await manual.tool('status')).result.path).toMatch(/^\/project\/fleet\/claude-.*-[0-9a-f]{8}\.pftrace$/);
+  await manual.tool('stop');
+  const off = await recorder({AGENTPROF_AUTO_TRACE: '0'}, {}, {auto_start: true});
+  expect((await off.tool('status')).result.recording).toBe(false);
+  expect(off.processes).toHaveLength(0);
+});
+
 test('concurrent starts serialize, and a stop waits for initialization', async () => {
   const r = await recorder({});
   let release;
