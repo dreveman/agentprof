@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Observe the normal session without changing prompts, streams or tool results.
 let capture, session, segment = 0, awaitingSession = false, legacy = false, transition = 'idle', ending = false, initialized = false;
+let traceTurnId = null; // Turn begun with /trace: stop and publish when it completes.
 let captureContents = true; // AGENTPROF_CAPTURE_CONTENTS=0 opts out across harnesses.
 let controls = Promise.resolve(), checkpoints = Promise.resolve();
 let countScope, countedItems = new Map();
@@ -120,7 +121,7 @@ const checkpoint = ($) => {
   checkpoints = checkpoints.then(async () => {
     const {timer, pending, ...saved} = capture ?? {};
     await $.state.set({plugin: 'agentprof', key: 'recorder'}, {
-      session, segment, awaitingSession, capture: capture ? saved : null,
+      session, segment, awaitingSession, capture: capture ? saved : null, traceTurnId,
       prompts: [...prompts], agents: [...agents], contextChanges: [...contextChanges],
     });
   }).catch(error => {if (capture) fail($, capture, error);});
@@ -258,7 +259,7 @@ export function register(on, options) {
     const restored = held?.session === session;
     if (restored && held.capture?.capture_contents === false) captureContents = false;
     if (restored) {
-      segment = held.segment; awaitingSession = held.awaitingSession;
+      segment = held.segment; awaitingSession = held.awaitingSession; traceTurnId = held.traceTurnId ?? null;
       for (const [id, prompt] of held.prompts ?? []) prompts.set(id, captureContents ? prompt :
         {...prompt, data: {...prompt.data, prompt: undefined, content_omitted: true}});
       for (const [id, agent] of held.agents ?? []) agents.set(id, captureContents ? agent :
@@ -334,11 +335,29 @@ export function register(on, options) {
     return next(e);
   });
   on('turn.start', async ($, e, next) => {
-    const data = {prompt: captureContents ? text(e.text) : undefined, prompt_length: e.text.length,
+    // /trace <prompt>: start before this prompt is recorded so the whole turn
+    // is captured, and stop when it completes (see turn.complete). The model
+    // still receives the typed text including the /trace marker; the stored
+    // prompt omits it. Already recording: leave that capture untouched.
+    let promptText = e.text;
+    if (!e.agentId && typeof e.text === 'string') {
+      const traced = /^\/trace\s+([\s\S]+)$/.exec(e.text.trim());
+      if (traced) {
+        promptText = traced[1];
+        if (legacy) await $.ui.log('Agent Profiler: /trace is unavailable while the OpenTelemetry launcher manages tracing.');
+        else if (capture?.active) await $.ui.log('Agent Profiler: already recording; this turn joins that recording. Stop it first to trace one turn with /trace.');
+        else {
+          const result = await control($, 'start');
+          if (result.started) traceTurnId = e.turnId;
+          else await $.ui.log(`Agent Profiler: tracing did not start: ${result.error ?? 'unknown error'}`);
+        }
+      } else if (e.text.trim() === '/trace') await $.ui.log('Agent Profiler: usage: /trace <prompt>');
+    }
+    const data = {prompt: captureContents ? text(promptText) : undefined, prompt_length: promptText.length,
       ...(!captureContents ? {content_omitted: true} : {})};
     prompts.set(e.turnId, {session, data, agent_id: e.agentId});
-    if (!e.agentId) observe(scope(), {id: `turn:${e.turnId}`, category: 'prompts', chars: e.text.length,
-      tokens: Math.ceil(e.text.length / 4), label: 'User prompt', source_kind: 'prompt'});
+    if (!e.agentId) observe(scope(), {id: `turn:${e.turnId}`, category: 'prompts', chars: promptText.length,
+      tokens: Math.ceil(promptText.length / 4), label: 'User prompt', source_kind: 'prompt'});
     record(scope(e.agentId), 'prompt', 'begin', e.turnId, data);
     await retain($);
     return next(e);
@@ -360,6 +379,12 @@ export function register(on, options) {
       // The timer/next turn persists this optional summary; the prompt and
       // item deltas are already durable, so no extra checkpoint is required.
     } catch {}
+    if (!e.agentId && traceTurnId === e.turnId) {
+      traceTurnId = null;
+      const result = await control($, 'stop', undefined, 'trace');
+      await $.ui.log(result.stopped ? `Saved trace: ${result.path}` :
+        `Agent Profiler: the /trace recording did not save: ${result.error ?? 'unknown error'}`);
+    }
     return next(e);
   });
   on('turn.step', async function* ($, e, next) {

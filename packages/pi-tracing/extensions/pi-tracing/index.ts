@@ -119,6 +119,8 @@ interface SessionState {
   attemptSpan: number | null;
   turnSpan: number | null;
   compaction: {span: number | null; beforeTokens: number | undefined; at: bigint} | null;
+  /** A `/trace` turn is in flight: stop and publish when it settles. */
+  traceTurnPending: boolean;
   toolSpans: Map<string, number>;
   toolLastPartialBytes: Map<string, number>;
   /** toolCallId -> flow linkage: the id shared by the main-thread issue event
@@ -425,6 +427,7 @@ export default function (pi: ExtensionAPI) {
       attemptSpan: null,
       turnSpan: null,
       compaction: null,
+      traceTurnPending: false,
       toolSpans: new Map(),
       toolLastPartialBytes: new Map(),
       toolFlows: new Map(),
@@ -546,6 +549,10 @@ export default function (pi: ExtensionAPI) {
         state.operationSpan = null;
       }
     });
+    if (session?.traceTurnPending) {
+      session.traceTurnPending = false;
+      void stopCapture(ctx, "one-turn trace").then((manifest) => reportStopResult(ctx, manifest));
+    }
   });
 
   pi.on("turn_start", (event, ctx) => {
@@ -1242,6 +1249,44 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       notify(ctx, "pi-tracing: usage: /tracing start|stop|status|categories|probe", "error");
+    },
+  });
+
+  pi.registerCommand("trace", {
+    description: "Trace one turn: /trace <prompt> (records just that prompt, then prints the trace path)",
+    handler: async (raw, ctx) => {
+      const prompt = raw.trim();
+      if (prompt === "") {
+        notify(ctx, "pi-tracing: usage: /trace <prompt>", "warning");
+        return;
+      }
+      if (session === null) {
+        notify(ctx, "pi-tracing: no active session", "warning");
+        return;
+      }
+      if (session.recorder.isRecording()) {
+        notify(ctx, "pi-tracing: already recording; stop it first (/tracing stop) to trace a single turn", "error");
+        return;
+      }
+      if (!ctx.isIdle()) {
+        notify(ctx, "pi-tracing: agent is busy; run /trace when idle", "warning");
+        return;
+      }
+      const started = await startCapture(ctx, "trace");
+      if (!started.started) {
+        notify(ctx, `pi-tracing: ${started.message}`, "warning");
+        return;
+      }
+      session.traceTurnPending = true;
+      try {
+        pi.sendUserMessage(prompt);
+      } catch (error) {
+        session.traceTurnPending = false;
+        const manifest = await stopCapture(ctx, "one-turn trace");
+        notify(ctx, `pi-tracing: could not submit the prompt (${error instanceof Error ? error.message : String(error)}); trace retained at ${manifest?.recordingPath ?? manifest?.path ?? started.path}`, "error");
+        return;
+      }
+      notify(ctx, `pi-tracing: tracing one turn; the trace path will print when it finishes (expected: ${started.path})`, "info");
     },
   });
 

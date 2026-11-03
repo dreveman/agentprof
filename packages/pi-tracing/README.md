@@ -17,6 +17,7 @@ recording, a system tracing backend, and automatic rollover are unsupported.
 ## Usage
 
 ```text
+/trace <prompt>              record just this prompt's turn, then print the trace path
 /tracing start [name]        start recording (creates <name>.pftrace.part)
 /tracing stop                 stop, finalize, and publish .pftrace
 /tracing status               show state, counts, config errors, and last trace
@@ -30,6 +31,12 @@ Agents can control the same recorder with Pi tools:
 tracing_start({"name":"benchmark", "output_path":"recordings/benchmark.pftrace"})
 tracing_stop({})
 ```
+
+`/trace <prompt>` is the one-turn shortcut: it starts a recording, submits the
+prompt as a normal user message, and stops and publishes when the turn settles,
+printing the trace path. It refuses to run while a recording is already active
+(stop it first) or while the agent is busy, and uses the default output path
+below. Child sessions launched by the turn join the same recording.
 
 Both `tracing_start` arguments are optional. Relative output paths resolve from
 Pi's working directory; without one, traces go to the default directory below.

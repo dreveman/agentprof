@@ -256,6 +256,44 @@ test('commands are immediate, paths remain literal, and controls never become tr
   expect((await command('stop extra')).exitCode).toBe(1);
 });
 
+test('/trace records one turn, stores the stripped prompt, and prints the saved path', async () => {
+  const r = await recorder({});
+  await r.call('turn.start', {turnId: 'traced', text: '/trace Do the traced work'});
+  expect((await r.tool('status')).result).toMatchObject({recording: true});
+  const stream = r.call('turn.step', {turnId: 'traced', index: 0, model: 'model'}, async function* () {
+    yield {kind: 'text', text: 'done'}; return {usage: {model: 'model', input_tokens: 3, output_tokens: 2}};
+  });
+  await stream.next(); await stream.next();
+  await r.call('turn.complete', {turnId: 'traced', isAborted: false});
+  expect((await r.tool('status')).result).toMatchObject({recording: false, published: true});
+  expect(r.logs.some(line => line.startsWith('Saved trace: '))).toBe(true);
+  expect(r.processes.map(args => args[2])).toEqual(['init', 'finish']);
+  const rows = await r.finish();
+  const prompt = rows.find(row => row.data.event === 'prompt' && row.data.phase === 'begin');
+  expect(prompt.data.prompt).toBe('Do the traced work');
+  expect(prompt.data.started_before_capture).toBeUndefined();
+  // A following ordinary turn is not recorded.
+  await r.call('turn.start', {turnId: 'plain', text: 'Untraced work'});
+  await r.call('turn.complete', {turnId: 'plain', isAborted: false});
+  expect(r.processes).toHaveLength(2);
+});
+
+test('/trace leaves an active recording and a bare marker untouched', async () => {
+  const r = await recorder({});
+  await r.call('turn.start', {turnId: 'bare', text: '/trace'});
+  expect(r.processes).toHaveLength(0);
+  expect(r.logs.some(line => line.includes('usage: /trace <prompt>'))).toBe(true);
+  await r.tool('start');
+  await r.call('turn.start', {turnId: 'joined', text: '/trace Work inside the manual recording'});
+  await r.call('turn.complete', {turnId: 'joined', isAborted: false});
+  expect((await r.tool('status')).result.recording).toBe(true);
+  expect(r.logs.some(line => line.includes('already recording'))).toBe(true);
+  await r.tool('stop');
+  const rows = await r.finish();
+  expect(rows.find(row => row.data.event === 'prompt' && row.data.id === 'joined').data.prompt)
+    .toBe('Work inside the manual recording');
+});
+
 test('concurrent starts serialize, and a stop waits for initialization', async () => {
   const r = await recorder({});
   let release;
