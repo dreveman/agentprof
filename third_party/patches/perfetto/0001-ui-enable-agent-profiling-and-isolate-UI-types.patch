@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Fri, 25 Sep 2026 13:11:17 -0400
-Subject: [PATCH 1/8] ui: enable agent profiling and isolate UI types
+Subject: [PATCH 1/9] ui: enable agent profiling and isolate UI types
 
 ---
  ui/src/core/embedder/default_plugins.ts | 1 +

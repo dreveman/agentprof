@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sun, 27 Sep 2026 15:49:11 -0400
-Subject: [PATCH 6/8] Center embedder search between equal navigation regions
+Subject: [PATCH 6/9] Center embedder search between equal navigation regions
 
 ---
  ui/src/frontend/topbar.scss | 11 ++++++++---

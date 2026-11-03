@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sun, 27 Sep 2026 15:30:42 -0400
-Subject: [PATCH 5/8] Add embedder hooks for responsive top-bar navigation
+Subject: [PATCH 5/9] Add embedder hooks for responsive top-bar navigation
 
 ---
  ui/src/core/app_impl.ts          |  4 ++--

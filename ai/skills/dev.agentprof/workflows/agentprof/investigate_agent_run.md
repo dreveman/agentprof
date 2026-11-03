@@ -2,7 +2,10 @@
 
 Use this workflow for “why was the agent slow?” or an unfamiliar AgentProf trace.
 It analyzes existing recordings from Pi, Claude Code, Codex and Muse. It does not
-launch a harness, call a model, record a session or upload a trace.
+launch a harness, call a model, record a session or upload a trace. If there is
+no recording yet, first use
+[capture a run]($SKILL_ROOT/workflows/agentprof/capture_an_agent_run.md) and
+return here once it verifies the artifact.
 
 If the trace is not already loaded, follow
 [querying.md]($SKILL_ROOT/infra-references/querying.md) first. Keep that session warm.

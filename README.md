@@ -37,8 +37,9 @@ The ZIP becomes available with releases containing this workflow. Before the
 first release, build it from source as described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The skill combines upstream Perfetto instructions with AgentProf workflows for
-slow runs, model performance, tools/delegation, context pressure, run comparisons
-and runtime resources. It bundles Perfetto's Trace Processor launcher, which
+installing the recording plugins and capturing a run, slow runs, model
+performance, tools/delegation, context pressure, run comparisons and runtime
+resources. It bundles Perfetto's Trace Processor launcher, which
 downloads and verifies a pinned native binary on first use. No AgentProf checkout
 or UI is needed for analysis.
 

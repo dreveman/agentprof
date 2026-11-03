@@ -15,6 +15,8 @@
 *.pftrace.capture/
 /agentprof-traces/
 *.agentprof
+!ai/skills/dev.agentprof/
+!ai/skills/dev.agentprof/**
 /traces/
 
 # Local tooling.

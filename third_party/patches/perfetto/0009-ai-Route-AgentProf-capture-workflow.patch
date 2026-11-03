@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Tue, 27 Oct 2026 09:10:25 -0700
+Subject: [PATCH 9/9] ai: Route AgentProf capture workflow
+
+---
+ ai/skills/perfetto/SKILL-template.md | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/ai/skills/perfetto/SKILL-template.md b/ai/skills/perfetto/SKILL-template.md
+index 4f79f25594..73fbe74b0b 100644
+--- a/ai/skills/perfetto/SKILL-template.md
++++ b/ai/skills/perfetto/SKILL-template.md
+@@ -8,8 +8,8 @@ description: >-
+   Chrome JSON) from Android, Linux, Chrome or CUDA/GPU workloads, whether or
+   not the user says "Perfetto". Bundles trace_processor (PerfettoSQL) plus
+   guided workflows for Android memory, GPU analysis, and AgentProf
+-  agent/harness/model performance (slow turns, model latency, tools/delegation,
+-  context pressure, run comparisons and runtime resources).
++  agent/harness/model performance (capturing a run, slow turns, model latency,
++  tools/delegation, context pressure, run comparisons and runtime resources).
+ ---
+ 
+ # Perfetto
+@@ -56,6 +56,7 @@ internal, OEM or CI images), use that instead.
+    - Busy vs idle timeline, idle-gap attribution: [timeline_occupancy.md]($SKILL_ROOT/workflows/gpu/timeline_occupancy.md)
+ 
+ 4. **Agent profiling** (AgentProf recordings from Pi, Claude Code, Codex or Muse)
++   - No recording yet, or install the recording plugins: [Capture a run]($SKILL_ROOT/workflows/agentprof/capture_an_agent_run.md).
+    - Slow run or unfamiliar recording: [Investigate a run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md).
+    - Response latency and token throughput: [Model performance]($SKILL_ROOT/workflows/agentprof/analyze_model_performance.md).
+    - Slow tools, scripts or child agents: [Tools and delegation]($SKILL_ROOT/workflows/agentprof/analyze_tools_and_delegation.md).

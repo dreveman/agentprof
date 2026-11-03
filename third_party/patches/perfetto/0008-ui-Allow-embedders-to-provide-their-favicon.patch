@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Fri, 16 Oct 2026 08:52:00 -0700
-Subject: [PATCH 8/8] ui: Allow embedders to provide their favicon
+Subject: [PATCH 8/9] ui: Allow embedders to provide their favicon
 
 Select an optional embedder icon with a stock Perfetto fallback and copy SVG image assets into the UI distribution.
 
