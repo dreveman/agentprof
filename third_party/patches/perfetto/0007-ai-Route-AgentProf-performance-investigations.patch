@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Wed, 14 Oct 2026 12:41:55 -0700
-Subject: [PATCH 7/8] ai: Route AgentProf performance investigations
+Subject: [PATCH 7/9] ai: Route AgentProf performance investigations
 
 Add domain routes for agent recordings without changing the shared skill bootstrap.
 

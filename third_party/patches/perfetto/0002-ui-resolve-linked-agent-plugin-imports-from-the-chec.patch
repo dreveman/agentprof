@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Fri, 25 Sep 2026 16:00:10 -0400
-Subject: [PATCH 2/8] ui: resolve linked agent plugin imports from the checkout
+Subject: [PATCH 2/9] ui: resolve linked agent plugin imports from the checkout
 
 ---
  ui/vite.config.mjs | 22 ++++++++++++++++++++++

@@ -139,7 +139,7 @@ class PackagedSkillTest(unittest.TestCase):
                     self.assertEqual(path.read_bytes(),
                                      (skill / "workflows/agentprof" / relative).read_bytes())
             pages = sorted(source.glob("*.md"))
-            self.assertEqual(6, len(pages))
+            self.assertEqual(7, len(pages))
             router = (skill / "SKILL.md").read_text()
             for page in pages:
                 self.assertIn(f"$SKILL_ROOT/workflows/agentprof/{page.name}", router)
@@ -149,6 +149,29 @@ class PackagedSkillTest(unittest.TestCase):
                 self.assertNotIn("---\nname:", text)
                 for target in re.findall(r"\$SKILL_ROOT/([\w./-]+)", text):
                     self.assertTrue((skill / target).exists(), target)
+
+
+class CaptureWorkflowTest(unittest.TestCase):
+    def test_capture_workflow_covers_install_record_and_verify(self):
+        page = (ROOT / "ai/skills/dev.agentprof/workflows/agentprof"
+                / "capture_an_agent_run.md").read_text()
+        # One install block per harness, with its prerequisite or trust step.
+        for marker in ("pi install git:github.com/dreveman/agentprof",
+                       "claude plugin install agentprof@agentprof", "2.1.289",
+                       "codex plugin add agentprof@agentprof", "/hooks",
+                       "muse plugins install agentprof@agentprof",
+                       "muse plugins approve agentprof"):
+            self.assertIn(marker, page)
+        # Consent and content gates precede any install or launch.
+        self.assertIn("AGENTPROF_CAPTURE_CONTENTS=0", page)
+        self.assertIn("do not proceed silently", page)
+        self.assertLess(page.index("AGENTPROF_CAPTURE_CONTENTS=0"),
+                        page.index("pi install"))
+        # Verification hands off to the investigation inventory, and an
+        # unfinished publication is never analyzed as a finished trace.
+        self.assertIn("workflows/agentprof/investigate_agent_run.md", page)
+        self.assertIn("scripts/inventory.sql", page)
+        self.assertIn(".pftrace.capture/", page)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Sat, 26 Sep 2026 03:19:57 -0400
-Subject: [PATCH 3/8] ui: distinguish trace details from agent overview
+Subject: [PATCH 3/9] ui: distinguish trace details from agent overview
 
 ---
  ui/src/plugins/dev.perfetto.TraceInfoPage/index.ts | 2 +-
