@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {expect, test} from 'bun:test';
 import {OverviewLoader, TAB_QUERIES, createTurnSetup, type OverviewSection} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_loader.ts';
-import {OVERVIEW_QUERIES} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {OVERVIEW_QUERIES, OVERVIEW_SELECTS} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {Database} from 'bun:sqlite';
 
 const turn = () => new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -75,13 +77,17 @@ test('Overview isolates failures and ignores late results after disposal', async
 test('Overview shows unfinished tools and scripts without inventing durations', () => {
   const db = new Database(':memory:');
   try {
-    db.exec(`CREATE TABLE agentprof_tool_calls (
-      id INTEGER PRIMARY KEY, name TEXT, ts INTEGER, dur INTEGER, incomplete INTEGER,
+    db.exec(`CREATE TABLE dev_agentprof_tool_call_details (
+      id INTEGER PRIMARY KEY, capture_id INTEGER, name TEXT, ts INTEGER, dur INTEGER, incomplete INTEGER,
       is_error INTEGER, intent TEXT, arguments TEXT, args_truncated INTEGER,
       kind TEXT, language TEXT, line_count INTEGER);
-      CREATE TABLE agentprof_script_children (script_id INTEGER, id INTEGER, depth INTEGER);`);
-    const insert = db.prepare(`INSERT INTO agentprof_tool_calls
-      (id, name, ts, dur, incomplete, kind) VALUES (?, ?, ?, ?, ?, ?)`);
+      CREATE TABLE dev_agentprof_script_children (script_id INTEGER, id INTEGER, depth INTEGER);`);
+    const toolsModule = readFileSync(resolve(import.meta.dir, '../stdlib/dev/agentprof/tools.sql'), 'utf8');
+    const viewsSql = toolsModule.slice(toolsModule.indexOf('CREATE PERFETTO VIEW dev_agentprof_scripts'))
+      .replaceAll('CREATE PERFETTO VIEW', 'CREATE VIEW');
+    db.exec(viewsSql);
+    const insert = db.prepare(`INSERT INTO dev_agentprof_tool_call_details
+      (id, capture_id, name, ts, dur, incomplete, kind) VALUES (?, 1, ?, ?, ?, ?, ?)`);
     db.transaction(() => {
       for (let id = 1; id <= 100; id++)
         insert.run(id, `completed-${id}`, id, id * 1_000_000, 0, 'tool-execution');
@@ -89,9 +95,9 @@ test('Overview shows unfinished tools and scripts without inventing durations', 
       insert.run(102, 'unfinished-script', 102, -1, 1, 'script');
       insert.run(103, 'unfinished-child', 103, -1, 1, 'tool-execution');
       insert.run(104, 'completed-script', 104, 5_000_000, 0, 'script');
-      db.exec('INSERT INTO agentprof_script_children VALUES (102,103,1),(102,100,1)');
+      db.exec('INSERT INTO dev_agentprof_script_children VALUES (102,103,1),(102,100,1)');
     })();
-    const slow = db.query(OVERVIEW_QUERIES.slow).all() as {id: number; duration_ms: number | null; incomplete: number}[];
+    const slow = db.query(OVERVIEW_SELECTS.slow).all() as {id: number; duration_ms: number | null; incomplete: number}[];
     expect(slow).toHaveLength(100);
     expect(slow.slice(0, 2).map(row => row.id).sort()).toEqual([101, 103]);
     expect(slow.filter(row => row.incomplete)).toHaveLength(2);
@@ -99,10 +105,10 @@ test('Overview shows unfinished tools and scripts without inventing durations', 
     expect(slow.find(row => row.id === 103)?.duration_ms).toBeNull();
     expect(slow.find(row => row.id === 100)?.duration_ms).toBe(100);
     expect(slow.find(row => row.id === 1)).toBeUndefined();
-    const scripts = db.query(OVERVIEW_QUERIES.scripts).all() as {id: number; duration_ms: number | null; calls: number}[];
+    const scripts = db.query(OVERVIEW_SELECTS.scripts).all() as {id: number; duration_ms: number | null; calls: number}[];
     expect(scripts.find(row => row.id === 102)).toMatchObject({duration_ms: null, calls: 2});
     expect(scripts.find(row => row.id === 104)?.duration_ms).toBe(5);
-    const calls = db.query(OVERVIEW_QUERIES.script_calls).all() as {id: number; duration_ms: number | null}[];
+    const calls = db.query(OVERVIEW_SELECTS.script_calls).all() as {id: number; duration_ms: number | null}[];
     expect(calls.find(row => row.id === 103)?.duration_ms).toBeNull();
     expect(calls.find(row => row.id === 100)?.duration_ms).toBe(100);
   } finally {db.close();}
@@ -111,29 +117,33 @@ test('Overview shows unfinished tools and scripts without inventing durations', 
 test('context detail SQL caps recent rows without losing the latest sample of an older capture', () => {
   const db = new Database(':memory:');
   try {
-    db.exec(`CREATE TABLE agentprof_context_snapshots(event_id INTEGER, capture_id INTEGER, ts INTEGER, categories TEXT);
-      CREATE TABLE agentprof_capture_hierarchy(capture_id INTEGER, root_capture_id INTEGER);
-      CREATE TABLE agentprof_capture_runs(capture_id INTEGER, harness TEXT, session TEXT, end_ts INTEGER, context_window_tokens INTEGER);
-      CREATE TABLE agentprof_context_changes(delta_tokens INTEGER, ts INTEGER);
-      CREATE TABLE agentprof_counter_tracks(id INTEGER, capture_id INTEGER, name TEXT);
+    db.exec(`CREATE TABLE dev_agentprof_context_snapshots(event_id INTEGER, capture_id INTEGER, ts INTEGER, categories TEXT);
+      CREATE TABLE dev_agentprof_capture_hierarchy(capture_id INTEGER, root_capture_id INTEGER);
+      CREATE TABLE dev_agentprof_capture_runs(capture_id INTEGER, start_ts INTEGER, harness TEXT, session TEXT, end_ts INTEGER, context_window_tokens INTEGER, peak_context INTEGER, context_share DOUBLE);
+      CREATE TABLE dev_agentprof_context_change_details(delta_tokens INTEGER, ts INTEGER);
+      CREATE TABLE dev_agentprof_counter_tracks(id INTEGER, capture_id INTEGER, name TEXT);
       CREATE TABLE counter(track_id INTEGER, ts INTEGER, value INTEGER);
-      CREATE TABLE agentprof_slices(id INTEGER, capture_id INTEGER, ts INTEGER, dur INTEGER, arg_set_id INTEGER, kind TEXT, incomplete INTEGER);
-      INSERT INTO agentprof_capture_hierarchy VALUES (1,1),(2,2);
-      INSERT INTO agentprof_capture_runs VALUES (1,'pi','old',3000,1000),(2,'pi','new',3000,1000);`);
-    const insert = db.prepare('INSERT INTO agentprof_context_snapshots VALUES (?,?,?,?)');
+      INSERT INTO dev_agentprof_capture_hierarchy VALUES (1,1),(2,2);
+      INSERT INTO dev_agentprof_capture_runs VALUES (1,0,'pi','old',3000,1000,40,0.04),(2,0,'pi','new',3000,1000,80,0.08);`);
+    const contextModule = readFileSync(resolve(import.meta.dir, '../stdlib/dev/agentprof/context.sql'), 'utf8');
+    const latestStart = contextModule.indexOf('CREATE PERFETTO VIEW dev_agentprof_context_latest');
+    const compactionStart = contextModule.indexOf('-- Recorded context compaction');
+    db.exec(contextModule.slice(latestStart, compactionStart).replaceAll('CREATE PERFETTO VIEW', 'CREATE VIEW')
+      .replaceAll('dev_agentprof_context_changes', 'dev_agentprof_context_change_details'));
+    const insert = db.prepare('INSERT INTO dev_agentprof_context_snapshots VALUES (?,?,?,?)');
     db.transaction(() => {
       insert.run(1, 1, 0, '{"prompts":10}');
       for (let i = 1; i <= 2001; i++) insert.run(i + 1, 2, i, '{"prompts":20}');
     })();
-    const latest = db.query(OVERVIEW_QUERIES.context_latest).all() as Array<{capture_id: number; ts: number}>;
+    const latest = db.query(OVERVIEW_SELECTS.context_latest).all() as Array<{capture_id: number; ts: number}>;
     expect(latest.map(row => [row.capture_id, row.ts])).toEqual([[1, 0], [2, 2001]]);
-    const detail = db.query(OVERVIEW_QUERIES.context_snapshots).all() as Array<{capture_id: number; ts: number}>;
+    const detail = db.query(OVERVIEW_SELECTS.context_snapshots).all() as Array<{capture_id: number; ts: number}>;
     expect(detail).toHaveLength(2000);
     expect(detail[0]!.ts).toBe(2);
     expect(detail.at(-1)!.ts).toBe(2001);
     expect(detail.every(row => row.capture_id === 2)).toBe(true);
-    expect(db.query(OVERVIEW_QUERIES.context_changes).all()).toEqual([]);
-    expect(db.query(OVERVIEW_QUERIES.context_history).all()).toEqual([]);
+    expect(db.query(OVERVIEW_SELECTS.context_changes).all()).toEqual([]);
+    expect(db.query(OVERVIEW_SELECTS.context_history).all()).toEqual([]);
     // Perfetto's EXTRACT_ARG is unavailable in Bun SQLite; its bounded SQL
     // is checked structurally below and by the pinned processor in CI.
   } finally {db.close();}
@@ -243,7 +253,9 @@ test('Turns pagination preserves loaded rows and avoids duplicate in-flight requ
 });
 
 test('context detail queries are bounded while Summary keeps latest per capture', () => {
-  expect(OVERVIEW_QUERIES.context_latest).toContain('PARTITION BY capture_id');
+  const contextModule = readFileSync(resolve(import.meta.dir, '../stdlib/dev/agentprof/context.sql'), 'utf8');
+  expect(contextModule).toContain('PARTITION BY capture_id');
+  expect(OVERVIEW_QUERIES.context_latest).toContain('dev_agentprof_context_latest');
   expect(OVERVIEW_QUERIES.context_snapshots).toContain('LIMIT 2000');
   expect(OVERVIEW_QUERIES.context_history).toContain('LIMIT 2000');
   expect(OVERVIEW_QUERIES.context_changes).toContain('LIMIT 500');

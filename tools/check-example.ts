@@ -7,22 +7,27 @@ import { defaultConfig } from "../packages/pi-tracing/extensions/pi-tracing/conf
 import { resolve } from "node:path";
 import assert from 'node:assert/strict';
 import {toolDescription} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/tool_description.ts';
-import { QUERIES, SETUP_SQL } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts";
-
-import { OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES } from "../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts";
-import {TURNS_SETUP_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/turns_queries.ts';
+import {
+  COMMAND_QUERIES,
+  OVERVIEW_QUERIES as OVERVIEW_MODULE_QUERIES,
+  OVERVIEW_SELECTS as OVERVIEW_QUERIES,
+} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_ALL_MODULES_SQL, STDLIB_PACKAGE_ARG} from './stdlib-sql.ts';
 
 const binary = process.env.PERFETTO_TRACE_PROCESSOR ?? resolve("third_party/src/perfetto/tools/trace_processor");
 const path = resolve("artifacts/examples/synthetic.pftrace");
 function query(sql: string, tracePath = path): string {
-  const result = spawnSync(binary, [tracePath, "-Q", sql], {encoding: "utf8"});
+  const normalized = sql.replace(/(?<!debug\.|stress_)\bagentprof_(?!example)/g, 'dev_agentprof_');
+  const result = spawnSync(binary, ['--add-sql-package', STDLIB_PACKAGE_ARG, tracePath, "-Q", normalized], {encoding: "utf8"});
   if (result.error || result.status !== 0) throw new Error(`${result.error ?? "Query failed"}\n${result.stdout}\n${result.stderr}`);
   return result.stdout;
 }
-for (const [name, sql] of Object.entries({...QUERIES, ...OVERVIEW_QUERIES})) {
-  query(`${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${TURNS_SETUP_SQL}\n${sql}`);
+for (const [name, sql] of Object.entries({...COMMAND_QUERIES, ...OVERVIEW_MODULE_QUERIES})) {
+  query(sql);
   console.log(`PASS ${name}`);
 }
+const SETUP_SQL = INCLUDE_ALL_MODULES_SQL;
+const OVERVIEW_SETUP_SQL = '';
 const result = query(`${SETUP_SQL}
   SELECT CASE WHEN
     (SELECT COUNT(*) FROM agentprof_slices WHERE kind = 'tool-execution') = 5 AND

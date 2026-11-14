@@ -8,16 +8,18 @@ import {convertObservations} from './convert.ts';
 import {fixture, log, at, rootSession, childSession} from './fixture.ts';
 import {tagControlScripts} from './plugin-observations.ts';
 import {omitContent} from '../agent-tracing/content.ts';
-import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../tools/stdlib-sql.ts';
+
+const prefixSql = (sql: string) =>
+  `${INCLUDE_CORE_MODULES_SQL}\n${sql.replace(/(?<!debug\.)\bagentprof_/g, 'dev_agentprof_')}`;
 
 function query(rows: ReturnType<typeof fixture>, sql: string): string {
   const path = mkdtempSync(join(tmpdir(), 'codex-import-'));
   try {
     writeFileSync(join(path, 'recording.pftrace'), convertObservations(rows).trace);
-    writeFileSync(join(path, 'query.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${sql}`);
+    writeFileSync(join(path, 'query.sql'), prefixSql(sql));
     const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-      [join(path, 'recording.pftrace'), '-q', join(path, 'query.sql')], {encoding: 'utf8'});
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(path, 'recording.pftrace'), '-q', join(path, 'query.sql')], {encoding: 'utf8'});
     if (result.status !== 0) throw new Error(result.stderr || String(result.error));
     return result.stdout;
   } finally {rmSync(path, {recursive: true, force: true});}
@@ -40,14 +42,14 @@ test('hook-only Codex import uses transcript usage without inventing native timi
   const path = mkdtempSync(join(tmpdir(), 'codex-hook-query-'));
   try {
     writeFileSync(join(path, 'hook.pftrace'), result.trace);
-    writeFileSync(join(path, 'query.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\nSELECT
+    writeFileSync(join(path, 'query.sql'), prefixSql(`SELECT
       (SELECT COUNT(*) FROM agentprof_messages)=3,
       (SELECT COUNT(*) FROM agentprof_messages WHERE message_ns IS NULL)=3,
       (SELECT SUM(input_tokens) FROM agentprof_messages)=260,
       (SELECT COUNT(*) FROM agentprof_tool_calls WHERE kind='tool-execution')=1,
-      (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`);
+      (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`));
     const imported = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-      [join(path, 'hook.pftrace'), '-q', join(path, 'query.sql')], {encoding: 'utf8'});
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(path, 'hook.pftrace'), '-q', join(path, 'query.sql')], {encoding: 'utf8'});
     expect(imported.status, imported.stderr).toBe(0);
     expect(imported.stdout.trim().split('\n').at(-1)).toBe('1,1,1,1,1');
   } finally {rmSync(path, {recursive: true, force: true});}
@@ -117,7 +119,7 @@ test('late/repeated telemetry preserves native durations, usage, nested scripts 
   expect(result.summary).toMatchObject({sessions: 2, responses: 3, scripts: 1, tools: 2, nestedTools: 1,
     prewarms: 1, unmeasuredResponses: 0, inputTokens: 260, outputTokens: 14});
   const output = query(rows, `SELECT
-    (${DETECT_SQL}) = 2 AS detected,
+    (SELECT count FROM dev_agentprof_detected) = 2 AS detected,
     (SELECT COUNT(*) FROM process WHERE pid = 12346 AND name = 'codex') = 1 AS real_process,
     (SELECT COUNT(*) FROM thread WHERE tid NOT IN (0,12346)) = 0 AS no_invented_threads,
     (SELECT COUNT(*) FROM agentprof_messages) = 3 AS responses,

@@ -7,8 +7,8 @@ import {createHash} from 'node:crypto';
 import {resolve, dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {mergePiTraces} from '../../../packages/pi-tracing/extensions/pi-tracing/merge.ts';
-import {SETUP_SQL} from '../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES as Q} from '../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {OVERVIEW_SELECTS as Q} from '../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../stdlib-sql.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const batch = resolve(process.argv[2] ?? '');
@@ -39,7 +39,7 @@ for (const round of new Set<number>(manifest.recordings.map((run: any) => run.ro
         WHERE b.session = '${run.sessionId}' AND a.name = 'tool-preflight'
         AND b.parent_call_id IS NOT NULL) = ${run.nestedCalls}`;
   });
-  const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
+  const rawSql = `${INCLUDE_CORE_MODULES_SQL}
     CREATE PERFETTO TABLE runs AS ${Q.runs};
     SELECT CASE WHEN ${checks.join(' AND ')}
       AND (SELECT COUNT(*) FROM runs) = 2
@@ -49,8 +49,9 @@ for (const round of new Set<number>(manifest.recordings.map((run: any) => run.ro
       AND (SELECT MAX(value) FROM (${Q.health}) WHERE metric = 'Dropped events') = 0
       THEN 'TRACE_OK' ELSE 'TRACE_FAILED' END AS status,
       session, duration_ms, peak_context, tools, turns, output_tokens, model_busy_ms FROM runs`;
+  const sql = rawSql.replace(/(?<!debug\.|dev_)\bagentprof_/g, 'dev_agentprof_');
   const result = spawnSync(resolve(root, 'third_party/src/perfetto/tools/trace_processor'),
-    [target, '-Q', sql], {encoding: 'utf8'});
+    ['--add-sql-package', STDLIB_PACKAGE_ARG, target, '-Q', sql], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes('TRACE_OK') && !result.stdout.includes('TRACE_FAILED'), result.stdout);
   writeFileSync(resolve(batch, `round-${round}/trace-metrics.csv`), result.stdout.trim() + '\n');

@@ -19,13 +19,16 @@ import {
 } from './navigation';
 import type {Trace} from '../../public/trace';
 import type {SqlValue} from '../../trace_processor/query_result';
-import {OVERVIEW_QUERIES} from './overview_queries';
+import {
+  OVERVIEW_QUERIES,
+  turnEventsQuery,
+  turnsPageQuery,
+} from './overview_queries';
 import {OverviewLoader, type OverviewTab} from './overview_loader';
 import {ContextView, contextSummary} from './context_view';
 import {toolDescription} from './tool_description';
 import {modelDisplayName} from './model_display';
 import {deltaText, type DeltaKind, type DeltaMode} from './baseline';
-import {turnEventsQuery, turnsPageQuery} from './turns_queries';
 import {TurnsView} from './turns_view';
 import './overview.scss';
 

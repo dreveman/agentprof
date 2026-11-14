@@ -10,8 +10,15 @@ import {
 } from './navigation';
 import {Overview} from './overview';
 import {createTurnSetup} from './overview_loader';
-import {TURNS_SETUP_SQL} from './turns_queries';
-import {OVERVIEW_SETUP_SQL} from './overview_queries';
+import {
+  COMMAND_QUERIES,
+  DETECT_QUERY,
+  TRACE_SLICE_DATASET_SQL,
+  WORKSPACE_COUNTERS_QUERY,
+  WORKSPACE_TRACKS_QUERY,
+} from './overview_queries';
+import {AGENTPROF_SQL_PACKAGE} from './sql_package';
+import {AppImpl} from '../../core/app_impl';
 import type {App} from '../../public/app';
 import type {Trace} from '../../public/trace';
 import {cacheTrace} from '../../core/cache_manager';
@@ -24,7 +31,6 @@ import {LONG, NUM, NUM_NULL, STR, STR_NULL} from '../../trace_processor/query_re
 import QueryPagePlugin from '../dev.perfetto.QueryPage';
 import TrackEventPlugin from '../dev.perfetto.TrackEvent';
 import ProcessThreadGroupsPlugin from '../dev.perfetto.ProcessThreadGroups';
-import {DETECT_SQL, QUERIES, SETUP_SQL} from './queries';
 import {trackDisplayName} from './track_names';
 import {EXAMPLE_TRACE_BASE64} from './example_trace';
 import {COMPARISON_EXAMPLE_TRACE_BASE64} from './comparison_example_trace';
@@ -39,6 +45,11 @@ export default class implements PerfettoPlugin {
   static readonly dependencies = [QueryPagePlugin, TrackEventPlugin];
 
   static onActivate(app: App): void {
+    try {
+      AppImpl.instance.addSqlPackages([AGENTPROF_SQL_PACKAGE]);
+    } catch {
+      // Minimal unit-test harnesses may invoke onActivate without AppImpl.
+    }
     const splitSetting = app.settings?.get<boolean>('splitSecondaryPages');
     if (splitSetting && splitSetting.isDefault !== false) {
       splitSetting.set(true);
@@ -84,7 +95,7 @@ export default class implements PerfettoPlugin {
   }
 
   async onTraceLoad(trace: Trace): Promise<void> {
-    const detected = await trace.engine.query(DETECT_SQL);
+    const detected = await trace.engine.query(DETECT_QUERY);
     if (detected.firstRow({count: NUM}).count === 0) return;
     setOverviewCollapsed(false);
     const rawSource = (
@@ -122,9 +133,9 @@ export default class implements PerfettoPlugin {
         )
         .catch(() => undefined);
     }
-    await trace.engine.query(SETUP_SQL);
-    await trace.engine.query(OVERVIEW_SETUP_SQL);
-    const loadTurns = createTurnSetup(() => trace.engine.query(TURNS_SETUP_SQL));
+    const loadTurns = createTurnSetup(() =>
+      trace.engine.query('INCLUDE PERFETTO MODULE dev.agentprof.turns;'),
+    );
     trace.pages.registerPage({
       route: '/agentprof',
       render: (subpage) =>
@@ -145,26 +156,7 @@ export default class implements PerfettoPlugin {
     trace.initialPage.suggest('/agentprof', 100);
 
     const workspace = trace.workspaces.createEmptyWorkspace('Agent Profiler');
-    const tracks = await trace.engine.query(`
-      WITH captures AS (
-        SELECT capture_id, session, MIN(upid) AS upid, MAX(h.is_subagent) AS is_subagent FROM agentprof_slices
-        JOIN agentprof_capture_hierarchy h USING(capture_id)
-        GROUP BY capture_id, session
-      ), processes AS (
-        SELECT upid, COUNT(DISTINCT capture_id) AS captures,
-          COUNT(DISTINCT session) AS sessions, MIN(is_subagent) AS all_subagents FROM captures GROUP BY upid
-      ), sessions AS (
-        SELECT session, COUNT(DISTINCT upid) AS processes FROM captures GROUP BY session
-      )
-      SELECT s.track_id, s.capture_id, s.upid, s.utid, s.session, s.capture, c.label AS capture_label, s.track_name,
-        COALESCE(p.captures, 0) AS process_captures,
-        h.is_subagent, COALESCE(p.all_subagents, 0) AS all_subagents,
-        (p.sessions = 1 AND a.processes = 1) AS single_agent
-      FROM agentprof_slices s JOIN agentprof_capture_hierarchy h USING(capture_id)
-      LEFT JOIN processes p USING(upid) LEFT JOIN sessions a USING(session)
-      LEFT JOIN agentprof_captures c ON c.capture_id = s.capture_id
-      GROUP BY s.track_id, s.capture_id ORDER BY s.upid, s.capture_id, s.track_id
-    `);
+    const tracks = await trace.engine.query(WORKSPACE_TRACKS_QUERY);
     const processTracks = trace.plugins.getPlugin(ProcessThreadGroupsPlugin);
     const processes = new Map<number, TrackNode>();
     const captures = new Map<number, TrackNode>();
@@ -262,8 +254,7 @@ export default class implements PerfettoPlugin {
           rootTableName: 'slice',
           detailsPanel: () => new ThreadSliceDetailsPanel(trace),
           dataset: new SourceDataset({
-            src: `SELECT id, ts, dur, name FROM agentprof_slices WHERE ${row.utid === null
-              ? `track_id = ${row.track_id}` : `utid = ${row.utid}`}`,
+            src: TRACE_SLICE_DATASET_SQL(row.track_id, row.utid),
             schema: {id: NUM, ts: LONG, dur: LONG, name: STR},
           }),
           onSliceClick: ({slice}) => trace.selection.selectSqlEvent('slice', slice.id),
@@ -278,14 +269,7 @@ export default class implements PerfettoPlugin {
     }
     // Reuse native counter renderers, including sample selection and scaling.
     // Descriptors without samples must not imply that usage was recorded.
-    const counters = await trace.engine.query(`
-      SELECT t.id, t.display_name AS name,
-        CASE WHEN t.name IN ('llm.tokens.input', 'llm.tokens.output') THEN 'Token usage'
-          ELSE t.group_name END AS group_name, t.capture_id
-      FROM agentprof_counter_tracks t
-      WHERE EXISTS (SELECT 1 FROM counter c WHERE c.track_id = t.id)
-      ORDER BY t.id
-    `);
+    const counters = await trace.engine.query(WORKSPACE_COUNTERS_QUERY);
     for (const row = counters.iter({id: NUM, name: STR, group_name: STR_NULL, capture_id: NUM});
       row.valid(); row.next()) {
       const track = trace.tracks.findTrack(t => t.tags?.trackIds?.includes(row.id));
@@ -296,7 +280,7 @@ export default class implements PerfettoPlugin {
       }
     }
     trace.workspaces.switchWorkspace(workspace);
-    for (const [title, query] of Object.entries(QUERIES)) {
+    for (const [title, query] of Object.entries(COMMAND_QUERIES)) {
       const commandId = `${devId()}.${title.replaceAll(' ', '')}`;
       trace.commands.registerCommand({
         id: commandId,

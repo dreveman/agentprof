@@ -4,8 +4,8 @@ import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
-import {SETUP_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {OVERVIEW_SELECTS as OVERVIEW_QUERIES} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from './stdlib-sql.ts';
 
 import {childPromptFlowId} from '../packages/pi-tracing/extensions/pi-tracing/workflow.ts';
 import {decodeFields, tracePackets} from '../packages/pi-tracing/extensions/pi-tracing/test-proto.ts';
@@ -122,7 +122,7 @@ function validate(path: string, recordings: Recording[]) {
         recordings.length === family.length ? workflow.peakResponses : manifest.allRecordingsPeakResponses}`);
     }
   }
-  const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
+  const rawSql = `${INCLUDE_CORE_MODULES_SQL}
     INCLUDE PERFETTO MODULE viz.summary.track_event;
     CREATE PERFETTO TABLE recorded_runs AS SELECT * FROM agentprof_capture_runs;
     CREATE PERFETTO TABLE overview_runs AS ${OVERVIEW_QUERIES.runs};
@@ -187,7 +187,8 @@ function validate(path: string, recordings: Recording[]) {
         AND s.ts + s.dur != (SELECT MAX(c.ts) FROM counter c
           JOIN agentprof_track_process m ON m.track_id = c.track_id WHERE m.capture_id = s.capture_id))
       THEN 'RECORDED_EXAMPLE_OK' ELSE 'RECORDED_EXAMPLE_FAILED' END AS result`;
-  const result = spawnSync(binary, [path, '-Q', sql], {encoding: 'utf8'});
+  const sql = rawSql.replace(/(?<!debug\.)\bagentprof_(?!\*)/g, 'dev_agentprof_');
+  const result = spawnSync(binary, ['--add-sql-package', STDLIB_PACKAGE_ARG, path, '-Q', sql], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes('RECORDED_EXAMPLE_OK'), `${path}\n${result.stdout}\n${result.stderr}`);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Browser checks use retained examples and synthetic fixtures, never a model.
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir, readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -18,7 +18,7 @@ export async function checkTurns(page) {
   await page.locator('.ap-turn').first().waitFor();
   assert.equal(await page.locator('.ap-turn-details').count(), 0, 'Details are lazy');
   const rows = await page.evaluate(async () => {
-    const result = await window.app.trace.engine.query('SELECT turn_number, incomplete, display_end_ts-start_ts AS duration, model_calls, tools, models_only_ns, tools_only_ns, overlap_ns FROM agentprof_turns ORDER BY start_ts');
+    const result = await window.app.trace.engine.query('SELECT turn_number, incomplete, display_end_ts-start_ts AS duration, model_calls, tools, models_only_ns, tools_only_ns, overlap_ns FROM dev_agentprof_turns ORDER BY start_ts');
     const rows = [];
     for (const it = result.iter({}); it.valid(); it.next()) rows.push(Object.fromEntries(result.columns().map(key => [key, Number(it.get(key))])));
     return rows;
@@ -114,11 +114,10 @@ async function checkSetupRetry(page) {
     const original = engine.query.bind(engine);
     let fail = true;
     engine.query = async sql => {
-      if (sql.includes('CREATE PERFETTO TABLE agentprof_turn_prompts')) {
-        window.turnSetupSql = sql;
+      if (sql.includes('INCLUDE PERFETTO MODULE dev.agentprof.turns')) {
         if (fail) {
           fail = false;
-          await original('CREATE TABLE agentprof_turn_work(stale INTEGER)');
+          await original('CREATE TABLE _dev_agentprof_turn_work(stale INTEGER)');
           throw new Error('Synthetic setup failure');
         }
         engine.query = original;
@@ -133,10 +132,18 @@ async function checkSetupRetry(page) {
 }
 
 async function checkTurnStress(page) {
-  const result = await page.evaluate(async () => {
+  const turnsModuleSql = await readFile(resolve(root, 'stdlib/dev/agentprof/turns.sql'), 'utf8');
+  const result = await page.evaluate(async rawModule => {
     const engine = window.app.trace.engine;
-    const sql = window.turnSetupSql.replaceAll('agentprof_', 'stress_agentprof_')
-      .replaceAll('FROM slice s', 'FROM stress_slice s').replaceAll('flow f', 'stress_flow f');
+    const body = rawModule
+      .replace(/^INCLUDE PERFETTO MODULE .*;\s*$/gm, '')
+      .slice(0, rawModule.replace(/^INCLUDE PERFETTO MODULE .*;\s*$/gm, '')
+        .indexOf('CREATE PERFETTO VIEW dev_agentprof_turns_with_prompts'));
+    const sql = body
+      .replaceAll('_dev_agentprof_', 'stress_tmp_agentprof_')
+      .replaceAll('dev_agentprof_', 'stress_agentprof_')
+      .replaceAll('FROM slice AS s', 'FROM stress_slice AS s')
+      .replaceAll('flow AS f', 'stress_flow AS f');
     const cleanup = sql.slice(0, sql.indexOf('CREATE PERFETTO TABLE stress_agentprof_turn_prompts'));
     const inputs = ['stress_agentprof_slices','stress_slice','stress_flow','stress_agentprof_messages',
       'stress_agentprof_tool_calls','stress_agentprof_capture_runs','stress_agentprof_capture_markers',
@@ -180,14 +187,14 @@ async function checkTurnStress(page) {
       const counts = await engine.query(`SELECT (SELECT COUNT(*) FROM stress_agentprof_turns) AS turns,
         (SELECT COUNT(*) FROM stress_agentprof_turn_events) AS events,
         (SELECT MIN(tools) FROM stress_agentprof_turns) AS tools,
-        (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name GLOB 'stress_agentprof_turn*') AS retained`);
+        (SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND (name GLOB 'stress_agentprof_turn*' OR name GLOB 'stress_tmp_agentprof_turn*')) AS retained`);
       const row = counts.iter({});
       return {elapsed, turns: Number(row.get('turns')), events: Number(row.get('events')),
         tools: Number(row.get('tools')), retained: Number(row.get('retained'))};
     } finally {
       await engine.query(cleanup + inputs.map(name => 'DROP TABLE IF EXISTS ' + name + ';').join('\n'));
     }
-  });
+  }, turnsModuleSql);
   assert.deepEqual({turns: result.turns, events: result.events, tools: result.tools, retained: result.retained},
     {turns: 1000, events: 100000, tools: 100, retained: 3});
   assert.ok(result.elapsed < 30000, 'WASM setup must not repeatedly scan unrelated flows or shared ancestry');

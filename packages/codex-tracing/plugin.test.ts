@@ -11,7 +11,7 @@ import {convertObservations} from './convert.ts';
 import {readOtel} from './otel.ts';
 import {addHooks} from './plugin-observations.ts';
 import {fixture, rootSession, childSession, epoch, at, log} from './fixture.ts';
-import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
+import {STDLIB_PACKAGE_ARG} from '../../tools/stdlib-sql.ts';
 import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
 
 async function terminalStatus(collector: Collector, id: string, timeoutMs = 3000) {
@@ -249,8 +249,8 @@ test('session end saves automatically and compaction remains a measured span in 
     const trace = join(directory, 'compaction.pftrace');
     writeFileSync(trace, convertObservations(rows).trace);
     const sql = join(directory, 'check.sql');
-    writeFileSync(sql, `${SETUP_SQL}\nSELECT COUNT(*) FROM agentprof_slices WHERE name='compaction' AND dur=400000000 AND incomplete=0;`);
-    const check = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'), [trace, '-q', sql], {encoding: 'utf8'});
+    writeFileSync(sql, `INCLUDE PERFETTO MODULE dev.agentprof.captures;\nSELECT COUNT(*) FROM dev_agentprof_slices WHERE name='compaction' AND dur=400000000 AND incomplete=0;`);
+    const check = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'), ['--add-sql-package', STDLIB_PACKAGE_ARG, trace, '-q', sql], {encoding: 'utf8'});
     expect(check.status).toBe(0);
     expect(check.stdout.trim().split('\n').at(-1)).toBe('1');
   } finally {mocked.mockRestore(); rmSync(directory, {recursive: true, force: true});}
@@ -444,8 +444,8 @@ test('a truncated crash journal can be recovered without overwriting another rec
     writeFileSync(join(directory, 'observations.jsonl'), rows.map(row => JSON.stringify(row)).join('\n') + '\n{"source":');
     expect(publish(directory, trace)).toMatchObject({output: trace, sessions: 2, responses: 3});
     const sql = join(directory, 'check.sql');
-    writeFileSync(sql, `${SETUP_SQL}\nSELECT COUNT(*) FROM agentprof_slices WHERE kind='capture' AND incomplete=1;`);
-    const check = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'), [trace, '-q', sql], {encoding: 'utf8'});
+    writeFileSync(sql, `INCLUDE PERFETTO MODULE dev.agentprof.captures;\nSELECT COUNT(*) FROM dev_agentprof_slices WHERE kind='capture' AND incomplete=1;`);
+    const check = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'), ['--add-sql-package', STDLIB_PACKAGE_ARG, trace, '-q', sql], {encoding: 'utf8'});
     expect(check.status).toBe(0);
     expect(Number(check.stdout.trim().split('\n').at(-1))).toBeGreaterThan(0);
     expect(() => publish(directory, trace)).toThrow('Output already exists');

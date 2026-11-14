@@ -8,8 +8,8 @@ import {spawnSync} from 'node:child_process';
 import {ContextTracker, transcriptItems} from './context.ts';
 import {attachContext} from '../../../agent-tracing/context.ts';
 import {writeTrace, type Slice, type Counter} from '../../../agent-tracing/trace.ts';
-import {SETUP_SQL} from '../../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES} from '../../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {OVERVIEW_QUERIES} from '../../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../../../tools/stdlib-sql.ts';
 
 test('context tracks retained results, replacements, removals and model changes without copying text', () => {
   const tracker = new ContextTracker();
@@ -56,22 +56,23 @@ test('snapshot annotations import with typed changes, scoped tool links, zeros a
       category: 'claude', clocks: [{realtimeNs: epoch, boottimeNs: 1000000000n}],
       sessions: [{id: 'one', start: epoch, end: epoch + 100n, attrs: {harness: 'claude-code'}}], slices, counters});
     writeFileSync(join(directory, 'trace.pftrace'), trace);
-    const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\nSELECT
-      (SELECT COUNT(*) FROM agentprof_context_snapshots)=3,
-      (SELECT MAX(estimated_tokens) FROM agentprof_context_snapshots)=43,
-      (SELECT MAX(reported_tokens) FROM agentprof_context_snapshots)=60,
-      (SELECT COUNT(*) FROM agentprof_context_changes WHERE delta_tokens=40 AND tool='read' AND NOT baseline)=1,
-      (SELECT COUNT(*) FROM agentprof_context_changes WHERE delta_tokens=-40 AND change='removed')=1,
-      (SELECT COUNT(*) FROM agentprof_counter_tracks WHERE group_name='Context')=2,
+    const sql = `${INCLUDE_CORE_MODULES_SQL}\nSELECT
+      (SELECT COUNT(*) FROM dev_agentprof_context_snapshots)=3,
+      (SELECT MAX(estimated_tokens) FROM dev_agentprof_context_snapshots)=43,
+      (SELECT MAX(reported_tokens) FROM dev_agentprof_context_snapshots)=60,
+      (SELECT COUNT(*) FROM dev_agentprof_context_changes WHERE delta_tokens=40 AND tool='read' AND NOT baseline)=1,
+      (SELECT COUNT(*) FROM dev_agentprof_context_changes WHERE delta_tokens=-40 AND change='removed')=1,
+      (SELECT COUNT(*) FROM dev_agentprof_counter_tracks WHERE group_name='Context')=2,
       (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0;`;
-    const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? fileURLToPath(new URL('../../../../third_party/src/perfetto/tools/trace_processor', import.meta.url)),
-      [join(directory, 'trace.pftrace'), '-Q', sql], {encoding: 'utf8'});
+    const tp = process.env.PERFETTO_TRACE_PROCESSOR ?? fileURLToPath(new URL('../../../../third_party/src/perfetto/tools/trace_processor', import.meta.url));
+    const result = spawnSync(tp,
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(directory, 'trace.pftrace'), '-Q', sql], {encoding: 'utf8'});
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout.trim().split('\n').at(-1)).toBe('1,1,1,1,1,1,1');
-    for (const query of Object.values(OVERVIEW_QUERIES).filter(q => q.includes('agentprof_context_'))) {
-      const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? fileURLToPath(new URL('../../../../third_party/src/perfetto/tools/trace_processor', import.meta.url)),
-        [join(directory, 'trace.pftrace'), '-Q', `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${query}`], {encoding: 'utf8'});
-      expect(result.status, result.stderr).toBe(0);
+    for (const [key, query] of Object.entries(OVERVIEW_QUERIES).filter(([k]) => k.startsWith('context_'))) {
+      const result = spawnSync(tp,
+        ['--add-sql-package', STDLIB_PACKAGE_ARG, join(directory, 'trace.pftrace'), '-Q', query], {encoding: 'utf8'});
+      expect(result.status, `${key}: ${result.stderr}`).toBe(0);
     }
   } finally {rmSync(directory, {recursive: true, force: true});}
 });
