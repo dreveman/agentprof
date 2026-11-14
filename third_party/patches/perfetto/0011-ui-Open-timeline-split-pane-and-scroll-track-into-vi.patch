@@ -1,0 +1,154 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Sat, 14 Nov 2026 12:11:39 -0800
+Subject: [PATCH 11/12] ui: Open timeline split pane and scroll track into view
+ on event selection
+
+---
+ ui/src/core/scroll_helper.ts                   |  2 +-
+ ui/src/core/selection_manager.ts               | 18 +++++++++++++-----
+ ui/src/core/trace_impl.ts                      | 18 +++++++++++++++++-
+ .../trace_processor_slice_track.ts             |  6 +++---
+ ui/src/widgets/track_shell.ts                  |  4 ++--
+ 5 files changed, 36 insertions(+), 12 deletions(-)
+
+diff --git a/ui/src/core/scroll_helper.ts b/ui/src/core/scroll_helper.ts
+index f26514a340..f7d5690cad 100644
+--- a/ui/src/core/scroll_helper.ts
++++ b/ui/src/core/scroll_helper.ts
+@@ -118,7 +118,7 @@ export class ScrollHelper {
+ 
+     // Try finding the track directly.
+     const element = document.getElementById(trackNode.id);
+-    if (element) {
++    if (element && element.offsetParent !== null) {
+       // block: 'nearest' means that it will only scroll if the track is not
+       // currently in view.
+       element.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+diff --git a/ui/src/core/selection_manager.ts b/ui/src/core/selection_manager.ts
+index 01a21348f9..0713dea0c7 100644
+--- a/ui/src/core/selection_manager.ts
++++ b/ui/src/core/selection_manager.ts
+@@ -242,9 +242,15 @@ export class SelectionManagerImpl implements SelectionManager {
+     const tracksWithNoFilter: [SourceDataset, Track][] = [];
+     const matches: {eventId: number; trackUri: string}[] = [];
+ 
+-    this.trackManager
+-      .getAllTracks()
+-      .filter((track) => track.renderer.rootTableName === sqlTableName)
++    const allTracks = this.trackManager.getAllTracks();
++    const effectiveTableName =
++      !allTracks.some((t) => t.renderer.rootTableName === sqlTableName) &&
++      (sqlTableName === 'gpu_slice' || sqlTableName === 'thread_slice')
++        ? 'slice'
++        : sqlTableName;
++
++    allTracks
++      .filter((track) => track.renderer.rootTableName === effectiveTableName)
+       .map((track) => {
+         const dataset = track.renderer.getDataset?.();
+         if (!dataset) return undefined;
+@@ -329,7 +335,9 @@ export class SelectionManagerImpl implements SelectionManager {
+ 
+   async selectSqlEvent(sqlTableName: string, id: number, opts?: SelectionOpts) {
+     const event = await this.resolveSqlEvent(sqlTableName, id);
+-    event && this.selectTrackEvent(event.trackUri, event.eventId, opts);
++    if (event) {
++      await this.selectTrackEvent(event.trackUri, event.eventId, opts);
++    }
+   }
+ 
+   private setSelection(selection: Selection, opts?: SelectionOpts) {
+@@ -337,7 +345,7 @@ export class SelectionManagerImpl implements SelectionManager {
+     this.onSelectionChange(selection, opts ?? {});
+ 
+     if (opts?.scrollToSelection) {
+-      this.scrollToSelection();
++      this.scrollToSelection('focus');
+     }
+   }
+ 
+diff --git a/ui/src/core/trace_impl.ts b/ui/src/core/trace_impl.ts
+index 3297b91316..9bedcbbfcd 100644
+--- a/ui/src/core/trace_impl.ts
++++ b/ui/src/core/trace_impl.ts
+@@ -191,16 +191,31 @@ export class TraceImpl implements Trace, Disposable {
+     });
+   }
+ 
++  private navigateToViewer(): void {
++    if (this.getCurrentRoute().page === '/viewer') return;
++    const queryIdx =
++      typeof location !== 'undefined' ? location.hash.indexOf('?') : -1;
++    const query = queryIdx >= 0 ? location.hash.slice(queryIdx) : '';
++    this.navigate(`#!/viewer${query}`);
++  }
++
+   // This method wires up changes to selection to side effects on search and
+   // tabs. This is to avoid entangling too many dependencies between managers.
+   private onSelectionChange(selection: Selection, opts: SelectionOpts) {
+-    const {clearSearch = true, switchToCurrentSelectionTab = true} = opts;
++    const {
++      clearSearch = true,
++      switchToCurrentSelectionTab = true,
++      scrollToSelection = false,
++    } = opts;
+     if (clearSearch) {
+       this.search.reset();
+     }
+     if (switchToCurrentSelectionTab && selection.kind !== 'empty') {
+       this.tabs.showCurrentSelectionTab();
+     }
++    if (scrollToSelection && selection.kind !== 'empty') {
++      this.navigateToViewer();
++    }
+   }
+ 
+   private onResultStep(searchResult: SearchResult) {
+@@ -219,6 +234,7 @@ export class TraceImpl implements Trace, Disposable {
+   private readonly omniboxProxy: OmniboxManagerImpl;
+ 
+   scrollTo(where: ScrollToArgs): void {
++    this.navigateToViewer();
+     this.scrollHelper.scrollTo(where);
+   }
+ 
+diff --git a/ui/src/plugins/dev.perfetto.TraceProcessorTrack/trace_processor_slice_track.ts b/ui/src/plugins/dev.perfetto.TraceProcessorTrack/trace_processor_slice_track.ts
+index 6497107469..31cc96bfa7 100644
+--- a/ui/src/plugins/dev.perfetto.TraceProcessorTrack/trace_processor_slice_track.ts
++++ b/ui/src/plugins/dev.perfetto.TraceProcessorTrack/trace_processor_slice_track.ts
+@@ -160,8 +160,8 @@ async function getDataset(
+         ts: 'ts',
+         dur: 'dur',
+         depth: {
+-          join: 'depth',
+-          expr: 'depth.depth',
++          join: tableName,
++          expr: `${tableName}.depth`,
+         },
+         name: 'name',
+         thread_dur: 'thread_dur',
+@@ -173,7 +173,7 @@ async function getDataset(
+       },
+       src: 'slice',
+       joins: {
+-        depth: {
++        [tableName]: {
+           from: `${tableName} USING (id)`,
+           unique: true,
+         },
+diff --git a/ui/src/widgets/track_shell.ts b/ui/src/widgets/track_shell.ts
+index 5466f63448..92ca7fab28 100644
+--- a/ui/src/widgets/track_shell.ts
++++ b/ui/src/widgets/track_shell.ts
+@@ -190,8 +190,8 @@ export class TrackShell implements m.ClassComponent<TrackShellAttrs> {
+     }
+   }
+ 
+-  onupdate({dom}: m.VnodeDOM<TrackShellAttrs, this>) {
+-    if (this.scrollIntoView) {
++  onupdate({dom, attrs}: m.VnodeDOM<TrackShellAttrs, this>) {
++    if (this.scrollIntoView || attrs.scrollToOnCreate) {
+       dom.scrollIntoView({behavior: 'instant', block: 'nearest'});
+       this.scrollIntoView = false;
+     }

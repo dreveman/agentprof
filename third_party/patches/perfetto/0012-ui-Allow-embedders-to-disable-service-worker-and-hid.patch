@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Sat, 14 Nov 2026 12:12:09 -0800
+Subject: [PATCH 12/12] ui: Allow embedders to disable service worker and hide
+ side-panel toggle
+
+---
+ ui/src/core/app_impl.ts                      | 5 ++++-
+ ui/src/core/embedder/embedder.ts             | 2 ++
+ ui/src/frontend/service_worker_controller.ts | 6 ++++++
+ ui/src/frontend/topbar.ts                    | 6 ++++--
+ 4 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/ui/src/core/app_impl.ts b/ui/src/core/app_impl.ts
+index 8a8b088b75..a6833d7c25 100644
+--- a/ui/src/core/app_impl.ts
++++ b/ui/src/core/app_impl.ts
+@@ -84,7 +84,7 @@ export class AppImpl implements App {
+   readonly sidePanel = new SidePanelManagerImpl();
+   readonly perfDebugging = new PerfManager();
+   readonly analytics: AnalyticsInternal;
+-  readonly serviceWorkerController = new ServiceWorkerController();
++  readonly serviceWorkerController: ServiceWorkerController;
+   readonly taskTracker = new TaskTrackerImpl();
+   httpRpc = {
+     newEngineMode: 'USE_HTTP_RPC_IF_AVAILABLE' as NewEngineMode,
+@@ -155,6 +155,9 @@ export class AppImpl implements App {
+       self.location !== undefined &&
+       self.location.search.indexOf('testing=1') >= 0;
+     this.embedder = createEmbedder();
++    this.serviceWorkerController = new ServiceWorkerController(
++      this.embedder.installServiceWorker !== false,
++    );
+     this.sidebar = new SidebarManagerImpl({
+       disabled: this.embeddedMode || this.embedder.topbar !== undefined,
+       hidden: this.initialRouteArgs.hideSidebar,
+diff --git a/ui/src/core/embedder/embedder.ts b/ui/src/core/embedder/embedder.ts
+index e8152aabb5..95ee6bf807 100644
+--- a/ui/src/core/embedder/embedder.ts
++++ b/ui/src/core/embedder/embedder.ts
+@@ -51,6 +51,8 @@ export interface BrandingBadge {
+  * vs a third-party embedding).
+  */
+ export interface Embedder {
++  // Defaults to true. False disables registration and cache management.
++  readonly installServiceWorker?: boolean;
+   // Icon asset relative to the serving root. Undefined keeps the Perfetto icon.
+   readonly favicon?: {readonly src: string; readonly type: string};
+   readonly title?: string;
+diff --git a/ui/src/frontend/service_worker_controller.ts b/ui/src/frontend/service_worker_controller.ts
+index 98bf30e23a..b56fb3bea7 100644
+--- a/ui/src/frontend/service_worker_controller.ts
++++ b/ui/src/frontend/service_worker_controller.ts
+@@ -57,8 +57,13 @@ export class ServiceWorkerController {
+   private _bypassed = false;
+   private _installing = false;
+ 
++  constructor(private readonly enabled = true) {
++    this._bypassed = !enabled;
++  }
++
+   // Caller should reload().
+   async setBypass(bypass: boolean) {
++    if (!this.enabled) return;
+     if (!('serviceWorker' in navigator)) return; // Not supported.
+     this._bypassed = bypass;
+     if (bypass) {
+@@ -94,6 +99,7 @@ export class ServiceWorkerController {
+   }
+ 
+   async install() {
++    if (!this.enabled) return;
+     const versionDir = this.servingRoot.split('/').slice(-2)[0];
+ 
+     if (!('serviceWorker' in navigator)) return; // Not supported.
+diff --git a/ui/src/frontend/topbar.ts b/ui/src/frontend/topbar.ts
+index a324bd9393..b282035969 100644
+--- a/ui/src/frontend/topbar.ts
++++ b/ui/src/frontend/topbar.ts
+@@ -109,8 +109,10 @@ export class Topbar implements m.ClassComponent<TopbarAttrs> {
+       '.pf-topbar',
+       {
+         className: classNames(
+-          !app.sidebar.visible && 'pf-topbar--hide-sidebar',
+           topbar !== undefined && 'pf-topbar--navigation',
++          topbar === undefined &&
++            !app.sidebar.visible &&
++            'pf-topbar--hide-sidebar',
+         ),
+       },
+       topbar && m('.pf-topbar__navigation', m(topbar.navigation, {app})),
+@@ -119,7 +121,7 @@ export class Topbar implements m.ClassComponent<TopbarAttrs> {
+         '.pf-topbar__right',
+         topbar && m(topbar.actions, {app}),
+         trace && m(TraceErrorIcon, {trace}),
+-        renderSidePanelToggle(app.sidePanel),
++        !topbar && renderSidePanelToggle(app.sidePanel),
+       ),
+     );
+   }
