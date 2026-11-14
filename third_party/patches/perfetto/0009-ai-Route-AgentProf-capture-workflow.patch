@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Agentprof <agentprof@localhost>
 Date: Tue, 27 Oct 2026 09:10:25 -0700
-Subject: [PATCH 9/9] ai: Route AgentProf capture workflow
+Subject: [PATCH 09/12] ai: Route AgentProf capture workflow
 
 ---
  ai/skills/perfetto/SKILL-template.md | 5 +++--

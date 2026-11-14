@@ -1,0 +1,402 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Agentprof <agentprof@localhost>
+Date: Sat, 14 Nov 2026 12:11:06 -0800
+Subject: [PATCH 10/12] ui: Support opening secondary pages in a split pane
+ alongside primary page
+
+---
+ ui/src/core/page_manager.ts          | 119 +++++++++++++++++++++++++--
+ ui/src/core/page_manager_unittest.ts | 111 +++++++++++++++++++++++++
+ ui/src/frontend/index.ts             |  12 +++
+ ui/src/frontend/ui_main.scss         |  17 ++++
+ ui/src/frontend/ui_main.ts           |  25 +++++-
+ 5 files changed, 274 insertions(+), 10 deletions(-)
+ create mode 100644 ui/src/core/page_manager_unittest.ts
+
+diff --git a/ui/src/core/page_manager.ts b/ui/src/core/page_manager.ts
+index 02f4e68162..1849de434c 100644
+--- a/ui/src/core/page_manager.ts
++++ b/ui/src/core/page_manager.ts
+@@ -19,6 +19,9 @@ import type {PageHandler, PageManager} from '../public/page';
+ import type {Analytics} from '../public/analytics';
+ import {Router} from './router';
+ import {Gate} from '../base/mithril_utils';
++import {ResizeHandle} from '../widgets/resize_handle';
++
++const MIN_SPLIT_PANE_PX = 360;
+ 
+ export class PageManagerImpl implements PageManager {
+   private readonly registry = new Registry<PageHandler>((x) => x.route);
+@@ -29,6 +32,8 @@ export class PageManagerImpl implements PageManager {
+   // Track the current page for analytics - log when it changes
+   private currentPage: string | undefined;
+   private readonly analytics: Analytics;
++  private splitPercent = 50;
++  private splitContainerEl?: HTMLElement;
+ 
+   constructor(analytics: Analytics) {
+     this.analytics = analytics;
+@@ -42,8 +47,18 @@ export class PageManagerImpl implements PageManager {
+   }
+ 
+   // Called by index.ts upon the main frame redraw callback.
+-  renderPageForCurrentRoute(): m.Children {
++  // When `primaryPage` is provided (e.g. '/agentprof' or '/viewer' with the
++  // split-secondary-pages setting enabled), the primary page stays mounted in
++  // `.pf-page-split__primary` across viewport resizes so component state is
++  // preserved. When `splitOpenAllowed` is true (wide viewports), secondary
++  // routes open alongside it on the right; on narrow viewports, the active
++  // pane takes the full width instead.
++  renderPageForCurrentRoute(
++    primaryPage?: string,
++    splitOpenAllowed = true,
++  ): m.Children {
+     const route = Router.parseFragment(location.hash);
++    const activePage = route.page || '/';
+ 
+     // Log page changes to analytics
+     if (this.currentPage !== route.page) {
+@@ -51,8 +66,17 @@ export class PageManagerImpl implements PageManager {
+       setTimeout(() => this.analytics.logEvent('User Actions', route.page), 0);
+     }
+ 
+-    this.previousPages.set(route.page, {
+-      page: route.page,
++    const useSplitContainer =
++      primaryPage !== undefined &&
++      primaryPage !== '/' &&
++      this.registry.tryGet(primaryPage) !== undefined;
++
++    if (useSplitContainer && !this.previousPages.has(primaryPage)) {
++      this.previousPages.set(primaryPage, {page: primaryPage, subpage: ''});
++    }
++
++    this.previousPages.set(activePage, {
++      page: activePage,
+       subpage: route.subpage,
+     });
+ 
+@@ -61,18 +85,95 @@ export class PageManagerImpl implements PageManager {
+     // scrolling position is retained between page flips, which can be handy
+     // when quickly switching between pages that have long scrolling content
+     // such as the timeline page.
+-    return Array.from(this.previousPages.entries())
+-      .map(([key, {page, subpage}]) => {
++    const entries = Array.from(this.previousPages.entries()).map(
++      ([key, {page, subpage}]) => {
+         const maybeRenderedPage = this.renderPageForRoute(page, subpage);
+         // If either the route doesn't exist or requires a trace but the trace
+         // is not loaded, fall back on the default route.
+         const renderedPage =
+           maybeRenderedPage ?? ensureExists(this.renderPageForRoute('/', ''));
+-        return [key, renderedPage];
+-      })
+-      .map(([key, page]) => {
+-        return m(Gate, {open: key === route.page}, page);
++        return [key, renderedPage] as const;
++      },
++    );
++
++    if (!useSplitContainer) {
++      return entries.map(([key, page]) => {
++        return m(Gate, {key, open: key === activePage}, page);
+       });
++    }
++
++    const hasSecondaryActive =
++      activePage !== primaryPage &&
++      this.registry.tryGet(activePage) !== undefined;
++    const isSplitOpen = splitOpenAllowed && hasSecondaryActive;
++    const showPrimary = !hasSecondaryActive || splitOpenAllowed;
++
++    return m(
++      '.pf-page-split',
++      {
++        oncreate: (vnode: m.VnodeDOM) => {
++          this.splitContainerEl = vnode.dom as HTMLElement;
++        },
++        onupdate: (vnode: m.VnodeDOM) => {
++          this.splitContainerEl = vnode.dom as HTMLElement;
++        },
++      },
++      m(
++        '.pf-page-split__primary',
++        {
++          style: !showPrimary
++            ? {display: 'none'}
++            : isSplitOpen
++              ? {
++                  flex: `0 0 ${this.splitPercent}%`,
++                  minWidth: `${MIN_SPLIT_PANE_PX}px`,
++                  maxWidth: `calc(100% - ${MIN_SPLIT_PANE_PX}px)`,
++                }
++              : {
++                  flex: '1 1 100%',
++                },
++        },
++        entries
++          .filter(([key]) => key === primaryPage)
++          .map(([key, page]) => m(Gate, {key, open: showPrimary}, page)),
++      ),
++      isSplitOpen &&
++        m(ResizeHandle, {
++          direction: 'horizontal',
++          onResizeAbsolute: (pos: number) => {
++            const width =
++              this.splitContainerEl?.getBoundingClientRect().width ?? 0;
++            if (width <= 0) return;
++            const minPct = (MIN_SPLIT_PANE_PX / width) * 100;
++            const maxPct = 100 - minPct;
++            this.splitPercent = Math.max(
++              minPct,
++              Math.min(maxPct, (pos / width) * 100),
++            );
++            m.redraw();
++          },
++        }),
++      hasSecondaryActive &&
++        m(
++          '.pf-page-split__secondary',
++          {
++            style: isSplitOpen
++              ? {
++                  flex: `0 0 ${100 - this.splitPercent}%`,
++                  minWidth: `${MIN_SPLIT_PANE_PX}px`,
++                  maxWidth: `calc(100% - ${MIN_SPLIT_PANE_PX}px)`,
++                }
++              : {
++                  flex: '1 1 100%',
++                },
++          },
++          entries
++            .filter(([key]) => key !== primaryPage)
++            .map(([key, page]) =>
++              m(Gate, {key, open: key === activePage}, page),
++            ),
++        ),
++    );
+   }
+ 
+   // Will return undefined if either: (1) the route does not exist; (2) the
+diff --git a/ui/src/core/page_manager_unittest.ts b/ui/src/core/page_manager_unittest.ts
+new file mode 100644
+index 0000000000..3053951ab1
+--- /dev/null
++++ b/ui/src/core/page_manager_unittest.ts
+@@ -0,0 +1,111 @@
++// Copyright (C) 2026 The Android Open Source Project
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++import m from 'mithril';
++import type {Analytics} from '../public/analytics';
++import {PageManagerImpl} from './page_manager';
++
++const mockAnalytics: Analytics = {
++  logEvent: () => {},
++  logError: () => {},
++  isEnabled: () => false,
++};
++
++let root: HTMLDivElement;
++
++beforeEach(() => {
++  root = document.createElement('div');
++  document.body.appendChild(root);
++  location.hash = '';
++});
++
++afterEach(() => {
++  m.render(root, []);
++  root.remove();
++  location.hash = '';
++});
++
++test('PageManagerImpl renders secondary page alongside primary page when primaryPage is specified', () => {
++  const pages = new PageManagerImpl(mockAnalytics);
++  pages.registerPage({
++    route: '/',
++    render: () => m('.home-page', 'Home'),
++  });
++  pages.registerPage({
++    route: '/overview',
++    render: (subpage) => m('.overview-page', `Overview:${subpage ?? ''}`),
++  });
++  pages.registerPage({
++    route: '/viewer',
++    render: () => m('.viewer-page', 'Timeline'),
++  });
++
++  location.hash = '#!/overview/summary';
++  m.render(root, pages.renderPageForCurrentRoute('/overview'));
++
++  expect(root.querySelector('.pf-page-split')).not.toBeNull();
++  expect(root.querySelector('.pf-page-split__primary')?.textContent).toBe(
++    'Overview:/summary',
++  );
++  expect(root.querySelector('.pf-page-split__secondary')).toBeNull();
++
++  // Navigate to secondary route /viewer; primary /overview/summary stays open on the left
++  location.hash = '#!/viewer';
++  m.render(root, pages.renderPageForCurrentRoute('/overview'));
++
++  expect(root.querySelector('.pf-page-split__primary')?.textContent).toBe(
++    'Overview:/summary',
++  );
++  expect(
++    root.querySelectorAll('.pf-page-split__primary [data-gate-open]'),
++  ).toHaveLength(1);
++  expect(
++    root.querySelector('.pf-page-split__secondary .viewer-page')?.textContent,
++  ).toBe('Timeline');
++
++  // Navigating to '#!/?local_cache_key=' (where Router.parseFragment returns
++  // page === '') opens the '/' Welcome page in the secondary pane alongside
++  // the primary page.
++  location.hash = '#!/?local_cache_key=';
++  m.render(root, pages.renderPageForCurrentRoute('/overview'));
++  expect(root.querySelector('.pf-page-split__primary')?.textContent).toBe(
++    'Overview:/summary',
++  );
++  expect(
++    root.querySelector('.pf-page-split__secondary .home-page')?.textContent,
++  ).toBe('Home');
++
++  // On narrow viewports (splitOpenAllowed = false), the primary container stays
++  // in the tree (preserving component state across resizes) while hiding
++  // behind the full-width secondary route.
++  location.hash = '#!/viewer';
++  m.render(root, pages.renderPageForCurrentRoute('/overview', false));
++  expect(
++    (root.querySelector('.pf-page-split__primary') as HTMLElement)?.style
++      .display,
++  ).toBe('none');
++  expect(
++    root.querySelector('.pf-page-split__secondary .viewer-page')?.textContent,
++  ).toBe('Timeline');
++
++  // Without primaryPage (setting disabled), only the active route is open
++  location.hash = '#!/viewer';
++  m.render(root, pages.renderPageForCurrentRoute(undefined));
++  expect(root.querySelector('.pf-page-split')).toBeNull();
++  const gates = [...root.children] as HTMLElement[];
++  const openGateTexts = gates
++    .filter((g) => g.style.display !== 'none')
++    .map((g) => g.textContent);
++  expect(openGateTexts).toEqual(['Timeline']);
++});
+diff --git a/ui/src/frontend/index.ts b/ui/src/frontend/index.ts
+index 21a749b8cb..24f6b0f06f 100644
+--- a/ui/src/frontend/index.ts
++++ b/ui/src/frontend/index.ts
+@@ -379,6 +379,18 @@ function onCssLoaded(app: AppImpl) {
+     defaultValue: 'light',
+   } as const);
+ 
++  app.settings.register({
++    id: 'splitSecondaryPages',
++    name: 'Open secondary pages in split view',
++    description:
++      'When enabled on wide screens, navigating to secondary pages ' +
++      '(such as Query, Data Explorer, Trace Info, Settings, or Timeline ' +
++      'when an overview page is active) opens them in a resizable vertical ' +
++      'pane alongside the primary trace page.',
++    schema: z.boolean(),
++    defaultValue: false,
++  });
++
+   // Add command to toggle the theme.
+   app.commands.registerCommand({
+     id: 'dev.perfetto.ToggleTheme',
+diff --git a/ui/src/frontend/ui_main.scss b/ui/src/frontend/ui_main.scss
+index c322306fa5..294b78660b 100644
+--- a/ui/src/frontend/ui_main.scss
++++ b/ui/src/frontend/ui_main.scss
+@@ -38,3 +38,20 @@
+     overflow: auto;
+   }
+ }
++
++.pf-page-split {
++  display: flex;
++  flex-direction: row;
++  width: 100%;
++  height: 100%;
++  overflow: hidden;
++  position: relative;
++
++  &__primary,
++  &__secondary {
++    height: 100%;
++    min-width: 0;
++    min-height: 0;
++    overflow: auto;
++  }
++}
+diff --git a/ui/src/frontend/ui_main.ts b/ui/src/frontend/ui_main.ts
+index cdc4e2d43d..e79e380ccb 100644
+--- a/ui/src/frontend/ui_main.ts
++++ b/ui/src/frontend/ui_main.ts
+@@ -37,7 +37,11 @@ const APP_TITLE = document.title || 'Perfetto UI';
+ 
+ // This components gets destroyed and recreated every time the current trace
+ // changes. Note that in the beginning the current trace is undefined.
++const SPLIT_VIEWPORT_MIN_WIDTH_PX = 721;
++
+ export class UiMain implements m.ClassComponent {
++  private readonly onResize = () => AppImpl.instance.raf.scheduleFullRedraw();
++
+   // This function is invoked once per trace.
+   constructor() {
+     const app = AppImpl.instance;
+@@ -62,6 +66,17 @@ export class UiMain implements m.ClassComponent {
+       (trace?.engine.numRequestsPending ?? 0) > 0 ||
+       taskTracker.hasPendingTasks();
+ 
++    const splitSecondary =
++      app.settings.get<boolean>('splitSecondaryPages')?.get() ?? false;
++    const isWideViewport =
++      typeof window === 'undefined' ||
++      (window.innerWidth || SPLIT_VIEWPORT_MIN_WIDTH_PX) >=
++        SPLIT_VIEWPORT_MIN_WIDTH_PX;
++    const primaryPage =
++      splitSecondary && trace && !app.isLoadingTrace
++        ? (trace.initialPage.getWinner() ?? '/viewer')
++        : undefined;
++
+     return m('main.pf-ui-main', [
+       m(Sidebar, {app}),
+       m(Topbar, {trace}),
+@@ -73,7 +88,10 @@ export class UiMain implements m.ClassComponent {
+         '.pf-ui-main__page-container',
+         m(SidePanelContainer, {
+           sidePanelMgr: app.sidePanel,
+-          pageContent: app.pages.renderPageForCurrentRoute(),
++          pageContent: app.pages.renderPageForCurrentRoute(
++            primaryPage,
++            isWideViewport,
++          ),
+         }),
+       ),
+       m(CookieConsent),
+@@ -85,5 +103,10 @@ export class UiMain implements m.ClassComponent {
+ 
+   oncreate({dom}: m.VnodeDOM) {
+     initCssConstants(dom);
++    window.addEventListener('resize', this.onResize);
++  }
++
++  onremove() {
++    window.removeEventListener('resize', this.onResize);
+   }
+ }
