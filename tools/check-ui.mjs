@@ -701,6 +701,21 @@ try {
   await classicRow.getByRole('button', {name: /^Show details for session/}).click();
   await classicRow.locator('xpath=following-sibling::tr[1]').locator('code').waitFor();
   assert.equal(await classicRow.locator('xpath=following-sibling::tr[1]').locator('code').count(), 1);
+  // Pinning a baseline shows neutral differences versus it, never a verdict.
+  const codeModeRow = comparisonRows.filter({has: page.getByText('model-0', {exact: true})});
+  await codeModeRow.getByRole('button', {name: /^Set session .* as baseline/}).click();
+  await page.locator('.ap-baseline-bar').waitFor();
+  assert.ok((await page.locator('.ap-baseline-bar').textContent()).includes('Baseline:'));
+  assert.equal(await codeModeRow.locator('.ap-baseline-badge').textContent(), 'Baseline');
+  assert.ok(await classicRow.locator('.ap-delta').count() > 0, 'session rows show deltas versus the baseline');
+  assert.ok(await classicRow.locator('xpath=following-sibling::tr[1]').locator('.ap-delta').count() > 0,
+    'expanded session details show deltas versus the baseline');
+  assert.ok((await classicRow.locator('.ap-delta').first().textContent()).includes('vs base'));
+  assert.ok(await page.getByText(/not evidence that one run was better/).count() >= 1);
+  await page.getByRole('button', {name: 'Clear baseline'}).click();
+  await page.locator('.ap-baseline-bar').waitFor({state: 'detached'});
+  assert.equal(await page.locator('.ap-baseline-bar').count(), 0);
+  assert.equal(await classicRow.locator('.ap-delta').count(), 0);
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   const actualStarts = await page.evaluate(async () => {
     const result = await window.app.trace.engine.query(`

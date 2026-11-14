@@ -10,6 +10,15 @@
   .ap-selectors {gap: 16px;}
   .ap-selector {gap: 8px;}
   .ap-banner {display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 12px; background: var(--pf-color-background-secondary); border-radius: 3px; overflow-wrap: anywhere;}
+  .ap-baseline-bar {display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 28px 0; padding: 8px 12px; border: 1px solid var(--pf-color-border); border-left: 3px solid var(--pf-color-accent); border-radius: 3px; background: var(--pf-color-background-secondary);}
+  .ap-baseline-bar__label {flex: 1 1 auto; min-width: 200px; overflow-wrap: anywhere;}
+  .ap-baseline-bar__modes {display: flex; align-items: center; gap: 4px;}
+  .ap-delta {display: block; font-size: var(--pf-font-size-xs); color: var(--pf-color-text-muted); font-variant-numeric: tabular-nums; white-space: nowrap;}
+  .ap-session-fact .ap-delta {display: inline; margin-left: 6px; white-space: normal;}
+  .ap-baseline-badge, .ap-differs-badge {display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 8px; font-size: var(--pf-font-size-xs); font-weight: 600; vertical-align: middle;}
+  .ap-baseline-badge {background: var(--pf-color-accent); color: var(--pf-color-background);}
+  .ap-differs-badge {border: 1px solid var(--pf-color-border); color: var(--pf-color-text-muted); font-weight: 500;}
+  .ap-row--baseline > td, .ap-session-table > tbody > .ap-session-row--baseline > td {background: color-mix(in srgb, var(--pf-color-accent) 8%, transparent);}
   .ap-label {font-size: var(--pf-font-size-s); text-transform: uppercase; letter-spacing: .5px; color: var(--pf-color-text-muted);}
   .ap-tabs {height: auto;}
   // Keep the divider inside the scroll area so the active tab can cover it.
@@ -60,13 +69,13 @@
   .ap-session-table {table-layout: fixed;}
   .ap-session-table > thead > tr > th:nth-child(1) {width: 5%;}
   .ap-session-table > thead > tr > th:nth-child(2) {width: 13%;}
-  .ap-session-table > thead > tr > th:nth-child(3) {width: 27%;}
+  .ap-session-table > thead > tr > th:nth-child(3) {width: 23%;}
   .ap-session-table > thead > tr > th:nth-child(4) {width: 12%;}
   .ap-session-table > thead > tr > th:nth-child(5) {width: 12%;}
   .ap-session-table > thead > tr > th:nth-child(6) {width: 15%;}
   .ap-session-table > thead > tr > th:nth-child(7) {width: 5%;}
   .ap-session-table > thead > tr > th:nth-child(8) {width: 7%;}
-  .ap-session-table > thead > tr > th:nth-child(9) {width: 4%;}
+  .ap-session-table > thead > tr > th:nth-child(9), .ap-session-table > thead > tr > th:nth-child(10) {width: 4%;}
   .ap-session-table--subagents > thead > tr > th:nth-child(1) {width: 5%;}
   .ap-session-table--subagents > thead > tr > th:nth-child(2) {width: 15%;}
   .ap-session-table--subagents > thead > tr > th:nth-child(3) {width: 32%;}

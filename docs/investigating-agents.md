@@ -94,6 +94,18 @@ in the two capture implementations.
 
 ## Compare captures
 
+Pin a session as the **baseline** (bookmark button on its row in the Sessions
+tab) to see every other session's metrics in the Summary and Sessions tables
+with the difference versus that baseline underneath: recorded window,
+input/output tokens, tokens/s, context, turns, responses, and tool calls. The
+baseline bar switches differences between absolute + percent, percent only, and
+off, and clears the baseline. Sessions can be completely different tasks, so a
+difference only describes the two recordings — it is never evidence that one
+run was better, and harness/model/effort are marked as differing rather than
+subtracted. Context share is compared only when both sessions recorded the
+same context window; otherwise the peak-context token difference is shown.
+Missing measurements stay “Not recorded” and get no difference.
+
 **What happened in this recording?** shows aggregate output tokens per second,
 the elapsed wall window, measured model-busy time, and peak concurrent model
 responses above one row per session.

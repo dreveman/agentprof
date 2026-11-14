@@ -16,6 +16,7 @@ import {OverviewLoader, type OverviewTab} from './overview_loader';
 import {ContextView, contextSummary} from './context_view';
 import {toolDescription} from './tool_description';
 import {modelDisplayName} from './model_display';
+import {deltaText, type DeltaKind, type DeltaMode} from './baseline';
 import {turnEventsQuery, turnsPageQuery} from './turns_queries';
 import {TurnsView} from './turns_view';
 import './overview.scss';
@@ -149,6 +150,13 @@ function activitySeries(rows: Row[]): Map<number, (number | null)[]> {
   }
   return byCapture;
 }
+const DELTA_KINDS: Record<string, DeltaKind> = {
+  input_tokens: 'tokens', output_tokens: 'tokens', peak_context: 'tokens',
+  tokens_per_s: 'rate', context_share: 'share', duration_ms: 'duration',
+  model_busy_ms: 'duration', turns: 'count', responses: 'count', tools: 'count',
+  subagents: 'count', peak_model_responses: 'count', incomplete: 'count',
+};
+
 function sessionFact(label: string, contents: m.Children, title?: string): m.Children {
   return m('.ap-session-fact', {title}, m('.ap-label', label), m('.ap-session-fact__value', contents));
 }
@@ -198,6 +206,8 @@ function modelIdentity(row: Row): m.Children {
 
 export class Overview implements m.ClassComponent<Attrs> {
   private tab: Tab = 'Summary';
+  private baselineCaptureId: number | undefined;
+  private deltaMode: DeltaMode = 'both';
   private readonly data: Partial<Record<Section, State>> = {};
   private readonly expandedSessions = new Set<number>();
   private readonly expandedScripts = new Set<number>();
@@ -227,6 +237,65 @@ export class Overview implements m.ClassComponent<Attrs> {
   private selectTab(tab: Tab) {
     this.tab = tab;
     this.loader?.open(tab);
+  }
+
+  private isBaseline(row: Row): boolean {
+    return this.baselineCaptureId !== undefined && number(row.capture_id) === this.baselineCaptureId;
+  }
+
+  /** The baseline's row within the same query result, so compared rows share
+   * one rollup semantics (Summary roots include subagents; Sessions roots
+   * are compared with the baseline's own root row there). */
+  private baselineRowFor(rows?: Row[]): Row | undefined {
+    if (this.baselineCaptureId === undefined) return undefined;
+    return rows?.find(row => number(row.capture_id) === this.baselineCaptureId &&
+      (row.root_capture_id === undefined || number(row.root_capture_id) === this.baselineCaptureId));
+  }
+
+  private deltaSpan(row: Row, key: string, baselineRow?: Row): m.Children {
+    if (baselineRow === undefined || this.deltaMode === 'off' || this.isBaseline(row)) return undefined;
+    const kind = DELTA_KINDS[key];
+    if (kind === undefined) return undefined;
+    if (key === 'context_share') {
+      if (row[key] === null || row[key] === undefined || baselineRow[key] === null || baselineRow[key] === undefined) return undefined;
+      const window = number(row.context_window_tokens), baseWindow = number(baselineRow.context_window_tokens);
+      if (!(window > 0) || !(baseWindow > 0)) return undefined;
+      if (window !== baseWindow) return m('span.ap-delta', {
+        title: 'Context windows differ between these sessions, so context share is not compared; peak context tokens are.',
+      }, 'different windows');
+    }
+    const text = deltaText(row[key], baselineRow[key], kind, this.deltaMode);
+    if (text === undefined) return undefined;
+    return m('span.ap-delta', {
+      title: `Baseline value: ${value(baselineRow[key])}`,
+      'aria-label': `difference versus baseline: ${text}`,
+    }, `${text} vs base`);
+  }
+
+  private differsBadge(row: Row, baselineRow?: Row): m.Children {
+    if (baselineRow === undefined || this.isBaseline(row)) return undefined;
+    const differs = ['harness', 'model', 'effort'].filter(key => value(row[key]) !== value(baselineRow[key]));
+    if (differs.length === 0) return undefined;
+    return m('span.ap-differs-badge', {
+      title: `Baseline ${differs.map(key => `${key}: ${value(baselineRow[key])}`).join(' · ')}`,
+    }, 'differs');
+  }
+
+  private baselineBar(): m.Children {
+    if (this.baselineCaptureId === undefined) return undefined;
+    const row = this.baselineRowFor(this.data.runs?.rows) ?? this.baselineRowFor(this.data.sessions?.rows);
+    const modes: [DeltaMode, string][] = [['both', '± + %'], ['percent', '%'], ['off', 'Off']];
+    return m('.ap-baseline-bar', {role: 'status'},
+      m(Icon, {icon: 'bookmark'}),
+      m('span.ap-baseline-bar__label', 'Baseline: ',
+        m('strong', row ? sessionExcerpt(row.prompt_text, row.session) : `session ${this.baselineCaptureId}`),
+        row && m('span.ap-muted', ` · ${value(row.harness)} · ${value(row.model)}`)),
+      m('span.ap-baseline-bar__modes', m('span.ap-label', 'Deltas'), modes.map(([mode, label]) =>
+        m(Button, {label, compact: true, 'aria-pressed': String(this.deltaMode === mode),
+          variant: this.deltaMode === mode ? ButtonVariant.Filled : ButtonVariant.Minimal,
+          onclick: () => {this.deltaMode = mode;}}))),
+      m(Button, {label: 'Clear baseline', icon: 'bookmark_remove', compact: true,
+        variant: ButtonVariant.Minimal, onclick: () => {this.baselineCaptureId = undefined;}}));
   }
 
   private section(key: Section, render: (rows: Row[]) => m.Children, allowEmpty = false): m.Children {
@@ -290,7 +359,7 @@ export class Overview implements m.ClassComponent<Attrs> {
   }
 
   private table(rows: Row[], columns: [string, string][], trace?: Trace, clockAligned = true,
-                seriesByCapture?: Map<number, (number | null)[]>): m.Children {
+                seriesByCapture?: Map<number, (number | null)[]>, baselineRow?: Row): m.Children {
     const rates = columns.some(([key]) => key === 'tokens_per_s') ? rows
       .map(row => row.tokens_per_s).filter(rate => rate !== null && rate !== undefined)
       .map(rate => Number(rate)).filter(rate => Number.isFinite(rate) && rate >= 0) : [];
@@ -305,12 +374,13 @@ export class Overview implements m.ClassComponent<Attrs> {
           key === 'tokens_per_s' && fastestRate !== undefined ?
             'Output tokens per measured model-response second; dots share a 0-to-fastest-session scale' : undefined,
       }, label)))),
-      m('tbody', rows.map(row => m('tr', columns.map(([key, label], index) => m('td', {
+      m('tbody', rows.map(row => m('tr', {className: baselineRow !== undefined && this.isBaseline(row) ? 'ap-row--baseline' : undefined},
+        columns.map(([key, label], index) => m('td', {
         'data-label': label,
         className: cellClass(key),
         title: key === 'prompt_text' ? row.prompt_id === null || row.prompt_id === undefined ? value(row.session) : undefined :
           key === 'model' || key === 'harness' || key === 'description' ? undefined : value(row[key])},
-        key === 'description' ? invocationDescription(row) :
+        [key === 'description' ? invocationDescription(row) :
         key === 'prompt_text' ? trace ? sessionName(row, trace) :
           m('span.ap-prompt-fallback', sessionExcerpt(row.prompt_text, row.session)) :
           index === 0 && trace && row.id !== undefined ? m(Button, {
@@ -339,32 +409,35 @@ export class Overview implements m.ClassComponent<Attrs> {
           (key === 'is_error' || key === 'incomplete') && trace && row.id !== undefined && row[key] !== null
             ? (number(row[key]) ? 'Yes' : 'No') :
             key === 'session' && value(row[key]).length > 20 ? `${value(row[key]).slice(0, 12)}…` : value(row[key]),
-      ))))),
+        key === 'model' ? this.differsBadge(row, baselineRow) : undefined,
+        this.deltaSpan(row, key, baselineRow)]))))),
     ));
   }
 
   private sessionDetails(row: Row, clockAligned: boolean,
-                         fastestRate: number | undefined, nested: boolean): m.Children {
+                         fastestRate: number | undefined, nested: boolean,
+                         baselineRow?: Row): m.Children {
+    const fact = (key: string) => this.deltaSpan(row, key, baselineRow);
     return m('.ap-session-details',
       sessionFact('Session ID', m('code', value(row.session))),
       sessionFact('Role', value(row.role)),
       sessionFact('Capture', value(row.capture)),
       sessionFact('Effort', typeof row.effort === 'string' ? row.effort.split(',').map(v =>
         v.charAt(0).toUpperCase() + v.slice(1)).join(', ') : value(row.effort)),
-      sessionFact('Input tokens', tokens(row.input_tokens)),
-      sessionFact('Output tokens', tokens(row.output_tokens)),
+      sessionFact('Input tokens', [tokens(row.input_tokens), fact('input_tokens')]),
+      sessionFact('Output tokens', [tokens(row.output_tokens), fact('output_tokens')]),
       nested && sessionFact('Tokens/s', rateMarker(row.tokens_per_s, fastestRate)),
       nested && sessionFact('Context usage', shareBar(row.context_share,
         'Highest recorded context share in this capture', true)),
-      sessionFact('Peak context', tokens(row.peak_context)),
+      sessionFact('Peak context', [tokens(row.peak_context), fact('peak_context')]),
       sessionFact('Max context window', tokens(row.context_window_tokens)),
       sessionFact('Model busy', !clockAligned ? 'Unavailable' :
         row.model_busy_ms === null || row.model_busy_ms === undefined ? 'Not recorded' :
           number(row.duration_ms) > 0 ? shareBar(number(row.model_busy_ms) / number(row.duration_ms),
             'Share of this capture’s recorded window', true) : 'Not recorded'),
       sessionFact('Peak responses', !clockAligned ? 'Unavailable' : value(row.peak_model_responses)),
-      sessionFact('Responses', value(row.responses)),
-      sessionFact('Tool calls', value(row.tools)),
+      sessionFact('Responses', [value(row.responses), fact('responses')]),
+      sessionFact('Tool calls', [value(row.tools), fact('tools')]),
       number(row.incomplete) > 0 && sessionFact('Incomplete operations', value(row.incomplete)));
   }
 
@@ -381,11 +454,13 @@ export class Overview implements m.ClassComponent<Attrs> {
       ['harness', 'Agent'], ['model', 'Model'], ['prompt_text', 'Session'],
       ['tokens_per_s', 'Tokens/s'], ['context_share', 'Context usage'],
       ['duration_ms', 'Recorded window'], ['turns', 'Turns'],
-      ['subagents', 'Subagents'], ['expand', ''],
+      ['subagents', 'Subagents'], ['baseline', ''], ['expand', ''],
     ];
+    const baselineRow = nested ? undefined : this.baselineRowFor(allRows);
     return m('table.ap-session-table', {className: nested ? 'ap-session-table--subagents' : undefined},
       m('thead', m('tr', columns.map(([key, label]) => m('th',
-        key === 'expand' ? {'aria-label': 'Expand session'} : {}, label)))),
+        key === 'expand' ? {'aria-label': 'Expand session'} :
+        key === 'baseline' ? {'aria-label': 'Baseline'} : {}, label)))),
       m('tbody', rows.flatMap(row => {
         const id = number(row.capture_id);
         const expanded = this.expandedSessions.has(id);
@@ -395,10 +470,24 @@ export class Overview implements m.ClassComponent<Attrs> {
         };
         const children = nested ? [] : allRows.filter(child =>
           number(child.root_capture_id) === id && number(child.capture_id) !== id);
+        const isBaseline = !nested && this.isBaseline(row);
         const cells = columns.map(([key, label]) => m('td', {'data-label': label},
-          key === 'harness' ? harnessIcons(row.harness) :
-          key === 'model' ? modelIdentity(row) :
-          key === 'prompt_text' ? sessionName(row, trace) :
+          [key === 'harness' ? harnessIcons(row.harness) :
+          key === 'model' ? [modelIdentity(row), this.differsBadge(row, baselineRow)] :
+          key === 'prompt_text' ? [sessionName(row, trace),
+            isBaseline && m('span.ap-baseline-badge', 'Baseline')] :
+          key === 'baseline' ? m(Button, {
+            icon: isBaseline ? 'bookmark' : 'bookmark_border',
+            'aria-label': isBaseline ? `Remove baseline from session ${value(row.session)}` :
+              `Set session ${value(row.session)} as baseline`,
+            'aria-pressed': String(isBaseline),
+            title: isBaseline ? 'Baseline session — click to clear' : 'Set as baseline',
+            compact: true, variant: ButtonVariant.Minimal,
+            onclick: (event: MouseEvent) => {
+              event.stopPropagation();
+              this.baselineCaptureId = isBaseline ? undefined : id;
+            },
+          }) :
           key === 'tokens_per_s' ? rateMarker(row.tokens_per_s, fastestRate) :
           key === 'context_share' ? shareBar(row.context_share,
             'Highest recorded context share in this capture', true) :
@@ -416,12 +505,14 @@ export class Overview implements m.ClassComponent<Attrs> {
               event.stopPropagation();
               toggle();
             },
-          }) : value(row[key])));
+          }) : value(row[key]),
+          key === 'baseline' || key === 'expand' ? undefined : this.deltaSpan(row, key, baselineRow)]));
         return [m('tr.ap-session-row', {onclick: toggle,
-          className: expanded ? 'ap-session-row--expanded' : undefined}, cells),
+          className: [expanded ? 'ap-session-row--expanded' : undefined,
+            isBaseline ? 'ap-session-row--baseline' : undefined].filter(Boolean).join(' ') || undefined}, cells),
           expanded && m('tr.ap-session-expanded',
             m('td', {colSpan: columns.length, id: `ap-session-details-${id}`},
-              this.sessionDetails(row, clockAligned, fastestRate, nested),
+              this.sessionDetails(row, clockAligned, fastestRate, nested, baselineRow),
               children.length > 0 && [
                 m('h3.ap-subheading', 'Subagent sessions'),
                 this.sessionTable(children, allRows, trace, clockAligned, seriesByCapture, true),
@@ -474,9 +565,11 @@ export class Overview implements m.ClassComponent<Attrs> {
                 ['tokens_per_s', 'Tokens/s'], ['context_share', 'Context usage'],
                 ['duration_ms', 'Recorded window'], ['model_busy_ms', 'Model busy'],
               ];
-              return this.table(rows, columns, trace, aligned, seriesByCapture);
+              return this.table(rows, columns, trace, aligned, seriesByCapture, this.baselineRowFor(rows));
             }))),
             m('p.ap-muted', 'Session totals include subagents. Tokens/s uses measured responses with output tokens; dots share one scale.'),
+            this.baselineCaptureId !== undefined && m('p.ap-muted',
+              'Differences versus the baseline describe these recordings only. Sessions may be different tasks, models, or harnesses; a difference is not evidence that one run was better.'),
           ], 'Sessions'),
           this.card('Where was time spent?', `Measured model-response and completed tool intervals across ${scope}. Concurrent work is counted once.`,
             this.section('activity', ([a]) => {
@@ -553,10 +646,13 @@ export class Overview implements m.ClassComponent<Attrs> {
               ['duration_ms', 'Observed duration'], ['is_error', 'Error'], ['incomplete', 'Incomplete']], trace))),
         ] : this.tab === 'Context' ? this.card('Context over time',
           'Inspect up to the latest 2,000 observations and 500 largest item changes. The timeline retains all data.', this.context(trace))
-          : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. The Overview combines their activity.',
-          this.section('sessions', rows => this.section('capture_activity', seriesRows =>
+          : this.card('Captured sessions', 'Expand a session for its details and subagent sessions. Pin a session as the baseline to see differences versus it. The Overview combines their activity.',
+          this.section('sessions', rows => this.section('capture_activity', seriesRows => [
+            this.baselineCaptureId !== undefined && m('p.ap-muted',
+              'Differences versus the baseline describe these recordings only; they are not evidence that one run was better.'),
             this.sessionTable(rows.filter(row => number(row.capture_id) === number(row.root_capture_id)),
-              rows, trace, aligned, activitySeries(seriesRows))))),
+              rows, trace, aligned, activitySeries(seriesRows)),
+          ]))),
       );
     const tabs: [Tab, string][] = [
       ['Summary', 'dashboard'], ['Turns', 'forum'],
@@ -582,6 +678,7 @@ export class Overview implements m.ClassComponent<Attrs> {
           m(Button, {label: 'Open timeline', icon: 'timeline',
             variant: ButtonVariant.Filled, onclick: () => navigate(trace, '/viewer')})),
         m('.ap-banner', m(Icon, {icon: 'smart_toy'}), `Recording ${trace.traceInfo.traceTitle || 'multiple traces'}`)),
+      this.baselineBar(),
       m(Tabs, {className: 'ap-tabs', activeTabKey: this.tab,
         onTabChange: key => this.selectTab(key as Tab),
         tabs: tabs.map(([tab, icon]) => ({key: tab, title: tab, leftIcon: icon,
