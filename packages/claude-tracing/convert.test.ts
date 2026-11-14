@@ -6,8 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {convertObservations, type Observation} from './convert.ts';
 import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
-import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../tools/stdlib-sql.ts';
 
 const epoch = 1_790_000_000_000_000_000n;
 const at = (ms: number) => String(epoch + BigInt(ms) * 1_000_000n);
@@ -56,9 +55,9 @@ function query(rows: Observation[], sql: string): string {
   try {
     const {trace} = convertObservations(rows);
     writeFileSync(join(directory, 'trace.pftrace'), trace);
-    writeFileSync(join(directory, 'check.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${sql}`);
+    writeFileSync(join(directory, 'check.sql'), `${INCLUDE_CORE_MODULES_SQL}\n${sql.replace(/(?<!debug\.|dev_)\bagentprof_/g, 'dev_agentprof_')}`);
     const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-      [join(directory, 'trace.pftrace'), '-q', join(directory, 'check.sql')], {encoding: 'utf8'});
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(directory, 'trace.pftrace'), '-q', join(directory, 'check.sql')], {encoding: 'utf8'});
     if (result.status !== 0) throw new Error(result.stderr || String(result.error));
     return result.stdout;
   } finally {rmSync(directory, {recursive: true, force: true});}
@@ -67,7 +66,7 @@ test('native timestamps, deduplication, logical subagents, flows and counters su
   const result = convertObservations(fixture());
   expect(result.summary).toMatchObject({sessions: 2, responses: 3, tools: 2, nativeSpans: 9, compactions: 1});
   const output = query(fixture(), `SELECT
-    (${DETECT_SQL}) = 2 AS detected_captures,
+    (SELECT count FROM dev_agentprof_detected) = 2 AS detected_captures,
     (SELECT COUNT(*) FROM process WHERE pid != 0) = 1 AND
       (SELECT COUNT(*) FROM process WHERE pid = 12345 AND name = 'claude') = 1 AS one_real_process,
     (SELECT COUNT(*) FROM agentprof_capture_runs) = 2 AS two_sessions,

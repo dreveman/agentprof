@@ -6,8 +6,7 @@ import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {readExport} from './native.ts';
 import {convert, type Capture} from './convert.ts';
-import {DETECT_SQL, SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../tools/stdlib-sql.ts';
 
 export const root = '11111111-1111-4111-8111-111111111111', child = '22222222-2222-4222-8222-222222222222';
 const base = 1791128200000000000n;
@@ -53,9 +52,9 @@ function query(f: ReturnType<typeof fixture>, sql: string) {
   const directory = mkdtempSync(join(tmpdir(), 'muse-trace-'));
   try {
     writeFileSync(join(directory, 'trace.pftrace'), convert(f.capture, f.sessions).trace);
-    writeFileSync(join(directory, 'query.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${sql}`);
+    writeFileSync(join(directory, 'query.sql'), `${INCLUDE_CORE_MODULES_SQL}\n${sql.replace(/(?<!debug\.)\bagentprof_/g, 'dev_agentprof_')}`);
     const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-      [join(directory, 'trace.pftrace'), '-q', join(directory, 'query.sql')], {encoding: 'utf8'});
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(directory, 'trace.pftrace'), '-q', join(directory, 'query.sql')], {encoding: 'utf8'});
     if (result.status !== 0) throw new Error(result.stderr || String(result.error));
     return result.stdout.trim().split('\n').at(-1);
   } finally {rmSync(directory, {recursive: true, force: true});}
@@ -63,7 +62,7 @@ function query(f: ReturnType<typeof fixture>, sql: string) {
 test('Muse measurements import with scoped sessions, usage, context, flows and real process identity', () => {
   const f = fixture();
   expect(convert(f.capture, f.sessions).summary).toMatchObject({sessions: 2, responses: 3, tools: 1, inputTokens: 250, outputTokens: 18});
-  expect(query(f, `SELECT (${DETECT_SQL}) = 2,
+  expect(query(f, `SELECT (SELECT count FROM dev_agentprof_detected) = 2,
     (SELECT COUNT(*) FROM stats WHERE severity='error' AND value>0)=0,
     (SELECT SUM(dur) FROM agentprof_messages)=145000000,
     (SELECT SUM(input_tokens) FROM agentprof_capture_runs)=250,

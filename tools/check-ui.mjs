@@ -51,7 +51,7 @@ try {
         return track?.tags?.utid === undefined ? [] : [{name: node.name, uri: node.uri,
           utid: track.tags.utid, trackIds: track.tags.trackIds}];
       });
-      const captures = await trace.engine.query("SELECT track_id, utid FROM agentprof_slices WHERE name IN ('profile (1)', 'prompt', 'attempt', 'turn')");
+      const captures = await trace.engine.query("SELECT track_id, utid FROM dev_agentprof_slices WHERE name IN ('profile (1)', 'prompt', 'attempt', 'turn')");
       const ids = [];
       for (const it = captures.iter({}); it.valid(); it.next())
         ids.push({id: Number(it.get('track_id')), utid: Number(it.get('utid'))});
@@ -72,8 +72,8 @@ try {
       const trace = window.app.trace;
       const result = await trace.engine.query(`
         SELECT t.id, t.capture_id, cap.label, t.display_name AS name, COUNT(*) AS samples
-        FROM agentprof_counter_tracks t JOIN counter c ON c.track_id = t.id
-        LEFT JOIN agentprof_captures cap ON cap.capture_id = t.capture_id
+        FROM dev_agentprof_counter_tracks t JOIN counter c ON c.track_id = t.id
+        LEFT JOIN dev_agentprof_captures cap ON cap.capture_id = t.capture_id
         WHERE t.name IN ('llm.tokens.input', 'llm.tokens.output',
           'llm.context.estimated_tokens', 'llm.context.window_tokens')
         GROUP BY t.id ORDER BY t.id`);
@@ -210,7 +210,7 @@ try {
     assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 1);
     assert.equal(await page.locator('.ap-session-summary .ap-model-name').innerText(), model);
     const recordedHarness = await page.evaluate(async () => {
-      const result = await window.app.trace.engine.query('SELECT DISTINCT harness FROM agentprof_capture_runs');
+      const result = await window.app.trace.engine.query('SELECT DISTINCT harness FROM dev_agentprof_capture_runs');
       return result.iter({}).get('harness');
     });
     assert.equal(recordedHarness, harness);
@@ -228,7 +228,7 @@ try {
       const manifest = JSON.parse(await readFile('examples/muse-coding/recording.json', 'utf8'));
       if (manifest.unavailableChildren > 0) await page.getByText(`${manifest.unavailableChildren} child sessions have no retained recording. Their model work and token usage are unavailable.`, {exact: true}).waitFor();
       const captures = await page.evaluate(async () => {
-        const result = await window.app.trace.engine.query('SELECT COUNT(*) AS n FROM agentprof_capture_runs');
+        const result = await window.app.trace.engine.query('SELECT COUNT(*) AS n FROM dev_agentprof_capture_runs');
         return Number(result.iter({}).get('n'));
       });
       assert.equal(captures, manifest.recordings.length);
@@ -324,7 +324,7 @@ try {
     const nodes = trace.currentWorkspace.flatTracks;
     const tools = nodes.filter(n => n.name === 'Tools').map(n => ({uri: n.uri,
       ids: trace.tracks.getTrack(n.uri).tags.trackIds}));
-    const result = await trace.engine.query("SELECT DISTINCT track_id FROM agentprof_slices WHERE kind='tool-execution'");
+    const result = await trace.engine.query("SELECT DISTINCT track_id FROM dev_agentprof_slices WHERE kind='tool-execution'");
     const ids = [];
     for (const it = result.iter({}); it.valid(); it.next()) ids.push(Number(it.get('track_id')));
     return {tools, ids, names: nodes.map(n => n.name)};
@@ -474,7 +474,7 @@ try {
       assert.equal(await runSummary.getByRole('columnheader', {name, exact: true}).count(), 0);
     }
     const starts = await page.evaluate(async () => {
-      const result = await window.app.trace.engine.query('SELECT session, CAST(MIN(ts) AS TEXT) AS start_ns FROM agentprof_slices GROUP BY capture_id, session');
+      const result = await window.app.trace.engine.query('SELECT session, CAST(MIN(ts) AS TEXT) AS start_ns FROM dev_agentprof_slices GROUP BY capture_id, session');
       const values = {};
       for (const it = result.iter({}); it.valid(); it.next()) values[it.get('session')] = it.get('start_ns');
       return values;
@@ -485,7 +485,7 @@ try {
         const result = await window.app.trace.engine.query(`
           SELECT DISTINCT p.session AS parent, c.session AS child,
             EXTRACT_ARG(c.arg_set_id, 'debug.subagent_type') AS role
-          FROM agentprof_slices p JOIN agentprof_slices c
+          FROM dev_agentprof_slices p JOIN dev_agentprof_slices c
             ON EXTRACT_ARG(p.arg_set_id, 'debug.child_session') = c.session
           WHERE EXTRACT_ARG(p.arg_set_id, 'debug.delegation') = 1 AND c.name IN ('profile (1)', 'child-start subagent')
             AND EXTRACT_ARG(c.arg_set_id, 'debug.parent_session') = p.session`);
@@ -570,7 +570,7 @@ try {
     assert.ok(realProcesses.some(group => group.subtitle?.includes(`session:${r.sessionId}`)));
   }
   const recordedPromptId = await page.evaluate(async sessionId => {
-    const result = await window.app.trace.engine.query(`SELECT id FROM agentprof_slices
+    const result = await window.app.trace.engine.query(`SELECT id FROM dev_agentprof_slices
       WHERE name = 'prompt' AND session = '${sessionId}' LIMIT 1`);
     return Number(result.iter({}).get('id'));
   }, recorded.workflow.parentSessionId);
@@ -720,7 +720,7 @@ try {
   const actualStarts = await page.evaluate(async () => {
     const result = await window.app.trace.engine.query(`
       SELECT capture, CAST(MIN(ts) AS TEXT) AS start_ns
-      FROM agentprof_slices GROUP BY capture_id, capture`);
+      FROM dev_agentprof_slices GROUP BY capture_id, capture`);
     const rows = {};
     for (const it = result.iter({}); it.valid(); it.next()) rows[it.get('capture')] = it.get('start_ns');
     return rows;
@@ -869,7 +869,7 @@ try {
   assert.equal(await page.locator('.ap-session-summary tbody tr').count(), 2);
   const harnessExample = await page.evaluate(async () => {
     const result = await window.app.trace.engine.query(`SELECT harness, session_labels, COUNT(*) AS sessions
-      FROM agentprof_capture_runs GROUP BY harness, session_labels ORDER BY harness, session_labels`);
+      FROM dev_agentprof_capture_runs GROUP BY harness, session_labels ORDER BY harness, session_labels`);
     const sessions = [];
     for (const it = result.iter({}); it.valid(); it.next()) sessions.push({harness: it.get('harness'),
       labels: JSON.parse(it.get('session_labels') ?? '[]'), count: Number(it.get('sessions'))});
@@ -973,9 +973,10 @@ try {
   const cardTitles = await page.locator('.ap-card-header h2').allTextContents();
   assert.equal(cardTitles.indexOf('What filled the context?'), cardTitles.indexOf('Where was time spent?') + 1);
   const latestContextTotal = await page.evaluate(async () => {
-    const result = await window.app.trace.engine.query(`SELECT SUM(estimated_tokens) AS total FROM (
+    const result = await window.app.trace.engine.query(`INCLUDE PERFETTO MODULE dev.agentprof.context;
+      SELECT SUM(estimated_tokens) AS total FROM (
       SELECT estimated_tokens, ROW_NUMBER() OVER(PARTITION BY capture_id ORDER BY ts DESC, event_id DESC) AS n
-      FROM agentprof_context_snapshots) WHERE n=1`);
+      FROM dev_agentprof_context_snapshots) WHERE n=1`);
     return Number(result.iter({}).get('total'));
   });
   const displayedContextTotal = (await contextCard.locator('.ap-context-category strong').allTextContents())

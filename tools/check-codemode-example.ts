@@ -5,8 +5,8 @@ import {mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
-import {SETUP_SQL} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL, OVERVIEW_QUERIES as Q} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {OVERVIEW_SELECTS as Q} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from './stdlib-sql.ts';
 
 const source = resolve('examples/pi-codemode');
 const manifest = JSON.parse(await readFile(resolve(source, 'recording.json'), 'utf8'));
@@ -79,7 +79,7 @@ for (const run of manifest.recordings) {
     }
   }
 }
-const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
+const rawSql = `${INCLUDE_CORE_MODULES_SQL}
   CREATE PERFETTO TABLE runs AS ${Q.runs};
   SELECT CASE WHEN ${checks.join('\n AND ')}
     AND (SELECT COUNT(*) FROM runs) = 2
@@ -96,16 +96,17 @@ const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}
     AND (SELECT MAX(value) FROM (${Q.health}) WHERE metric = 'Lane overflows') = 0
     AND (SELECT MAX(value) FROM (${Q.health}) WHERE metric = 'Dropped events') = 0
     AND NOT EXISTS (SELECT 1 FROM stats WHERE severity = 'error' AND value > 0)
-    AND (SELECT COUNT(*) FROM agentprof_tool_calls WHERE arguments IS NOT NULL) = ${totalCalls}
+    AND (SELECT COUNT(*) FROM dev_agentprof_tool_call_details WHERE arguments IS NOT NULL) = ${totalCalls}
     AND NOT EXISTS (SELECT 1 FROM args WHERE key = 'debug.codemode_enabled')
   THEN 'CODEMODE_EXAMPLE_OK' ELSE 'FAILED' END AS result`;
+const sql = rawSql.replace(/(?<!debug\.|dev_)\bagentprof_/g, 'dev_agentprof_');
 // Hundreds of original tool arguments can exceed the OS command-line limit.
 const temporary = await mkdtemp(resolve(tmpdir(), 'agentprof-codemode-check-'));
 try {
   const query = resolve(temporary, 'checks.sql');
   await writeFile(query, sql);
   const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-    [resolve('artifacts/examples/agentprof-codemode-example.pftrace'), '-q', query], {encoding: 'utf8'});
+    ['--add-sql-package', STDLIB_PACKAGE_ARG, resolve('artifacts/examples/agentprof-codemode-example.pftrace'), '-q', query], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes('CODEMODE_EXAMPLE_OK'), result.stdout);
 } finally {

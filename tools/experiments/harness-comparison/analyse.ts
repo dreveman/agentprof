@@ -4,8 +4,7 @@ import {resolve, join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {decodeFields, tracePackets} from '../../../packages/pi-tracing/extensions/pi-tracing/test-proto.ts';
 import {encodeVarint, framePacket} from '../../../packages/pi-tracing/extensions/pi-tracing/encoder.ts';
-import {SETUP_SQL} from '../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL} from '../../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../stdlib-sql.ts';
 
 const root = resolve(import.meta.dir, '../../..');
 const batch = resolve(process.argv[2] ?? '');
@@ -81,7 +80,7 @@ for (const name of manifest.cases) {
     if (pair.length === variants.length) combine(pair, join(batch, 'traces', `${name}-round-${round}.pftrace`));
   }
 }
-const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\nSELECT JSON_OBJECT(
+const rawSql = `${INCLUDE_CORE_MODULES_SQL}\nSELECT JSON_OBJECT(
  'sessions', (SELECT JSON_GROUP_ARRAY(JSON_OBJECT('session',r.session,'harness',r.harness,'model',r.model,
    'root_session',root.session,'role',CASE WHEN h.capture_id=h.root_capture_id THEN 'primary' ELSE 'reviewer' END,
    'wall_s',r.duration_ms/1000,'responses',r.responses,'tools',r.tools,'incomplete',r.incomplete,
@@ -107,9 +106,10 @@ const sql = `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\nSELECT JSON_OBJECT(
  'health', (SELECT JSON_GROUP_ARRAY(JSON_OBJECT('name',t.name,'maximum',c.value)) FROM counter c JOIN agentprof_counter_tracks t ON t.id=c.track_id
    WHERE t.name IN ('tracing.droppedEvents','tracing.laneOverflows') AND c.value>0)
 ) AS report;`;
+const sql = rawSql.replace(/(?<!debug\.|dev_)\bagentprof_/g, 'dev_agentprof_');
 writeFileSync(join(batch, 'analysis.sql'), sql);
 const result = spawnSync(join(root, 'third_party/src/perfetto/tools/trace_processor'),
-  [join(batch, 'all-runs.pftrace'), '-q', join(batch, 'analysis.sql')], {encoding: 'utf8', maxBuffer: 30 * 1024 * 1024});
+  ['--add-sql-package', STDLIB_PACKAGE_ARG, join(batch, 'all-runs.pftrace'), '-q', join(batch, 'analysis.sql')], {encoding: 'utf8', maxBuffer: 30 * 1024 * 1024});
 writeFileSync(join(batch, 'analysis.log'), result.stderr);
 if (result.status !== 0) throw new Error(result.stderr);
 const report = JSON.parse(result.stdout.trim().split('\n').at(-1)!.slice(1, -1));

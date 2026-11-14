@@ -7,8 +7,7 @@ import {spawnSync} from 'node:child_process';
 import {convertObservations, type Observation} from './convert.ts';
 import {initializeDirectCapture, readDirectCapture, finishDirectCapture} from './direct-journal.ts';
 import {decodeFields, tracePackets} from '../pi-tracing/extensions/pi-tracing/test-proto.ts';
-import {SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/queries.ts';
-import {OVERVIEW_SETUP_SQL} from '../../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/overview_queries.ts';
+import {INCLUDE_CORE_MODULES_SQL, STDLIB_PACKAGE_ARG} from '../../tools/stdlib-sql.ts';
 
 const epoch = 1_790_000_000_000_000_000n;
 const at = (ms: number) => String(epoch + BigInt(ms) * 1_000_000n);
@@ -51,9 +50,10 @@ function query(rows: Observation[], sql: string): string {
   const directory = mkdtempSync(join(tmpdir(), 'claude-direct-test-'));
   try {
     writeFileSync(join(directory, 'trace.pftrace'), convertObservations(rows).trace);
-    writeFileSync(join(directory, 'check.sql'), `${SETUP_SQL}\n${OVERVIEW_SETUP_SQL}\n${sql}`);
+    const normalized = sql.replace(/(?<!debug\.|dev_)\bagentprof_/g, 'dev_agentprof_');
+    writeFileSync(join(directory, 'check.sql'), `${INCLUDE_CORE_MODULES_SQL}\n${normalized}`);
     const result = spawnSync(process.env.PERFETTO_TRACE_PROCESSOR ?? resolve('third_party/src/perfetto/tools/trace_processor'),
-      [join(directory, 'trace.pftrace'), '-q', join(directory, 'check.sql')], {encoding: 'utf8'});
+      ['--add-sql-package', STDLIB_PACKAGE_ARG, join(directory, 'trace.pftrace'), '-q', join(directory, 'check.sql')], {encoding: 'utf8'});
     if (result.status !== 0) throw new Error(result.stderr || String(result.error));
     return result.stdout.trim().split('\n').at(-1)!;
   } finally {rmSync(directory, {recursive: true, force: true});}
