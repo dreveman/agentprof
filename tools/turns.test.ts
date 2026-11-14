@@ -1,9 +1,43 @@
 // SPDX-License-Identifier: Apache-2.0
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {Database} from 'bun:sqlite';
 import {modelDisplayName} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/model_display';
 import {expect, test} from 'bun:test';
-import {TURNS_SETUP_SQL, turnsPageQuery, turnEventsQuery, TURN_UNASSIGNED_QUERY} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/turns_queries';
 import {intervalPosition, nanoseconds, turnDuration} from '../third_party/overlays/perfetto/ui/src/plugins/dev.agentprof.Agentprof/turns_timeline';
+
+const TURNS_MODULE_SQL = readFileSync(
+  resolve(import.meta.dir, '../stdlib/dev/agentprof/turns.sql'),
+  'utf8',
+);
+
+const TURN_PAGE_SIZE = 200;
+const TURN_EVENT_LIMIT = 500;
+
+function validId(id: number) {
+  if (!Number.isSafeInteger(id) || id < 0) {
+    throw new Error('Invalid turn query identifier');
+  }
+}
+
+function turnsPageSql(offset = 0): string {
+  validId(offset);
+  return `SELECT *, COUNT(*) OVER () AS total_turns FROM dev_agentprof_turns_with_prompts
+    ORDER BY start_ts, prompt_id LIMIT ${TURN_PAGE_SIZE} OFFSET ${offset}`;
+}
+
+function turnEventsSql(promptId: number): string {
+  validId(promptId);
+  const match = /CREATE PERFETTO FUNCTION dev_agentprof_turn_waterfall[\s\S]*?\)\s*AS\s*(SELECT[\s\S]+)$/.exec(
+    TURNS_MODULE_SQL,
+  );
+  if (!match) throw new Error('Missing dev_agentprof_turn_waterfall body');
+  return match[1]!
+    .replaceAll('$target_prompt_id', String(promptId))
+    .replaceAll('$max_rows', String(TURN_EVENT_LIMIT));
+}
+
+const TURN_UNASSIGNED_SQL = 'SELECT * FROM dev_agentprof_turn_unassigned_totals';
 
 test('Claude display labels omit only dated snapshot suffixes', () => {
   expect(modelDisplayName('claude-haiku-4-5-20251001')).toBe('claude-haiku-4-5');
@@ -17,32 +51,41 @@ test('Claude display labels omit only dated snapshot suffixes', () => {
 const MS = 1_000_000;
 function fixture() {
   const db = new Database(':memory:');
-  db.exec(`CREATE TABLE agentprof_slices(id INTEGER PRIMARY KEY, parent_id INTEGER, capture_id INTEGER,
+  db.exec(`CREATE TABLE dev_agentprof_slices(id INTEGER PRIMARY KEY, parent_id INTEGER, capture_id INTEGER,
     session TEXT, capture TEXT, ts INTEGER, dur INTEGER, incomplete INTEGER, kind TEXT, name TEXT, arg_set_id INTEGER, args_json TEXT, track_id INTEGER);
-    CREATE TABLE slice(id INTEGER PRIMARY KEY, parent_id INTEGER, track_id INTEGER);
-    CREATE TABLE agentprof_capture_markers(slice_id INTEGER, capture_id INTEGER);
-    CREATE TABLE agentprof_capture_runs(capture_id INTEGER PRIMARY KEY, start_ts INTEGER, end_ts INTEGER, session TEXT);
-    CREATE TABLE agentprof_messages(id INTEGER PRIMARY KEY, message_start_ts INTEGER, message_ns INTEGER,
+    CREATE TABLE slice(id INTEGER PRIMARY KEY, parent_id INTEGER, track_id INTEGER, arg_set_id INTEGER, args_json TEXT);
+    CREATE TABLE dev_agentprof_capture_markers(slice_id INTEGER, capture_id INTEGER);
+    CREATE TABLE dev_agentprof_capture_runs(capture_id INTEGER PRIMARY KEY, start_ts INTEGER, end_ts INTEGER, session TEXT);
+    CREATE TABLE dev_agentprof_messages(id INTEGER PRIMARY KEY, message_start_ts INTEGER, message_ns INTEGER,
       provider TEXT, model TEXT, first_ns INTEGER, input_tokens INTEGER, output_tokens INTEGER);
-    CREATE TABLE agentprof_tool_calls(id INTEGER PRIMARY KEY, intent TEXT, arguments TEXT, args_truncated INTEGER,
+    CREATE TABLE dev_agentprof_tool_call_details(id INTEGER PRIMARY KEY, intent TEXT, arguments TEXT, args_truncated INTEGER,
       language TEXT, line_count INTEGER, call_id TEXT, parent_call_id TEXT, is_error INTEGER);
-    CREATE TABLE agentprof_script_children(script_id INTEGER, id INTEGER, depth INTEGER);
+    CREATE TABLE dev_agentprof_script_children(script_id INTEGER, id INTEGER, depth INTEGER);
     CREATE TABLE flow(slice_out INTEGER, slice_in INTEGER);
     CREATE INDEX flow_out ON flow(slice_out); CREATE INDEX flow_in ON flow(slice_in);
-    INSERT INTO agentprof_capture_runs VALUES (1,0,100000000000000,'session-1'),(2,0,100000000000000,'session-2');`);
+    INSERT INTO dev_agentprof_capture_runs VALUES (1,0,100000000000000,'session-1'),(2,0,100000000000000,'session-2');`);
   function add(id: number, kind: string, start: number, duration: number, options: {capture?: number; parent?: number; incomplete?: boolean; args?: Record<string, unknown>} = {}) {
     const capture = options.capture ?? 1;
-    db.prepare('INSERT INTO slice VALUES (?,?,?)').run(id, options.parent ?? null, capture);
-    db.prepare('INSERT INTO agentprof_slices VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
+    const argsJson = JSON.stringify(options.args ?? {});
+    db.prepare('INSERT INTO slice VALUES (?,?,?,?,?)').run(id, options.parent ?? null, capture, id, argsJson);
+    db.prepare('INSERT INTO dev_agentprof_slices VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
       id, options.parent ?? null, capture, `session-${capture}`, `capture-${capture}`, start * MS,
-      duration < 0 ? duration : duration * MS, options.incomplete ? 1 : 0, kind, kind, id, JSON.stringify(options.args ?? {}), capture);
-    if (kind === 'assistant-message') db.prepare('INSERT INTO agentprof_messages VALUES (?,?,?,?,?,?,?,?)')
+      duration < 0 ? duration : duration * MS, options.incomplete ? 1 : 0, kind, kind, id, argsJson, capture);
+    if (kind === 'assistant-message') db.prepare('INSERT INTO dev_agentprof_messages VALUES (?,?,?,?,?,?,?,?)')
       .run(id, start * MS, duration < 0 ? null : duration * MS, 'provider', 'model', 2 * MS, 10, 5);
-    if (kind === 'tool-execution') db.prepare('INSERT INTO agentprof_tool_calls(id,intent) VALUES (?,?)').run(id, 'Recorded tool');
+    if (kind === 'tool-execution') db.prepare('INSERT INTO dev_agentprof_tool_call_details(id,intent) VALUES (?,?)').run(id, 'Recorded tool');
   }
-  // SQLite fixtures substitute JSON extraction for Perfetto's args lookup.
+  // SQLite fixtures substitute JSON extraction for Perfetto's args lookup and
+  // omit the PerfettoSQL table-valued function declaration at the end.
   const setup = () => {
-    const sql = TURNS_SETUP_SQL.replaceAll('CREATE PERFETTO TABLE', 'CREATE TABLE')
+    const withoutIncludes = TURNS_MODULE_SQL
+      .replace(/^INCLUDE PERFETTO MODULE .*;\s*$/gm, '')
+      .slice(0, TURNS_MODULE_SQL.indexOf('CREATE PERFETTO FUNCTION dev_agentprof_turn_waterfall') -
+        (TURNS_MODULE_SQL.length - TURNS_MODULE_SQL.replace(/^INCLUDE PERFETTO MODULE .*;\s*$/gm, '').length));
+    const sql = withoutIncludes
+      .replaceAll('CREATE PERFETTO TABLE', 'CREATE TABLE')
+      .replaceAll('CREATE PERFETTO VIEW', 'DROP VIEW IF EXISTS _unused;\nCREATE VIEW IF NOT EXISTS')
+      .replace(/DROP VIEW IF EXISTS _unused;\nCREATE VIEW IF NOT EXISTS (\w+)/g, 'DROP VIEW IF EXISTS $1;\nCREATE VIEW $1')
       .replace(/EXTRACT_ARG\(s\.arg_set_id, '([^']+)'\)/g, (_, key) => `json_extract(s.args_json, '$."${key}"')`);
     db.exec(sql);
   };
@@ -62,12 +105,12 @@ test('human turn groups multiple response/tool cycles with unioned overlap and e
     add(7, 'provider-request', 9, 1); // Overlap alone must not suppress a distinct request.
     add(8, 'turn', 0, 6); // Native model/tool iteration is not the human unit.
     setup();
-    const row = db.query(turnsPageQuery()).get() as Record<string, number | string>;
+    const row = db.query(turnsPageSql()).get() as Record<string, number | string>;
     expect(row).toMatchObject({prompt_id: 1, turn_number: 1, events: 5, model_calls: 2,
       tools: 2, unmatched_requests: 1, input_tokens: 20, output_tokens: 10,
       display_end_ts: 20 * MS, models_only_ns: 7 * MS, tools_only_ns: 6 * MS,
       overlap_ns: MS, unattributed_ns: 6 * MS, prompt_text: 'User request'});
-    expect((db.query(turnEventsQuery(1)).all() as {id: number}[]).map(row => row.id)).toEqual([2,4,5,7,6]);
+    expect((db.query(turnEventsSql(1)).all() as {id: number}[]).map(row => row.id)).toEqual([2,4,5,7,6]);
   } finally {db.close();}
 });
 
@@ -76,21 +119,21 @@ test('turn headers retain distinct model/provider pairs without importing other 
   try {
     add(1, 'prompt', 0, 10);
     for (let id = 2; id <= 7; id++) add(id, 'assistant-message', id, 0.5);
-    db.exec("UPDATE agentprof_messages SET provider='provider-a', model='model-one' WHERE id IN (2,3);");
-    db.exec("UPDATE agentprof_messages SET provider='provider-b', model='model-two' WHERE id=4;");
-    db.exec("UPDATE agentprof_messages SET provider='provider-c', model='model-one' WHERE id=5;");
-    db.exec("UPDATE agentprof_messages SET provider=NULL, model=NULL WHERE id=6;");
-    db.exec("UPDATE agentprof_messages SET provider=' ', model=' ' WHERE id=7;");
+    db.exec("UPDATE dev_agentprof_messages SET provider='provider-a', model='model-one' WHERE id IN (2,3);");
+    db.exec("UPDATE dev_agentprof_messages SET provider='provider-b', model='model-two' WHERE id=4;");
+    db.exec("UPDATE dev_agentprof_messages SET provider='provider-c', model='model-one' WHERE id=5;");
+    db.exec("UPDATE dev_agentprof_messages SET provider=NULL, model=NULL WHERE id=6;");
+    db.exec("UPDATE dev_agentprof_messages SET provider=' ', model=' ' WHERE id=7;");
     add(20, 'prompt', 20, 10);
     add(21, 'assistant-message', 21, 1);
     add(30, 'assistant-message', 35, 1);
     add(40, 'prompt', 40, 5);
     add(100, 'prompt', 0, 10, {capture: 2});
     add(101, 'assistant-message', 1, 1, {capture: 2});
-    db.exec("UPDATE agentprof_messages SET provider='other-provider', model='other-model' WHERE id IN (21,30,101);");
+    db.exec("UPDATE dev_agentprof_messages SET provider='other-provider', model='other-model' WHERE id IN (21,30,101);");
     add(8, 'tool-execution', 8, 1);
     setup();
-    const rows = db.query(turnsPageQuery()).all() as {prompt_id: number; model_identities: string}[];
+    const rows = db.query(turnsPageSql()).all() as {prompt_id: number; model_identities: string}[];
     const identities = JSON.parse(rows.find(row => row.prompt_id === 1)!.model_identities);
     expect(identities.sort((a: unknown, b: unknown) => JSON.stringify(a).localeCompare(JSON.stringify(b))))
       .toEqual([
@@ -112,7 +155,7 @@ test('completed turn never includes idle time before the next user prompt', () =
     add(2, 'assistant-message', 1000, 23_000);
     add(3, 'prompt', 86_400_000, 11_000);
     setup();
-    expect((db.query(turnsPageQuery()).all() as {display_end_ts: number}[])[0]!.display_end_ts).toBe(29_000 * MS);
+    expect((db.query(turnsPageSql()).all() as {display_end_ts: number}[])[0]!.display_end_ts).toBe(29_000 * MS);
   } finally {db.close();}
 });
 
@@ -124,9 +167,9 @@ test('incomplete interaction shows only observed work and preserves unknown dura
     add(3, 'tool-execution', 5000, -1, {incomplete: true});
     add(4, 'prompt', 10_000, 2000);
     setup();
-    const rows = db.query(turnsPageQuery()).all() as {display_end_ts: number; prompt_text: string | null; unknown_tools: number}[];
+    const rows = db.query(turnsPageSql()).all() as {display_end_ts: number; prompt_text: string | null; unknown_tools: number}[];
     expect(rows[0]).toMatchObject({display_end_ts: 5000 * MS, prompt_text: null, unknown_tools: 1});
-    const event = (db.query(turnEventsQuery(1)).all() as {id: number; measured_ns: number | null}[]).find(row => row.id === 3);
+    const event = (db.query(turnEventsSql(1)).all() as {id: number; measured_ns: number | null}[]).find(row => row.id === 3);
     expect(event?.measured_ns).toBeNull();
   } finally {db.close();}
 });
@@ -144,9 +187,9 @@ test('nested ownership is unique while unrelated overlapping prompts remain ambi
     add(8, 'prompt', 30, 20, {capture: 2});
     add(9, 'tool-execution', 45, 1, {capture: 2});
     setup();
-    const owners = db.query('SELECT id,prompt_id FROM agentprof_turn_events ORDER BY id').all();
+    const owners = db.query('SELECT id,prompt_id FROM dev_agentprof_turn_events ORDER BY id').all();
     expect(owners).toEqual([{id:3,prompt_id:2},{id:6,prompt_id:null},{id:7,prompt_id:4},{id:9,prompt_id:8}]);
-    expect(db.query(TURN_UNASSIGNED_QUERY).get()).toMatchObject({events: 1, tools: 1});
+    expect(db.query(TURN_UNASSIGNED_SQL).get()).toMatchObject({events: 1, tools: 1});
   } finally {db.close();}
 });
 
@@ -157,7 +200,7 @@ test('native interaction identity wins over ambiguous containment', () => {
     add(2, 'prompt', 10, 20, {args: {'debug.turn_id': 'second'}});
     add(3, 'tool-execution', 15, 1, {args: {'debug.turn_id': 'first'}});
     setup();
-    expect(db.query('SELECT prompt_id FROM agentprof_turn_events WHERE id=3').get()).toEqual({prompt_id: 1});
+    expect(db.query('SELECT prompt_id FROM dev_agentprof_turn_events WHERE id=3').get()).toEqual({prompt_id: 1});
   } finally {db.close();}
 });
 
@@ -167,15 +210,15 @@ test('pagination and expanded event queries are bounded', () => {
     for (let id = 1; id <= 205; id++) add(id, 'prompt', id * 1000, 900);
     for (let id = 1000; id < 1510; id++) add(id, 'tool-execution', 1001 + (id - 1000), 0);
     setup();
-    const first = db.query(turnsPageQuery()).all() as {total_turns: number}[];
+    const first = db.query(turnsPageSql()).all() as {total_turns: number}[];
     expect(first).toHaveLength(200);
     expect(first[0]!.total_turns).toBe(205);
-    expect(db.query(turnsPageQuery(200)).all()).toHaveLength(5);
-    const events = db.query(turnEventsQuery(1)).all() as {total_events: number}[];
+    expect(db.query(turnsPageSql(200)).all()).toHaveLength(5);
+    const events = db.query(turnEventsSql(1)).all() as {total_events: number}[];
     expect(events).toHaveLength(500);
     expect(events[0]!.total_events).toBe(510);
-    expect(() => turnEventsQuery(-1)).toThrow();
-    expect(() => turnsPageQuery(Number.NaN)).toThrow();
+    expect(() => turnEventsSql(-1)).toThrow();
+    expect(() => turnsPageSql(Number.NaN)).toThrow();
   } finally {db.close();}
 });
 
@@ -188,8 +231,8 @@ test('flow-linked requests are canonicalized even when ownership differs or is u
       if (withPrompt) add(3, 'prompt', 10, 10);
       db.exec('INSERT INTO flow VALUES (1,2)');
       setup();
-      expect(db.query('SELECT id FROM agentprof_turn_events ORDER BY id').all()).toEqual([{id: 2}]);
-      expect(db.query(TURN_UNASSIGNED_QUERY).get()).toMatchObject({events: withPrompt ? 0 : 1});
+      expect(db.query('SELECT id FROM dev_agentprof_turn_events ORDER BY id').all()).toEqual([{id: 2}]);
+      expect(db.query(TURN_UNASSIGNED_SQL).get()).toMatchObject({events: withPrompt ? 0 : 1});
     } finally {db.close();}
   }
 });
@@ -204,8 +247,8 @@ test('large sequential captures use indexed clusters before page limits', () => 
       }
     })();
     setup();
-    expect(db.query('SELECT COUNT(*) AS n FROM agentprof_turn_prompts').get()).toEqual({n: 5000});
-    const rows = db.query(turnsPageQuery()).all() as {total_turns: number; tools: number}[];
+    expect(db.query('SELECT COUNT(*) AS n FROM dev_agentprof_turn_prompts').get()).toEqual({n: 5000});
+    const rows = db.query(turnsPageSql()).all() as {total_turns: number; tools: number}[];
     expect(rows).toHaveLength(200);
     expect(rows[0]).toMatchObject({total_turns: 5000, tools: 5});
   } finally {db.close();}
@@ -219,7 +262,7 @@ test('request-ID correlation is half-open and preserves merely touching calls', 
     add(3, 'assistant-message', 10, 5, {args: {'debug.request_id': 'reused'}});
     add(4, 'provider-request', 11, 1, {args: {'debug.request_id': 'reused'}});
     setup();
-    expect(db.query('SELECT id FROM agentprof_turn_events ORDER BY id').all()).toEqual([{id: 2}, {id: 3}]);
+    expect(db.query('SELECT id FROM dev_agentprof_turn_events ORDER BY id').all()).toEqual([{id: 2}, {id: 3}]);
   } finally {db.close();}
 });
 
@@ -236,8 +279,8 @@ test('large flow-linked request captures use indexed canonicalization', () => {
       }
     })();
     setup();
-    expect(db.query('SELECT COUNT(*) AS n FROM agentprof_turn_events').get()).toEqual({n: 5000});
-    expect(db.query('SELECT model_calls,unmatched_requests FROM agentprof_turns').get()).toEqual({model_calls: 5000, unmatched_requests: 0});
+    expect(db.query('SELECT COUNT(*) AS n FROM dev_agentprof_turn_events').get()).toEqual({n: 5000});
+    expect(db.query('SELECT model_calls,unmatched_requests FROM dev_agentprof_turns').get()).toEqual({model_calls: 5000, unmatched_requests: 0});
   } finally {db.close();}
 }, 5000);
 
@@ -249,7 +292,7 @@ test('explicit prompt flows resolve overlapping turns and retain capture isolati
     add(5, 'assistant-message', 15, 1, {capture: 2});
     db.exec('INSERT INTO flow VALUES (1,3),(3,4),(1,5)');
     setup();
-    expect(db.query('SELECT id,prompt_id FROM agentprof_turn_events ORDER BY id').all())
+    expect(db.query('SELECT id,prompt_id FROM dev_agentprof_turn_events ORDER BY id').all())
       .toEqual([{id: 3,prompt_id: 1}, {id: 4,prompt_id: 1}, {id: 5,prompt_id: null}]);
   } finally {db.close();}
 });
@@ -258,17 +301,17 @@ test('prompt ancestry traverses native parents but stops at nested captures and 
   const {db, add, setup} = fixture();
   try {
     add(1, 'prompt', 0, 100);
-    const native = db.prepare('INSERT INTO slice VALUES (?,?,1)');
+    const native = db.prepare('INSERT INTO slice VALUES (?,?,1,NULL,NULL)');
     for (let id = 10; id < 110; id++) native.run(id, id === 10 ? 1 : id-1);
     add(2, 'prompt', 10, 50, {parent: 109});
     add(3, 'assistant-message', 20, 1, {parent: 2});
     add(4, 'tool-execution', 20, 1, {parent: 109});
     native.run(200, 1);
-    db.exec('INSERT INTO agentprof_capture_markers VALUES (200,2)');
+    db.exec('INSERT INTO dev_agentprof_capture_markers VALUES (200,2)');
     add(5, 'tool-execution', 20, 1, {parent: 200, capture: 2});
     db.exec('UPDATE slice SET track_id=1 WHERE id=5');
     setup();
-    expect(db.query('SELECT id,prompt_id FROM agentprof_turn_events ORDER BY id').all())
+    expect(db.query('SELECT id,prompt_id FROM dev_agentprof_turn_events ORDER BY id').all())
       .toEqual([{id:3,prompt_id:2},{id:4,prompt_id:1},{id:5,prompt_id:null}]);
   } finally {db.close();}
 });
@@ -280,7 +323,7 @@ test('a reused native turn ID falls back to unique prompt ancestry', () => {
     add(2, 'prompt', 20, 10, {args: {'debug.turn_id': 'reused'}});
     add(3, 'assistant-message', 21, 1, {parent: 2, args: {'debug.turn_id': 'reused'}});
     setup();
-    expect(db.query('SELECT prompt_id FROM agentprof_turn_events WHERE id=3').get()).toEqual({prompt_id: 2});
+    expect(db.query('SELECT prompt_id FROM dev_agentprof_turn_events WHERE id=3').get()).toEqual({prompt_id: 2});
   } finally {db.close();}
 });
 
@@ -294,9 +337,9 @@ test('ambiguous request-ID matches cannot hide retries or consume explicitly lin
       add(4, 'assistant-message', 7, 5, {args: {'debug.request_id': 'reused'}});
       if (explicit) db.exec('INSERT INTO flow VALUES (3,4)');
       setup();
-      expect(db.query('SELECT id FROM agentprof_turn_events ORDER BY id').all())
+      expect(db.query('SELECT id FROM dev_agentprof_turn_events ORDER BY id').all())
         .toEqual(explicit ? [{id: 2}, {id: 4}] : [{id: 2}, {id: 3}, {id: 4}]);
-      expect(db.query('SELECT unmatched_requests FROM agentprof_turns').get())
+      expect(db.query('SELECT unmatched_requests FROM dev_agentprof_turns').get())
         .toEqual({unmatched_requests: explicit ? 1 : 2});
     } finally {db.close();}
   }
@@ -310,7 +353,7 @@ test('one request-ID cannot silently merge distinct assistant messages', () => {
     add(3, 'assistant-message', 5, 5, {args: {'debug.request_id': 'reused'}});
     add(4, 'assistant-message', 10, 5, {args: {'debug.request_id': 'reused'}});
     setup();
-    expect(db.query('SELECT id FROM agentprof_turn_events ORDER BY id').all()).toEqual([{id:2}, {id:3}, {id:4}]);
+    expect(db.query('SELECT id FROM dev_agentprof_turn_events ORDER BY id').all()).toEqual([{id:2}, {id:3}, {id:4}]);
   } finally {db.close();}
 });
 
@@ -318,12 +361,13 @@ test('setup cleans partial prefixes and releases transient tables while details 
   const {db, add, setup} = fixture();
   try {
     add(1, 'prompt', 0, 10); add(2, 'tool-execution', 1, 5);
-    db.exec('CREATE TABLE agentprof_turn_work(stale INTEGER); CREATE TABLE agentprof_turns(stale INTEGER)');
+    db.exec('CREATE TABLE _dev_agentprof_turn_work(stale INTEGER); CREATE TABLE dev_agentprof_turns(stale INTEGER)');
     setup(); setup();
-    const tables = db.query("SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'agentprof_turn*' ORDER BY name").all();
-    expect(tables).toEqual([{name:'agentprof_turn_events'}, {name:'agentprof_turn_prompts'}, {name:'agentprof_turns'}]);
-    expect(db.query(turnEventsQuery(1)).get()).toMatchObject({id:2, intent:'Recorded tool', total_events:1});
-    expect(db.query("SELECT name FROM pragma_table_info('agentprof_turn_events') WHERE name IN ('arguments','intent')").all()).toEqual([]);
+    const tables = db.query("SELECT name FROM sqlite_master WHERE type='table' AND (name GLOB 'dev_agentprof_turn*' OR name GLOB '_dev_agentprof_turn*') ORDER BY name").all();
+    expect(tables).toEqual([{name:'dev_agentprof_turn_events'}, {name:'dev_agentprof_turn_prompts'}, {name:'dev_agentprof_turns'}]);
+    expect(db.query(turnEventsSql(1)).get()).toMatchObject({id:2, intent:'Recorded tool', total_events:1});
+    expect(db.query("SELECT name FROM pragma_table_info('dev_agentprof_turn_events') WHERE name IN ('arguments','intent')").all()).toEqual([]);
+    expect(db.query("SELECT name FROM pragma_table_info('dev_agentprof_turns') WHERE name = 'prompt_text'").all()).toEqual([]);
   } finally {db.close();}
 });
 
