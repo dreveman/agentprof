@@ -21,6 +21,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 CHECKOUT = ROOT / "third_party/src/perfetto"
 OVERLAY = ROOT / "ai/skills/dev.agentprof/workflows/agentprof"
+STDLIB = ROOT / "stdlib"
 ARCHIVE = "agentprof-ai-skill.zip"
 PROVENANCE = "AGENTPROF_RELEASE.json"
 
@@ -117,14 +118,19 @@ def extract_verified(archive, destination):
             continue
         relative = source.relative_to(OVERLAY)
         packaged = skill / "workflows/agentprof" / relative
-        if packaged.read_bytes() != source.read_bytes():
+        if not packaged.is_file() or packaged.read_bytes() != source.read_bytes():
             raise ValueError(f"workflow export mismatch: {relative}")
         if source.suffix == ".md":
             if f"$SKILL_ROOT/workflows/agentprof/{relative.as_posix()}" not in router:
                 raise ValueError(f"missing workflow route: {relative}")
             for target in re.findall(r"\$SKILL_ROOT/([\w./-]+)", source.read_text()):
-                if not (skill / target).is_file():
+                if not ((skill / target).is_file() or (skill / target).is_dir()):
                     raise ValueError(f"missing workflow resource: {target}")
+    for source in sorted(STDLIB.rglob("*.sql")):
+        relative = source.relative_to(STDLIB)
+        packaged = skill / "workflows/agentprof/stdlib" / relative
+        if not packaged.is_file() or packaged.read_bytes() != source.read_bytes():
+            raise ValueError(f"stdlib export mismatch: {relative}")
     return skill, metadata
 
 
@@ -151,8 +157,10 @@ def verify_runtime(skill, metadata):
         trace.write_text('{"traceEvents": []}')
         socket = root / "trace.sock"
         log = root / "server.log"
+        pkg_dir = skill / "workflows/agentprof/stdlib/dev/agentprof"
         with log.open("w") as output:
             server = subprocess.Popen([str(wrapper), "server", "unix", "--path", str(socket),
+                                       "--add-sql-package", f"{pkg_dir}@dev.agentprof",
                                        "--idle-timeout", "60s", str(trace)],
                                       stdout=output, stderr=output)
             try:
@@ -161,10 +169,12 @@ def verify_runtime(skill, metadata):
                     if server.poll() is not None or time.monotonic() >= deadline:
                         raise RuntimeError(f"packaged warm session failed: {log.read_text()}")
                     time.sleep(.05)
-                for script in ("agentprof_setup.sql", "agentprof_turns.sql", "inventory.sql"):
-                    subprocess.run([str(wrapper), "query", "--remote", str(socket), "--query-file",
-                                    str(skill / "workflows/agentprof/scripts" / script)],
-                                   check=True, capture_output=True, timeout=60)
+                subprocess.run([str(wrapper), "query", "--remote", str(socket),
+                                "INCLUDE PERFETTO MODULE dev.agentprof.captures; "
+                                "INCLUDE PERFETTO MODULE dev.agentprof.activity; "
+                                "INCLUDE PERFETTO MODULE dev.agentprof.turns; "
+                                "SELECT * FROM dev_agentprof_inventory;"],
+                               check=True, capture_output=True, timeout=60)
             finally:
                 if server.poll() is None:
                     server.terminate()

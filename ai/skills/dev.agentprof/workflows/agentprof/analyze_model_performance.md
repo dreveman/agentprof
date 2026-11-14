@@ -1,14 +1,21 @@
 # Analyze AgentProf model performance
 
 Use for response latency, first-content latency, token throughput and model/provider
-comparisons. First initialize and select captures using
+comparisons. First start the warm session and inspect capture scope using
 [investigate an agent run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md).
-Reuse that warm session and its scope; do not rerun setup unnecessarily.
+Filter with `WHERE capture_id IN (...)` when narrowing to specific captures.
 
 ## 1. Compare like measurements
 
+Load `dev.agentprof.models` and query `dev_agentprof_model_cohorts` (mirrors the
+**Summary — How responsive were model responses?** card and **Turns — Model
+responses by provider and model**):
+
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/model_summary.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.models;
+  SELECT * FROM dev_agentprof_model_cohorts LIMIT 100;
+"
 ```
 
 Rows are grouped by capture, provider, raw model identity and recorded timing
@@ -39,19 +46,48 @@ input into input totals twice. Pricing requires a separately verified rate table
 
 ## 2. Inspect the slow responses and request phase
 
+Query individual response spans in `dev_agentprof_messages` and recorded request
+spans in `dev_agentprof_provider_requests`:
+
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/slow_responses.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/request_headers.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.models;
+  SELECT
+    id,
+    capture_id,
+    provider,
+    model,
+    timing,
+    message_start_ts AS ts,
+    CASE WHEN NOT incomplete AND message_ns >= 0 THEN message_ns / 1e6 END AS duration_ms,
+    CASE WHEN NOT incomplete AND first_ns >= 0 THEN first_ns / 1e6 END AS first_content_ms,
+    input_tokens,
+    output_tokens,
+    cache_read_tokens,
+    incomplete
+  FROM dev_agentprof_messages
+  ORDER BY incomplete, message_ns DESC, id
+  LIMIT 50;
+  SELECT
+    id,
+    capture_id,
+    ts,
+    name,
+    request_span_ms,
+    phase,
+    incomplete,
+    timing
+  FROM dev_agentprof_provider_requests
+  ORDER BY dur DESC, id
+  LIMIT 50;
+"
 ```
 
-The first query returns at most 50 response IDs, start timestamps, timing labels,
-measured duration/first content, reported tokens and incomplete flags. The second
-returns up to 50 provider-request spans with recorded phase and timing labels.
-Interpret a span as request-to-headers only when its phase establishes that
-boundary; otherwise report the recorded request span without inventing its end
-semantics. Request-to-headers is neither first content nor full response duration. No rows
-means no such spans were recorded. Do not add request spans to response duration
-or infer retry counts from a retries-inclusive label.
+Interpret a provider-request span as request-to-headers only when its `phase`
+establishes that boundary; otherwise report the recorded request span without
+inventing its end semantics. Request-to-headers is neither first content nor full
+response duration. No rows means no such spans were recorded. Do not add request
+spans to response duration or infer retry counts from a retries-inclusive label.
 
 `model-call` script lifecycles are not native assistant responses; queueing and
 wrapper work may be included. Their durations belong in

@@ -145,12 +145,17 @@ Confirm all of the following, and report the actual saved path:
    means publication did not complete: keep it, do not delete or record over
    it, and report the error and its path instead of analyzing a partial file.
 2. The published `.pftrace` exists and is non-empty.
-3. Load it and run the inventory from
+3. Load it with the `dev.agentprof` SQL package and run the inventory from
    [investigate an agent run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md):
 
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/agentprof_setup.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/inventory.sql
+trace_processor server unix --name SESSION --daemonize \
+  --add-sql-package $SKILL_ROOT/workflows/agentprof/stdlib/dev/agentprof@dev.agentprof \
+  TRACE_FILE
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.captures;
+  SELECT * FROM dev_agentprof_inventory LIMIT 100;
+"
 ```
 
 No inventory rows means the reader found no supported AgentProf capture in
