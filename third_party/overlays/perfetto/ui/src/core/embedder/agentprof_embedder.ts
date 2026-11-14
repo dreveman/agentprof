@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type {Embedder} from './embedder';
 import {AgentprofHomePage} from './agentprof_home_page';
-
 import {AGENTPROF_BRAND} from './agentprof_brand';
+import {shouldInstallServiceWorker} from './agentprof_open_trace';
 import {AgentprofNavigation, AgentprofActions} from './agentprof_topbar';
 
 export class AgentprofEmbedder implements Embedder {
+  readonly installServiceWorker = shouldInstallServiceWorker();
   readonly title = 'Agent Profiler';
   readonly favicon = {
     src: 'assets/agentprof-icon.svg',

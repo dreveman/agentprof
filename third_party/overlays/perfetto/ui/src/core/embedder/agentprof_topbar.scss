@@ -1,4 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
+// Prevent iOS WebKit text autosizing when rotating to landscape.
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+// While an iOS host app renders topbar controls natively, keep the web topbar
+// hidden except when searching.
+html.ap-native-bar {
+  .ap-navigation,
+  .ap-navigation-actions {
+    display: none;
+  }
+
+  &:not(.ap-search-open) .pf-ui-main > .pf-topbar {
+    display: none;
+  }
+
+  &.ap-search-open .pf-topbar.pf-topbar--navigation {
+    display: flex;
+
+    > .pf-omnibox {
+      flex: 1 1 100%;
+      max-width: 100%;
+    }
+  }
+}
+
 .ap-navigation,
 .ap-navigation-actions {
   display: flex;

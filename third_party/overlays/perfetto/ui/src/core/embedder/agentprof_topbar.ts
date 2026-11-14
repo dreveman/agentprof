@@ -9,8 +9,14 @@ import {MenuDivider, MenuItem, PopupMenu} from '../../widgets/menu';
 import {PopupPosition} from '../../widgets/popup';
 import {AgentprofBrand} from './agentprof_brand';
 import {
+  syncNativeBar,
+  type NativeBarAction,
+} from './agentprof_native_bar';
+import {openTraceFiles} from './agentprof_open_trace';
+import {
   closeSecondaryPane,
   isOverviewCollapsed,
+  isSplitSecondaryEnabled,
   isWideSplitViewport,
   navigate,
   navigateHome,
@@ -39,6 +45,43 @@ export function goHome(app: App): void {
     setOverviewCollapsed(true);
   }
   navigateHome(app);
+}
+
+function toggleOverviewFromBar(app: App): void {
+  const trace = app.trace;
+  if (!trace) return;
+  const {page} = app.getCurrentRoute();
+  const isWide = isWideSplitViewport();
+  const splitEnabled = isSplitSecondaryEnabled(trace.settings);
+  const sidePanel = getSidePanel();
+  if (!isWide && sidePanel?.visible) {
+    sidePanel.visible = false;
+    setOverviewCollapsed(false);
+    if (page !== '/agentprof') {
+      closeSecondaryPane(trace);
+    }
+    return;
+  }
+  const overviewVisible =
+    !isOverviewCollapsed() &&
+    (page === '/agentprof' || (splitEnabled && isWide));
+  if (overviewVisible) {
+    setOverviewCollapsed(true);
+    if (page === '/agentprof') {
+      navigate(trace, '/');
+    }
+  } else {
+    setOverviewCollapsed(false);
+    if (
+      !splitEnabled ||
+      !isWide ||
+      page === '' ||
+      page === '/' ||
+      page === '/agentprof'
+    ) {
+      closeSecondaryPane(trace);
+    }
+  }
 }
 
 export class AgentprofNavigation implements m.ClassComponent<{app: App}> {
@@ -104,7 +147,7 @@ export class AgentprofNavigation implements m.ClassComponent<{app: App}> {
         'icon': 'folder_open',
         'className': 'ap-navigation__open',
         'title': 'Open trace file (one or more recordings)',
-        'onclick': () => app.commands.runCommand('dev.perfetto.OpenTrace'),
+        'onclick': () => openTraceFiles(app),
       }),
       trace &&
         hasOverview &&
@@ -131,6 +174,7 @@ export class AgentprofNavigation implements m.ClassComponent<{app: App}> {
 }
 
 interface Action {
+  id: string;
   label: string;
   icon: string;
   run: () => unknown;
@@ -150,7 +194,7 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
       } else if (app.trace) {
         navigate(app.trace, '/viewer');
       } else {
-        app.navigate('#!/?local_cache_key=');
+        navigateHome(app);
       }
     };
     const targets: ReadonlyArray<{selector: string; label: string}> = [
@@ -207,6 +251,12 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
     const sidePanelOpen = !isWide && Boolean(sidePanel?.visible);
     const {page} = app.getCurrentRoute();
     const hasOverview = Boolean(trace?.commands.hasCommand(OVERVIEW_COMMAND));
+    const splitEnabled = isSplitSecondaryEnabled(trace?.settings ?? app.settings);
+    const overviewExpanded =
+      hasOverview &&
+      !isOverviewCollapsed() &&
+      !sidePanelOpen &&
+      (page === '/agentprof' || (splitEnabled && isWide));
     const go = (route: string) => {
       if (!isWide && sidePanel?.visible) {
         sidePanel.visible = false;
@@ -220,8 +270,14 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
           navigate(trace, route);
         }
       } else {
-        app.navigate(page === route ? '#!/?local_cache_key=' : `#!${route}`);
+        if (page === route) navigateHome(app);
+        else app.navigate(`#!${route}`);
       }
+    };
+    const closeRecording = () => {
+      setOverviewCollapsed(false);
+      app.closeCurrentTrace();
+      navigateHome(app);
     };
     const external = (path: string) =>
       window.open(`${REPO}${path}`, '_blank', 'noopener');
@@ -229,6 +285,7 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
     if (trace) {
       if (trace.traceInfo.downloadable) {
         actions.push({
+          id: 'download',
           label: 'Download recording',
           icon: 'download',
           run: () => {
@@ -239,12 +296,14 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
       }
       actions.push(
         {
+          id: 'query',
           label: 'Query (SQL)',
           icon: 'terminal',
           active: !sidePanelOpen && page === '/query',
           run: () => go('/query'),
         },
         {
+          id: 'trace-details',
           label: 'Trace details',
           icon: 'info',
           active: !sidePanelOpen && page === '/info',
@@ -254,32 +313,128 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
     }
     actions.push(
       {
+        id: 'help',
         label: 'Help',
         icon: 'help_outline',
         run: () => external('/blob/main/docs/investigating-agents.md'),
       },
       {
+        id: 'dark-mode',
         label: 'Dark mode',
         icon: 'dark_mode',
         checked: theme?.get() === 'dark',
         run: () => theme?.set(theme.get() === 'dark' ? 'light' : 'dark'),
       },
       {
+        id: 'settings',
         label: 'Settings',
         icon: 'settings',
         active: !sidePanelOpen && page === '/settings',
         run: () => go('/settings'),
       },
-      {label: 'GitHub', icon: 'code', run: () => external('')},
+      {id: 'github', label: 'GitHub', icon: 'code', run: () => external('')},
       {
+        id: 'report-bug',
         label: 'Report a bug',
         icon: 'bug_report',
         run: () => external('/issues/new'),
       },
     );
+
+    const nativeActions: NativeBarAction[] = [
+      {
+        id: 'home',
+        label: 'Agent Profiler home',
+        icon: 'home',
+        run: () => goHome(app),
+      },
+      ...(trace && hasOverview
+        ? [
+            {
+              id: 'overview',
+              label: 'Overview',
+              icon: 'dashboard',
+              checked: overviewExpanded,
+              run: () => toggleOverviewFromBar(app),
+            },
+          ]
+        : []),
+      ...(trace
+        ? [
+            {
+              id: 'timeline',
+              label: 'Timeline',
+              icon: 'line_style',
+              checked: !sidePanelOpen && page === '/viewer',
+              run: () => go('/viewer'),
+            },
+            {
+              id: 'query',
+              label: 'Query (SQL)',
+              icon: 'terminal',
+              checked: !sidePanelOpen && page === '/query',
+              run: () => go('/query'),
+            },
+          ]
+        : []),
+      {
+        id: 'open',
+        label: 'Open trace files',
+        icon: 'folder_open',
+        group: 'more',
+        run: () => openTraceFiles(app),
+      },
+      ...(trace
+        ? [
+            {
+              id: 'trace-details',
+              label: 'Trace details',
+              icon: 'info',
+              checked: !sidePanelOpen && page === '/info',
+              group: 'more' as const,
+              run: () => go('/info'),
+            },
+          ]
+        : []),
+      {
+        id: 'dark-mode',
+        label: 'Toggle dark mode',
+        icon: 'dark_mode',
+        checked: theme?.get() === 'dark',
+        group: 'more',
+        run: () => theme?.set(theme.get() === 'dark' ? 'light' : 'dark'),
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        icon: 'settings',
+        checked: !sidePanelOpen && page === '/settings',
+        group: 'more',
+        run: () => go('/settings'),
+      },
+      ...(trace
+        ? [
+            {
+              id: 'close',
+              label: 'Close recording',
+              icon: 'close',
+              group: 'more' as const,
+              run: closeRecording,
+            },
+          ]
+        : []),
+    ];
+    syncNativeBar(app, nativeActions, () => {
+      try {
+        AppImpl.instance.omnibox.focus();
+      } catch {
+        document.querySelector<HTMLInputElement>('.pf-omnibox input')?.focus();
+      }
+    });
+
     // Each icon occupies 32px plus a 4px gap. Reserve a slot for the menu.
     const visible = Math.max(0, Math.floor((this.width - 32) / 36));
-    const menuItem = (action: Action) =>
+    const menuItem = (action: Omit<Action, 'id'>) =>
       m(MenuItem, {
         'label': action.label,
         'aria-label': action.label,
@@ -331,11 +486,7 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
           menuItem({
             label: 'Close recording',
             icon: 'close',
-            run: () => {
-              setOverviewCollapsed(false);
-              app.closeCurrentTrace();
-              navigateHome(app);
-            },
+            run: closeRecording,
           }),
       ),
     );
