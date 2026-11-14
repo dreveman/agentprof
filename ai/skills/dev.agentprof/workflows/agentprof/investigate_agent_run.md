@@ -8,28 +8,40 @@ no recording yet, first use
 return here once it verifies the artifact.
 
 If the trace is not already loaded, follow
-[querying.md]($SKILL_ROOT/infra-references/querying.md) first. Keep that session warm.
-For every workflow here, read Perfetto's environment setup before invoking its
-commands; use the trace session identifier in place of SESSION below.
+[querying.md]($SKILL_ROOT/infra-references/querying.md) first and start the warm
+session with the `dev.agentprof` PerfettoSQL package registered:
+
+```bash
+trace_processor server unix --name SESSION --daemonize \
+  --add-sql-package $SKILL_ROOT/workflows/agentprof/stdlib/dev/agentprof@dev.agentprof \
+  TRACE_FILE
+```
+
+*(If your `trace_processor` build already embeds `dev.agentprof.*`, omit
+`--add-sql-package`; to test local module edits on an embedded binary, pass
+`--dev --override-sql-package`.)* Use the trace session identifier in place of
+`SESSION` below.
 
 ## 1. Inventory before interpreting
 
-Initialize the namespaced reader and run the inventory:
+Load `dev.agentprof.captures` and inspect the per-capture coverage and health
+inventory (mirrors the **Summary — Is the recording complete?** card in the
+Agent Profiler UI):
 
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/agentprof_setup.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/inventory.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.captures;
+  SELECT * FROM dev_agentprof_inventory LIMIT 100;
+"
 ```
 
-Setup is self-contained SQL. No AgentProf checkout, UI or TypeScript is needed.
-Run it once per trace session; rerunning resets only the workflow's
-`agentprof_skill_*` objects and clears its capture selection. It does not replace
-UI-owned `agentprof_*` tables. No prompt text or tool payloads are materialized.
-
-No inventory rows means this reader found no supported AgentProf events. Stop
-rather than invent agent metrics; generic Perfetto analysis may still apply.
-The inventory returns at most 100 captures; if necessary inspect
-`SELECT COUNT(*) FROM agentprof_skill_capture_runs` and narrow the scope.
+No inventory rows means `dev.agentprof.captures` found no supported AgentProf
+events. Stop rather than invent agent metrics; generic Perfetto analysis may
+still apply. If more than 100 captures exist, inspect
+`SELECT COUNT(*) FROM dev_agentprof_capture_runs` and filter subsequent queries
+with `WHERE capture_id IN (...)` using numeric IDs from the inventory (do not
+interpolate prompt text into SQL). No prompt text or tool payloads are
+materialized by the inventory or summary views.
 
 Inspect:
 
@@ -45,21 +57,17 @@ Inspect:
 - `trace_clock_errors` is trace-wide, repeated for convenience. Zero reported
   errors does not establish cross-machine clock synchronization.
 
-For a focused investigation, substitute numeric capture IDs from the inventory:
-
-```sql
-DELETE FROM agentprof_skill_scope;
-INSERT INTO agentprof_skill_scope VALUES (CAPTURE_ID);
-```
-
-Execute that SQL with `trace_processor query --remote SESSION '...'`.
-The query files do not substitute variables. An empty scope selects all captures;
-multiple inserted IDs select several. Do not interpolate prompt text into SQL.
-
 ## 2. Locate the measured time
 
+Load `dev.agentprof.activity` to inspect interval-union occupancy per capture
+(mirrors **Summary — What happened in this recording?**, **Where was time
+spent?**, and **Was work happening in parallel?**):
+
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/run_summary.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.activity;
+  SELECT * FROM dev_agentprof_capture_occupancy LIMIT 100;
+"
 ```
 
 One row per capture reports `observed_extent_ms`, model-only and tool-only
@@ -75,12 +83,34 @@ compute time. Gaps are **unattributed**, not inferred thinking, queueing, approv
 or waiting. Never extend an incomplete operation to the next prompt or trace end
 and call that a measured duration.
 
-If prompt boundaries are recorded, run the optional turn attribution:
+If prompt boundaries (`prompts > 0`) are recorded, load `dev.agentprof.turns` for
+user-turn attribution (mirrors the **Turns** tab):
 
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/agentprof_turns.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/slow_turns.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/unassigned_work.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.turns;
+  SELECT
+    prompt_id,
+    capture_id,
+    turn_number,
+    incomplete,
+    (display_end_ts - start_ts) / 1e6 AS observed_extent_ms,
+    models_only_ns / 1e6 AS model_only_ms,
+    tools_only_ns / 1e6 AS tool_only_ms,
+    overlap_ns / 1e6 AS overlap_ms,
+    unattributed_ns / 1e6 AS unattributed_ms,
+    model_calls AS responses,
+    unmatched_requests,
+    tools,
+    unknown_models,
+    unknown_tools,
+    input_tokens,
+    output_tokens
+  FROM dev_agentprof_turns
+  ORDER BY display_end_ts - start_ts DESC, prompt_id
+  LIMIT 20;
+  SELECT * FROM dev_agentprof_turn_unassigned LIMIT 100;
+"
 ```
 
 A turn is one user-prompt interaction, not a native model/tool iteration. The top

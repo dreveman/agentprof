@@ -1,9 +1,11 @@
 # Compare AgentProf runs
 
-Use for before/after changes and comparisons across harnesses, models or workers.
-Initialize each trace once using
-[investigate an agent run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md),
-then retain one warm session per trace. Capture IDs are local to each trace.
+Use for before/after changes and comparisons across harnesses, models or workers
+(matching the neutral baseline-comparison rules of **Set as baseline** in the
+Agent Profiler UI). Start one warm session per trace (or pack multiple traces
+into a `.tar` bundle) using
+[investigate an agent run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md).
+Capture IDs are local to each trace session.
 
 ## 1. Define an honest cohort
 
@@ -16,23 +18,32 @@ it from timing. A successful tool call is not task correctness.
 Keep selected capture IDs and trace aliases explicit. Compare complete matching
 windows where possible; partial captures, missing child recordings, dropped events
 or incompatible timing semantics require a restricted comparison or no ranking.
-Do not silently roll child token totals or context into the parent.
+When comparing root sessions that spawned workers, keep per-capture metrics
+(`dev_agentprof_capture_occupancy`) distinct from root-session rollups
+(`dev_agentprof_root_sessions` in `dev.agentprof.sessions`).
 
 ## 2. Collect identical scorecards
 
-Run these for each selected session/scope:
+Query the inventory, occupancy, and model-cohort scorecards for each session:
 
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/inventory.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/run_summary.sql
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/model_summary.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.captures;
+  INCLUDE PERFETTO MODULE dev.agentprof.activity;
+  INCLUDE PERFETTO MODULE dev.agentprof.models;
+  SELECT * FROM dev_agentprof_inventory LIMIT 100;
+  SELECT * FROM dev_agentprof_capture_occupancy LIMIT 100;
+  SELECT * FROM dev_agentprof_model_cohorts LIMIT 100;
+"
 ```
 
 Compare observed extent, prompt/response/tool counts, measured occupancy and
 concurrency, reported token-counter peaks, response usage and measurement sample
 counts, and peak context/window. Preserve counter peaks versus response usage and
 per-provider timing groups. Codex plugin-only captures cannot enter a measured
-model-latency ranking. Missing metrics stay “unavailable”, not zero.
+model-latency ranking. Missing metrics stay “unavailable”, not zero; context
+shares are comparable only when both sessions share the same positive context
+window.
 
 For repeated equivalent runs, report sample count, median and range per condition;
 show per-run values before aggregation. For a single run, report an observed delta,

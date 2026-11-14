@@ -45,6 +45,8 @@ class ReleaseSkillTest(unittest.TestCase):
         for path in builder.OVERLAY.rglob("*"):
             if path.is_file():
                 self.assertEqual(path.read_bytes(), (skill / "workflows/agentprof" / path.relative_to(builder.OVERLAY)).read_bytes())
+        for path in builder.STDLIB.rglob("*.sql"):
+            self.assertEqual(path.read_bytes(), (skill / "workflows/agentprof/stdlib" / path.relative_to(builder.STDLIB)).read_bytes())
 
     def test_rebuild_is_byte_identical(self):
         second = builder.build(self.root / "second", REVISION, EPOCH)
@@ -83,7 +85,7 @@ class ReleaseSkillTest(unittest.TestCase):
         def verify(skill, metadata):
             self.assertIn("agentprof-ai-check-", str(skill))
             self.assertEqual(REVISION, metadata["agentprof_revision"])
-            self.assertTrue((skill / "workflows/agentprof/scripts/agentprof_setup.sql").is_file())
+            self.assertTrue((skill / "workflows/agentprof/stdlib/dev/agentprof/captures.sql").is_file())
             calls.append(skill)
             return {"test": "verified"}
         with patch.object(builder, "verify_runtime", side_effect=verify):

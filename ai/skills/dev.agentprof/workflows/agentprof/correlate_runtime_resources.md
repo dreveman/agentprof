@@ -1,14 +1,19 @@
 # Correlate AgentProf runtime resources
 
 Use when recorded process CPU, RSS or JS-heap samples may explain a slow phase.
-First initialize and select captures using
+First start the warm session and inspect capture scope using
 [investigate an agent run]($SKILL_ROOT/workflows/agentprof/investigate_agent_run.md).
-Reuse the warm trace session.
+Filter with `WHERE capture_id IN (...)` when narrowing to specific captures.
 
 ## 1. Check actual resource coverage
 
+Load `dev.agentprof.runtime` and query `dev_agentprof_runtime_summary`:
+
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/runtime_summary.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.runtime;
+  SELECT * FROM dev_agentprof_runtime_summary LIMIT 100;
+"
 ```
 
 Rows identify capture and counter-track IDs, metric, explicit unit, sample count,
@@ -25,16 +30,23 @@ Closing/baseline samples and incomplete coverage must be called out.
 
 ## 2. Align samples with the measured phase
 
+Inspect the latest timestamped samples in `dev_agentprof_runtime_samples`:
+
 ```bash
-trace_processor query --remote SESSION --query-file $SKILL_ROOT/workflows/agentprof/scripts/runtime_samples.sql
+trace_processor query --remote SESSION "
+  INCLUDE PERFETTO MODULE dev.agentprof.runtime;
+  SELECT *
+  FROM dev_agentprof_runtime_samples
+  ORDER BY ts DESC, track_id
+  LIMIT 200;
+"
 ```
 
-This returns the latest 200 timestamped samples. If the phase is older, narrow a
-validated query over `counter` joined to `agentprof_skill_counter_tracks` by
-track ID, using its capture ID and numeric timestamp bounds. Do not infer a peak
-from an uninspected truncated sample window. Locate response/tool/turn IDs with
-`slow_responses.sql`, `slow_tools.sql` or `slow_turns.sql` and report
-sample spacing relative to the phase duration.
+If the slow phase is older than the latest 200 samples, filter
+`dev_agentprof_runtime_samples` by `capture_id`, `track_id`, and numeric `ts`
+bounds rather than inferring a peak from a truncated window. Locate overlapping
+response, tool, or turn IDs via `dev.agentprof.models`, `dev.agentprof.tools`, or
+`dev.agentprof.turns` and report sample spacing relative to the phase duration.
 
 CPU samples describe the preceding sampling interval; use their previous sample
 timestamp for overlap, not the sample instant as an execution span. Process-level

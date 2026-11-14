@@ -17,6 +17,7 @@ the headers and package metadata. Preserve third-party copyright and license not
 | `packages/pi-tracing/` | Pi extension, recorder, encoder, and tests |
 | `packages/claude-tracing/`, `packages/codex-tracing/`, `packages/muse-tracing/` | Harness recording plugins and tests |
 | `packages/agent-tracing/` | Shared trace serialization |
+| `stdlib/dev/agentprof/` | Shared `dev.agentprof.*` PerfettoSQL analysis modules used by UI and AI workflows |
 | `tools/` | Checkout manager and synthetic trace/browser validation |
 | `ai/skills/dev.agentprof/` | Portable workflows overlaid onto the upstream Perfetto skill |
 | `third_party/perfetto.toml` | Upstream Perfetto URL and initial revision pin |
@@ -126,20 +127,18 @@ trace/browser checks before landing the update.
 
 ## AgentProf AI workflows
 
-Keep portable workflow pages and SQL under
-`ai/skills/dev.agentprof/workflows/agentprof/`. This namespace is an overlay source,
-not another installed skill. Setup links it into the pinned Perfetto skill;
-changes to the upstream router remain a small ordered patch. Reuse shared
-Perfetto references and packaging instead of copying them.
+Keep portable workflow pages under `ai/skills/dev.agentprof/workflows/agentprof/`
+and shared PerfettoSQL modules under `stdlib/dev/agentprof/`. Setup links both
+into the pinned Perfetto skill (`workflows/agentprof/` and
+`workflows/agentprof/stdlib/`); changes to the upstream router remain a small
+ordered patch. Reuse shared Perfetto references and packaging instead of copying
+them.
 
-The two reader exports are generated from UI SQL and preserve its explicit
-`INDEXED BY` hints. Do not independently format these generated files: the pinned
-formatter drops those hints. Format authored query resources with Perfetto's
-formatter; CI checks them after the UI build prepares its toolchain.
+Format `stdlib/dev/agentprof/*.sql` with Perfetto's pinned SQL formatter; CI
+checks them with `check-skills-format`.
 
 ```bash
 python3 tools/perfetto setup
-npm run build:skills-sql
 python3 tools/perfetto check-skills-format
 PERFETTO_TRACE_PROCESSOR=/path/to/local/trace_processor npm run test:skills
 cd third_party/src/perfetto
@@ -148,11 +147,13 @@ python3 tools/release/build_ai_agents.py --output ../../../artifacts/ai-agents
 
 The upstream command only assembles local output without a commit/push option.
 The installed skill is `artifacts/ai-agents/plugins/perfetto/skills/perfetto/`.
-The SQL exports are checked against the UI reader, but run with only a trace
-and Trace Processor. Tests cover packaging, overlay collisions, all four harness
-recordings, missing measurements, prompt-level turns, capture scoping and overlap.
-No model calls are needed. Run model-based Perfetto evals separately only with
-explicit approval; do not attach private traces to eval artifacts.
+Both the UI and the Markdown workflows execute against the same `dev.agentprof.*`
+PerfettoSQL modules, running on any trace with only Trace Processor. Tests cover
+packaging, overlay collisions, every fenced workflow query across all four
+harness recordings, missing measurements, prompt-level turns, capture scoping
+and overlap. No model calls are needed. Run model-based Perfetto evals
+separately only with explicit approval; do not attach private traces to eval
+artifacts.
 
 ### Build the AI release artifact
 

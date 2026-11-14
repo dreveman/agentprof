@@ -5,24 +5,30 @@ It adds the `agentprof` workflow domain to Perfetto's existing `perfetto` skill.
 There is no copied router, bootstrap, binary wrapper or package manifest here.
 
 `python3 tools/perfetto setup` links `skills/dev.agentprof/workflows/` into the
-pinned checkout's `ai/skills/perfetto/workflows/`. The small router edit is kept
+pinned checkout's `ai/skills/perfetto/workflows/` and links `stdlib/` into
+`ai/skills/perfetto/workflows/agentprof/stdlib/`. The small router edit is kept
 in the normal Perfetto patch series. The upstream bundler packages the resulting
 single skill unchanged; see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-The workflows ship standalone SQL. `tools/generate-skills-sql.ts` exports the
-shared reader and turn-attribution SQL from AgentProf's tested UI queries, with
-an isolated `agentprof_skill_*` namespace and without prompt/tool payloads. This
-is an AgentProf maintenance step, not a runtime or upstream packaging dependency.
-The two reader exports are marked generated and retain the reader's explicit
-index hints; do not independently format them. Authored query resources use the
-pinned Perfetto SQL formatter, checked by `tools/perfetto check-skills-format`.
-`npm run build:skills-sql` refreshes the two exports; `npm run check` verifies them.
+Both the Agent Profiler UI and the Markdown workflows share one set of
+PerfettoSQL modules under `stdlib/dev/agentprof/` (`dev.agentprof.captures`,
+`models`, `sessions`, `tools`, `context`, `activity`, `turns`, and `runtime`).
+Workflows register the packaged directory with
+`--add-sql-package $SKILL_ROOT/workflows/agentprof/stdlib/dev/agentprof@dev.agentprof`
+when starting a warm `trace_processor` session (or omit the flag when running a
+`trace_processor` build that embeds `dev.agentprof.*`) and execute inline
+`INCLUDE PERFETTO MODULE dev.agentprof.<module>; SELECT ...;` queries. Base
+tables and summary views omit raw prompt, argument, and context-label payloads;
+lazy UI detail views project bounded payloads only when queried by the UI. All
+SQL modules are formatted with Perfetto's pinned `syntaqlite` formatter and
+checked by `python3 tools/perfetto check-skills-format`.
 
-For an upstream Perfetto contribution, copy `skills/dev.agentprof/workflows/`
-to `ai/skills/perfetto/workflows/` and apply only the skill-router patch. No
-AgentProf checkout manager or generated build dependency belongs in that change.
+For an upstream Perfetto contribution, move `stdlib/dev/agentprof/` into
+`src/trace_processor/perfetto_sql/stdlib/`, copy `skills/dev.agentprof/workflows/`
+to `ai/skills/perfetto/workflows/`, and apply only the skill-router patch.
 
-An environment with its own Perfetto bootstrap can import the same
-`skills/dev.agentprof/` namespace as a workflow-only overlay. Keep its environment
-override separate. Remove the backport once the pinned upstream source includes
-these workflows rather than silently replacing imported upstream files.
+An environment with its own Perfetto bootstrap can import `stdlib/dev/agentprof/`
+into its embedded `trace_processor` stdlib and `skills/dev.agentprof/` as a
+workflow-only overlay. Remove the backport once the pinned upstream source
+includes these modules and workflows rather than silently replacing imported
+upstream files.
