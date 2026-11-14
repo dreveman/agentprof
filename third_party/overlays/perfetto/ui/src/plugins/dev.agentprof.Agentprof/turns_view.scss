@@ -199,7 +199,7 @@
   .ap-turn-error {
     color: var(--pf-color-danger);
   }
-  @media (max-width: 760px) {
+  @container agentprof-overview (max-width: 728px) {
     .ap-turn-header {
       gap: 4px;
       flex-wrap: wrap;

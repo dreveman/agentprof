@@ -1016,6 +1016,34 @@ try {
   await page.locator('.ap-context-table .ap-table-link').first().click();
   await page.waitForURL(/#!\/viewer/);
   await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
+  // Split view keeps Overview mounted alongside Timeline on wide viewports,
+  // adapts Overview layout via container queries, and collapses to a rail.
+  await page.locator('.pf-page-split__primary .ap-page').waitFor();
+  await page.locator('.pf-page-split__secondary').waitFor();
+  const splitOverflow = await page.locator('.pf-page-split__primary .ap-page').evaluate(el => ({
+    page: el.scrollWidth - el.clientWidth,
+    width: el.clientWidth,
+  }));
+  assert.ok(splitOverflow.width >= 320 && splitOverflow.width < 800,
+    `Overview renders in a split pane (${splitOverflow.width}px)`);
+  assert.ok(splitOverflow.page <= 1, `Split-pane Overview has no horizontal overflow: ${JSON.stringify(splitOverflow)}`);
+  await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Sessions', {exact: true}).click();
+  await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
+  assert.equal(await page.locator('.pf-page-split__secondary').count(), 1,
+    'Switching Overview tabs keeps the Timeline split pane open');
+  await page.getByRole('button', {name: 'Collapse overview', exact: true}).click();
+  await page.locator('.ap-page--collapsed').waitFor();
+  const collapsedWidth = await page.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
+  assert.ok(Math.abs(collapsedWidth - 48) <= 2, `Collapsed Overview rail is 48px wide (got ${collapsedWidth})`);
+  await page.getByRole('button', {name: 'Expand overview', exact: true}).first().click();
+  await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
+  await action('Settings');
+  await page.waitForURL(/#!\/settings/);
+  await page.getByRole('button', {name: 'Close settings', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'Close settings', exact: true}).click();
+  await page.waitForURL(/#!\/agentprof\/sessions/);
+  await page.locator('.pf-page-split__secondary').waitFor({state: 'detached'});
+  assert.equal(await page.locator('.pf-page-split__secondary').count(), 0);
   assert.deepEqual(errors, [], 'Browser reported JavaScript errors');
   console.log('PASS browser: real harness examples, recorded-file merge, overview, reload, model/tool drill-down, file import, narrow layout, session summaries, native process labels, context composition and filters across four harnesses, timeline links and older trace fallback');
 } catch (error) {
