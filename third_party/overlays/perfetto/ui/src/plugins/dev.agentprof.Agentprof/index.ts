@@ -2,7 +2,12 @@
 
 import type {PerfettoPlugin} from '../../public/plugin';
 import m from 'mithril';
-import {markExample, navigate} from './navigation';
+import {
+  closeSecondaryPane,
+  exampleHref,
+  markExample,
+  setOverviewCollapsed,
+} from './navigation';
 import {Overview} from './overview';
 import {createTurnSetup} from './overview_loader';
 import {TURNS_SETUP_SQL} from './turns_queries';
@@ -32,6 +37,10 @@ export default class implements PerfettoPlugin {
   static readonly dependencies = [QueryPagePlugin, TrackEventPlugin];
 
   static onActivate(app: App): void {
+    const splitSetting = app.settings?.get<boolean>('splitSecondaryPages');
+    if (splitSetting && splitSetting.isDefault !== false) {
+      splitSetting.set(true);
+    }
     const openExample = async (id: string, title: string, base64: string) => {
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const trace = await app.openTraceFromBuffer({
@@ -40,8 +49,12 @@ export default class implements PerfettoPlugin {
         fileName: `${title}.pftrace`,
       });
       markExample(trace, id);
-      // Reload the bundled fixture on refresh, including regenerated data.
-      app.navigate(`#!/agentprof?agentprof_example=${id}&local_cache_key=`);
+      // Drop any previous trace cache key without triggering Router's 3-step
+      // empty-key normalization, and reload the bundled fixture on refresh.
+      if (typeof window !== 'undefined' && window.location.hash.includes('local_cache_key=')) {
+        window.history.replaceState(null, '', '#!/agentprof');
+      }
+      app.navigate(exampleHref('/agentprof', id));
     };
     const examples = [
       {...EXAMPLES.claude, base64: CLAUDE_EXAMPLE_TRACE_BASE64},
@@ -63,7 +76,7 @@ export default class implements PerfettoPlugin {
     const example = examples.find(candidate => candidate.routeId === exampleId);
     if (example !== undefined) {
       // Clear any old cache key before the startup route handler runs.
-      window.history.replaceState(null, '', `#!/agentprof?agentprof_example=${exampleId}&local_cache_key=`);
+      window.history.replaceState(null, '', exampleHref('/agentprof', example.routeId));
       void app.commands.runCommand(example.commandId);
     }
   }
@@ -71,16 +84,27 @@ export default class implements PerfettoPlugin {
   async onTraceLoad(trace: Trace): Promise<void> {
     const detected = await trace.engine.query(DETECT_SQL);
     if (detected.firstRow({count: NUM}).count === 0) return;
+    setOverviewCollapsed(false);
     await trace.engine.query(SETUP_SQL);
     await trace.engine.query(OVERVIEW_SETUP_SQL);
     const loadTurns = createTurnSetup(() => trace.engine.query(TURNS_SETUP_SQL));
-    trace.pages.registerPage({route: '/agentprof', render: () => m(Overview, {trace, loadTurns, key: trace.engine.engineId})});
+    trace.pages.registerPage({
+      route: '/agentprof',
+      render: (subpage) =>
+        m(Overview, {trace, loadTurns, subpage, key: trace.engine.engineId}),
+    });
     trace.commands.registerCommand({
       id: `${devId()}.OpenOverview`, name: 'Open Agent Profiler overview',
-      callback: () => navigate(trace, '/agentprof'),
+      callback: () => {
+        setOverviewCollapsed(false);
+        closeSecondaryPane(trace);
+      },
     });
     trace.sidebar.addMenuItem({section: 'current_trace', text: 'Overview',
-      href: '#!/agentprof', action: () => navigate(trace, '/agentprof'), icon: 'dashboard', sortOrder: 0});
+      href: '#!/agentprof', action: () => {
+        setOverviewCollapsed(false);
+        closeSecondaryPane(trace);
+      }, icon: 'dashboard', sortOrder: 0});
     trace.initialPage.suggest('/agentprof', 100);
 
     const workspace = trace.workspaces.createEmptyWorkspace('Agent Profiler');

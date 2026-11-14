@@ -8,7 +8,15 @@ import {Callout} from '../../widgets/callout';
 import {Intent} from '../../widgets/common';
 import {Icon} from '../../widgets/icon';
 import {PopupMenu, MenuItem} from '../../widgets/menu';
-import {navigate} from './navigation';
+import {
+  closeSecondaryPane,
+  isOverviewCollapsed,
+  isSplitSecondaryEnabled,
+  isWideSplitViewport,
+  navigate,
+  overviewSubpage,
+  setOverviewCollapsed,
+} from './navigation';
 import type {Trace} from '../../public/trace';
 import type {SqlValue} from '../../trace_processor/query_result';
 import {OVERVIEW_QUERIES} from './overview_queries';
@@ -25,7 +33,19 @@ type Row = Record<string, SqlValue>;
 type Section = keyof typeof OVERVIEW_QUERIES;
 type Tab = OverviewTab;
 interface State {rows?: Row[]; error?: string}
-interface Attrs {trace: Trace; loadTurns: () => Promise<unknown>}
+interface Attrs {trace: Trace; loadTurns: () => Promise<unknown>; subpage?: string}
+
+const SUBPAGE_TABS: Readonly<Record<string, Tab>> = {
+  '/summary': 'Summary',
+  '/turns': 'Turns',
+  '/tools': 'Tools',
+  '/context': 'Context',
+  '/sessions': 'Sessions',
+};
+
+function tabFromSubpage(subpage?: string): Tab | undefined {
+  return subpage ? SUBPAGE_TABS[subpage.toLowerCase()] : undefined;
+}
 
 function number(value: SqlValue | undefined): number {return Number(value ?? 0);}
 function value(v: SqlValue | undefined): string {
@@ -206,6 +226,7 @@ function modelIdentity(row: Row): m.Children {
 
 export class Overview implements m.ClassComponent<Attrs> {
   private tab: Tab = 'Summary';
+  private trace?: Trace;
   private baselineCaptureId: number | undefined;
   private deltaMode: DeltaMode = 'both';
   private readonly data: Partial<Record<Section, State>> = {};
@@ -214,6 +235,9 @@ export class Overview implements m.ClassComponent<Attrs> {
   private loader?: OverviewLoader<Row>;
 
   oninit({attrs}: m.Vnode<Attrs>) {
+    this.trace = attrs.trace;
+    const initial = tabFromSubpage(overviewSubpage(attrs.trace, attrs.subpage));
+    if (initial !== undefined) this.tab = initial;
     const ensureTurns = attrs.loadTurns;
     const readRows = async (sql: string) => {
       const result = await attrs.trace.engine.query(sql);
@@ -235,8 +259,12 @@ export class Overview implements m.ClassComponent<Attrs> {
   onremove() {this.loader?.dispose();}
 
   private selectTab(tab: Tab) {
+    const changed = this.tab !== tab;
     this.tab = tab;
     this.loader?.open(tab);
+    if (this.trace && changed) {
+      navigate(this.trace, `/agentprof/${tab.toLowerCase()}`);
+    }
   }
 
   private isBaseline(row: Row): boolean {
@@ -520,7 +548,62 @@ export class Overview implements m.ClassComponent<Attrs> {
       })));
   }
 
-  view({attrs: {trace}}: m.CVnode<Attrs>): m.Children {
+  view({attrs: {trace, subpage}}: m.CVnode<Attrs>): m.Children {
+    this.trace = trace;
+    const effectiveSubpage = overviewSubpage(trace, subpage);
+    const routeTab = tabFromSubpage(effectiveSubpage);
+    if (routeTab !== undefined && routeTab !== this.tab) {
+      this.tab = routeTab;
+      this.loader?.open(routeTab);
+    }
+    const currentRoutePage = trace.getCurrentRoute?.()?.page ?? '/agentprof';
+    const isWideViewport = isWideSplitViewport();
+    const splitEnabled = isSplitSecondaryEnabled(trace.settings);
+    if (isWideViewport && isOverviewCollapsed()) {
+      const expandOverview = () => {
+        setOverviewCollapsed(false);
+        if (
+          currentRoutePage === '' ||
+          currentRoutePage === '/' ||
+          currentRoutePage === '/agentprof'
+        ) {
+          closeSecondaryPane(trace);
+        }
+      };
+      const recordingTitle = trace.traceInfo.traceTitle || 'multiple traces';
+      return m(
+        'main.ap-page.ap-page--collapsed',
+        {
+          'role': 'button',
+          'tabindex': 0,
+          'title': 'Expand overview',
+          'aria-label': 'Expand overview',
+          'onclick': expandOverview,
+          'onkeydown': (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              expandOverview();
+            }
+          },
+        },
+        m(Button, {
+          'icon': 'left_panel_open',
+          'title': 'Expand overview',
+          'aria-label': 'Expand overview',
+          'variant': ButtonVariant.Minimal,
+          'onclick': (e: MouseEvent) => {
+            e.stopPropagation();
+            expandOverview();
+          },
+        }),
+        m('span.ap-page__collapsed-label', 'Overview'),
+        m(
+          '.ap-page__collapsed-banner',
+          m(Icon, {icon: 'smart_toy'}),
+          m('span.ap-page__collapsed-file', recordingTitle),
+        ),
+      );
+    }
     const summary = this.data.summary?.rows?.[0];
     const aligned = summary !== undefined && number(summary.clock_errors) === 0;
     const singleSession = summary !== undefined && number(summary.sessions) === 1;
@@ -658,7 +741,9 @@ export class Overview implements m.ClassComponent<Attrs> {
       ['Summary', 'dashboard'], ['Turns', 'forum'],
       ['Tools', 'build'], ['Context', 'data_usage'], ['Sessions', 'account_tree'],
     ];
-    return m('.ap-page', m('.ap-inner',
+    const splitTimelineOpen =
+      splitEnabled && isWideViewport && currentRoutePage === '/viewer';
+    return m('main.ap-page', m('.ap-inner',
       m('header.ap-header',
         m('.ap-toolbar',
           m('.ap-selectors',
@@ -675,8 +760,25 @@ export class Overview implements m.ClassComponent<Attrs> {
                 variant: ButtonVariant.Outlined,
                 title: 'Analysis covers the full recording',
               })}, m(MenuItem, {label: 'Full recording', icon: 'check', onclick: () => {}})))),
-          m(Button, {label: 'Open timeline', icon: 'timeline',
-            variant: ButtonVariant.Filled, onclick: () => navigate(trace, '/viewer')})),
+          m('.ap-toolbar-actions',
+            m(Button, {
+              label: splitTimelineOpen ? 'Close timeline' : 'Open timeline',
+              icon: 'timeline',
+              variant: splitTimelineOpen ? ButtonVariant.Outlined : ButtonVariant.Filled,
+              onclick: () => splitTimelineOpen ? closeSecondaryPane(trace) : navigate(trace, '/viewer'),
+            }),
+            isWideViewport && splitEnabled && m(Button, {
+              icon: 'left_panel_close',
+              title: 'Collapse overview',
+              'aria-label': 'Collapse overview',
+              variant: ButtonVariant.Minimal,
+              onclick: () => {
+                setOverviewCollapsed(true);
+                if (currentRoutePage === '/agentprof') {
+                  navigate(trace, '/');
+                }
+              },
+            }))),
         m('.ap-banner', m(Icon, {icon: 'smart_toy'}), `Recording ${trace.traceInfo.traceTitle || 'multiple traces'}`)),
       this.baselineBar(),
       m(Tabs, {className: 'ap-tabs', activeTabKey: this.tab,

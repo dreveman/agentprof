@@ -90,5 +90,70 @@
     height: 32px;
     flex-shrink: 0;
     padding: 4px;
+
+    &.pf-active,
+    &[aria-pressed="true"] {
+      color: var(--pf-color-primary);
+      background: color-mix(in srgb, var(--pf-color-primary) 12%, transparent);
+    }
+  }
+}
+
+.pf-ui-main:has(.pf-topbar--navigation) {
+  min-width: 360px;
+}
+
+@media (max-width: 720px) {
+  .pf-ui-main__page-container
+    > .pf-split-panel:has(> .pf-split-panel__second > .pf-side-panel) {
+    > .pf-split-panel__first,
+    > .pf-resize-handle {
+      display: none !important;
+    }
+
+    > .pf-split-panel__second {
+      flex: 1 1 100% !important;
+      width: 100% !important;
+      min-width: 100% !important;
+      max-width: 100% !important;
+    }
+  }
+}
+
+.pf-settings-shell,
+.pf-trace-info-page {
+  position: relative;
+}
+
+.ap-pane-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--pf-color-text-muted);
+  line-height: 1;
+  cursor: pointer;
+
+  .pf-icon {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  &:hover {
+    color: var(--pf-color-text);
+    background: color-mix(
+      in srgb,
+      transparent,
+      var(--pf-color-interactive-base) 10%
+    );
   }
 }
