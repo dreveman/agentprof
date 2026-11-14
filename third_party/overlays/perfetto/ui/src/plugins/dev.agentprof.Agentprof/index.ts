@@ -14,6 +14,8 @@ import {TURNS_SETUP_SQL} from './turns_queries';
 import {OVERVIEW_SETUP_SQL} from './overview_queries';
 import type {App} from '../../public/app';
 import type {Trace} from '../../public/trace';
+import {cacheTrace} from '../../core/cache_manager';
+import {tarFileListToBlob} from '../../core/trace_stream';
 import {TrackNode} from '../../public/workspace';
 import {SliceTrack} from '../../components/tracks/slice_track';
 import {ThreadSliceDetailsPanel} from '../../components/details/thread_slice_details_tab';
@@ -85,6 +87,41 @@ export default class implements PerfettoPlugin {
     const detected = await trace.engine.query(DETECT_SQL);
     if (detected.firstRow({count: NUM}).count === 0) return;
     setOverviewCollapsed(false);
+    const rawSource = (
+      trace.traceInfo as {
+        source?: {type?: string; files?: ReadonlyArray<File>};
+        uuid?: string;
+      }
+    ).source;
+    const traceUuid = (trace.traceInfo as {uuid?: string}).uuid;
+    if (
+      rawSource?.type === 'MULTIPLE_FILES' &&
+      rawSource.files &&
+      rawSource.files.length > 0 &&
+      traceUuid
+    ) {
+      const traceFiles = rawSource.files.filter(
+        (f) =>
+          f.name !== 'merge_manifest.json' &&
+          f.name !== 'perfetto_manifest.json',
+      );
+      const files = traceFiles.length > 0 ? traceFiles : rawSource.files;
+      const names = files.map((f) => f.name.split(/[/\\]/).pop() ?? f.name);
+      void tarFileListToBlob(rawSource.files)
+        .then((blob) => blob.arrayBuffer())
+        .then((buffer) =>
+          cacheTrace(
+            {
+              type: 'ARRAY_BUFFER',
+              buffer,
+              title: names[0] ?? 'Merged recording',
+              fileName: names.map(encodeURIComponent).join(','),
+            },
+            traceUuid,
+          ),
+        )
+        .catch(() => undefined);
+    }
     await trace.engine.query(SETUP_SQL);
     await trace.engine.query(OVERVIEW_SETUP_SQL);
     const loadTurns = createTurnSetup(() => trace.engine.query(TURNS_SETUP_SQL));

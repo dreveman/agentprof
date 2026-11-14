@@ -1044,6 +1044,69 @@ try {
   await page.waitForURL(/#!\/agentprof\/sessions/);
   await page.locator('.pf-page-split__secondary').waitFor({state: 'detached'});
   assert.equal(await page.locator('.pf-page-split__secondary').count(), 0);
+
+  // Recent traces (including multi-file comparison archives) appear on Home.
+  await more();
+  await page.getByRole('button', {name: 'Close recording', exact: true}).click();
+  await home().waitFor();
+  await page.locator('.ap-home__recent-item').first().waitFor();
+  if (await page.locator('.ap-home__recent-toggle').count() > 0) {
+    await page.locator('.ap-home__recent-toggle').click();
+  }
+  await page.locator('.ap-home__recent-count').first().waitFor();
+  assert.ok(await page.locator('.ap-home__recent-count').count() >= 1,
+    'Multi-file comparison imports retain their file count in Recent traces');
+  const recentBeforeDelete = await page.locator('.ap-home__recent-item').count();
+  await page.locator('.ap-home__recent-delete').first().click();
+  await page.waitForFunction(expected => document.querySelectorAll('.ap-home__recent-item').length === expected,
+    recentBeforeDelete - 1);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).webkitTextSizeAdjust), '100%');
+
+  // Exercise the iOS host bridge (`window.agentprofHost`) in a fresh context.
+  const iosPage = await browser.newPage({viewport: {width: 932, height: 430}});
+  iosPage.on('pageerror', error => errors.push(error.message));
+  await iosPage.addInitScript(() => {
+    window.__iosState = {actions: [], openedRecent: []};
+    window.agentprofHost = {
+      platform: 'ios',
+      nativeBar: true,
+      nativeBarWidth: 62,
+      recentTraces: [
+        {id: 'ios-1', title: 'run-a.pftrace', files: ['run-a.pftrace', 'run-b.pftrace'], sizeBytes: 24500},
+      ],
+      setActions(actions) { window.__iosState.actions = actions; },
+      onOpenRecentTrace(id) { window.__iosState.openedRecent.push(id); },
+    };
+  });
+  await iosPage.goto('http://127.0.0.1:10000/?testing=1');
+  await iosPage.getByRole('heading', {name: 'Open agent recordings', exact: true}).waitFor();
+  assert.equal(await iosPage.locator('.ap-home__shortcuts').count(), 0, 'Touch/iOS hides desktop shortcuts');
+  assert.equal(await iosPage.locator('.ap-home__example').count(), 5, 'iOS home lists all bundled examples directly');
+  assert.equal(await iosPage.locator('details.ap-home__cli-details').evaluate(el => el.open), false);
+  await iosPage.locator('.ap-home__recent-open').first().click();
+  assert.deepEqual(await iosPage.evaluate(() => window.__iosState.openedRecent), ['ios-1']);
+  assert.equal(await iosPage.locator('.pf-ui-main > .pf-topbar').isVisible(), false,
+    'Web topbar hides while the iOS native bar owns navigation');
+  const [iosChooser] = await Promise.all([
+    iosPage.waitForEvent('filechooser'),
+    iosPage.getByRole('button', {name: 'Open recordings', exact: true}).click(),
+  ]);
+  assert.equal(await iosPage.locator('input.trace_file').getAttribute('accept'), 'application/octet-stream');
+  await iosChooser.setFiles(resolve('artifacts/examples/synthetic.pftrace'));
+  await iosPage.getByRole('heading', {name: 'What your trace says about agent activity'}).waitFor({timeout: 60000});
+  const iosActionIds = await iosPage.evaluate(() => window.__iosState.actions.map(a => a.id));
+  assert.ok(['home', 'search', 'overview', 'timeline', 'query', 'open', 'settings'].every(id => iosActionIds.includes(id)));
+  await iosPage.evaluate(() => window.agentprofHost.onRunAction('timeline'));
+  await iosPage.waitForURL(/#!\/viewer/);
+  await iosPage.evaluate(() => window.agentprofHost.onRunAction('overview'));
+  await iosPage.locator('.ap-page--collapsed').waitFor();
+  const iosCollapsedWidth = await iosPage.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
+  assert.ok(Math.abs(iosCollapsedWidth - 62) <= 2, `Collapsed rail matches nativeBarWidth=62 (got ${iosCollapsedWidth})`);
+  await iosPage.evaluate(() => window.agentprofHost.onRunAction('search'));
+  assert.equal(await iosPage.locator('.pf-ui-main > .pf-topbar').isVisible(), true,
+    'Tapping native Search reveals the omnibox');
+  await iosPage.close();
+
   assert.deepEqual(errors, [], 'Browser reported JavaScript errors');
   console.log('PASS browser: real harness examples, recorded-file merge, overview, reload, model/tool drill-down, file import, narrow layout, session summaries, native process labels, context composition and filters across four harnesses, timeline links and older trace fallback');
 } catch (error) {
