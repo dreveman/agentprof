@@ -15,7 +15,11 @@ import {
   OPEN_TRACE_COMMAND,
   inIOSApp,
   openTraceFiles,
+  registerHostOpenTrace,
   shouldInstallServiceWorker,
+  type HostOpenTraceRequest,
+  type HostTraceChunk,
+  type HostTraceStream,
 } from '../third_party/overlays/perfetto/ui/src/core/embedder/agentprof_open_trace.ts';
 
 function fakeDom() {
@@ -220,4 +224,78 @@ test('syncNativeBar sends deduplicated actions, runs callbacks, and tracks nativ
   host.nativeBarWidth = 500;
   dom.dispatchWindow(HOST_CHANGE_EVENT);
   expect(dom.styles.has(NATIVE_BAR_WIDTH_PROPERTY)).toBe(false);
+});
+
+test('registerHostOpenTrace streams fetched trace chunks into openTraceFromStream on iOS', async () => {
+  const originalFetch = globalThis.fetch;
+  const host: {
+    platform: string;
+    onOpenTrace?: (request: HostOpenTraceRequest) => Promise<void> | void;
+  } = {platform: 'web'};
+  (globalThis as {agentprofHost?: unknown}).agentprofHost = host;
+
+  const opened: Array<{title?: string; chunks: HostTraceChunk[]}> = [];
+  const app = {
+    async openTraceFromStream(stream: HostTraceStream, title?: string) {
+      const chunks: HostTraceChunk[] = [];
+      for (;;) {
+        const chunk = await stream.readChunk();
+        chunks.push(chunk);
+        if (chunk.eof) break;
+      }
+      opened.push({title, chunks});
+    },
+  };
+
+  registerHostOpenTrace(app);
+  expect(host.onOpenTrace).toBeUndefined();
+
+  host.platform = 'ios';
+  registerHostOpenTrace(app);
+  expect(typeof host.onOpenTrace).toBe('function');
+
+  try {
+    const part1 = new Uint8Array([1, 2, 3]);
+    const part2 = new Uint8Array([4, 5, 6, 7]);
+    (globalThis as {fetch: typeof fetch}).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/missing.pftrace')) {
+        return new Response('Not found', {status: 404});
+      }
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(part1);
+          controller.enqueue(part2);
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: {'Content-Length': '7'},
+      });
+    }) as typeof fetch;
+
+    await host.onOpenTrace?.({
+      url: 'agentprof://app/_traces/123/run.pftrace',
+      name: 'run.pftrace',
+    });
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.title).toBe('run.pftrace (1 MB)');
+    expect(opened[0]?.chunks.map((c) => [Array.from(c.data), c.bytesRead, c.bytesTotal, c.eof])).toEqual([
+      [[1, 2, 3], 3, 7, false],
+      [[4, 5, 6, 7], 7, 7, false],
+      [[], 7, 7, true],
+    ]);
+
+    await expect(
+      Promise.resolve(
+        host.onOpenTrace?.({
+          url: 'agentprof://app/_traces/123/missing.pftrace',
+          name: 'missing.pftrace',
+        }),
+      ),
+    ).rejects.toThrow('Could not read missing.pftrace (HTTP 404).');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

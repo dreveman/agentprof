@@ -593,7 +593,7 @@ try {
   await recordedChooser.setFiles(bundledRecordings.map(r => resolve('examples/pi-opus-5', r.file)));
   await page.getByText('All traces line up on the shared timeline.', {exact: true}).waitFor({timeout: 60000});
   await page.getByRole('button', {name: /Open Traces/}).click();
-  await page.waitForFunction(id => window.app.trace && window.app.trace.engine.engineId !== id, previousEngine);
+  await page.waitForFunction(id => window.app.trace && !window.app.isLoadingTrace && window.app.trace.engine.engineId !== id, previousEngine);
   await overview().waitFor({timeout: 60000});
   await assertRecordedRuns(bundledRecordings);
   await assertTokenCounters(16);
@@ -751,6 +751,8 @@ try {
     buffer: Buffer.concat(await Promise.all(['code-mode', 'classic', 'unknown'].map(name =>
       readFile(`artifacts/examples/comparison/${name}.pftrace`)))),
   });
+  await page.locator('.ap-banner').filter({hasText: 'sessions.pftrace'}).waitFor({timeout: 60000});
+  await page.waitForFunction(() => Boolean(window.app.trace && !window.app.isLoadingTrace));
   await overview().waitFor({timeout: 60000});
   await comparison.getByText('model-0', {exact: true}).waitFor();
   assert.equal(await comparison.locator('tbody tr').count(), 3);
@@ -765,7 +767,9 @@ try {
   await page.screenshot({path: 'artifacts/screenshots/agentprof-sessions.png'});
   // One session can switch models or have no model metadata at all.
   for (const label of ['classic', 'unknown']) {
+    const prevEngineId = await page.evaluate(() => window.app.trace?.engine.engineId);
     await page.locator('input.trace_file').setInputFiles(resolve(`artifacts/examples/comparison/${label}.pftrace`));
+    await page.waitForFunction(id => Boolean(window.app.trace && !window.app.isLoadingTrace && window.app.trace.engine.engineId !== id), prevEngineId);
     await page.locator('.ap-banner').filter({hasText: `${label}.pftrace`}).waitFor({timeout: 60000});
     await overview().waitFor({timeout: 60000});
     await row(label).waitFor();
@@ -774,9 +778,11 @@ try {
     assert.equal(await page.getByRole('heading', {name: 'How responsive was the model?', exact: true}).count(), 0);
   }
   // Two logical agents on one host process are generic children of one real process.
+  const preSharedEngineId = await page.evaluate(() => window.app.trace?.engine.engineId);
   await page.locator('input.trace_file').setInputFiles(['agent-a', 'agent-b'].map(name =>
     resolve(`artifacts/examples/logical-agents/${name}.pftrace`)));
   await page.getByRole('button', {name: /Open Traces/}).click();
+  await page.waitForFunction(id => Boolean(window.app.trace && !window.app.isLoadingTrace && window.app.trace.engine.engineId !== id), preSharedEngineId);
   await overview().waitFor({timeout: 60000});
   await comparison.locator('tbody tr').nth(1).waitFor();
   const shared = await page.evaluate(() => window.app.trace.currentWorkspace.children.map(node => ({
@@ -1106,6 +1112,20 @@ try {
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('search'));
   assert.equal(await iosPage.locator('.pf-ui-main > .pf-topbar').isVisible(), true,
     'Tapping native Search reveals the omnibox');
+  const streamedBytes = Array.from(await readFile('artifacts/examples/synthetic.pftrace'));
+  const streamedTitle = await iosPage.evaluate(async bytes => {
+    if (typeof window.agentprofHost.onOpenTrace !== 'function') {
+      throw new Error('window.agentprofHost.onOpenTrace was not registered');
+    }
+    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)]));
+    try {
+      await window.agentprofHost.onOpenTrace({url, name: 'ios-streamed.pftrace'});
+      return window.app.trace?.traceInfo.traceTitle ?? '';
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }, streamedBytes);
+  assert.ok(streamedTitle.includes('ios-streamed.pftrace'), `Streamed trace loaded (${streamedTitle})`);
   await iosPage.close();
 
   assert.deepEqual(errors, [], 'Browser reported JavaScript errors');
