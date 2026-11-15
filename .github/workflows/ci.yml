@@ -116,6 +116,14 @@ jobs:
         run: third_party/src/perfetto/ui/node_modules/.bin/playwright install --with-deps chromium
       - name: Browser smoke test
         run: python3 tools/perfetto smoke-ui
+      - name: Stage iOS web UI bundle
+        run: python3 ios/scripts/prepare_web_ui.py
+      - name: Upload staged iOS web UI bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentprof-ios-web-ui
+          path: ios/build/AgentProfWeb
+          retention-days: 1
       - name: Upload browser screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -123,6 +131,85 @@ jobs:
           name: agentprof-ui-screenshots
           path: artifacts/screenshots/
           if-no-files-found: ignore
+
+  ios:
+    name: Build and test iOS app
+    needs: ui
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 16 or newer
+        run: |
+          python3 - <<'PY'
+          import glob, re, subprocess
+          cur = subprocess.check_output(["xcodebuild", "-version"], text=True)
+          m = re.search(r"Xcode (\d+)", cur)
+          if m and int(m.group(1)) >= 16:
+              raise SystemExit(0)
+          candidates = []
+          for app in sorted(glob.glob("/Applications/Xcode*.app")):
+              if "beta" in app.lower():
+                  continue
+              try:
+                  out = subprocess.check_output(
+                      [f"{app}/Contents/Developer/usr/bin/xcodebuild", "-version"], text=True
+                  )
+              except Exception:
+                  continue
+              vm = re.search(r"Xcode (\d+)\.(\d+)", out)
+              if vm and int(vm.group(1)) >= 16:
+                  candidates.append(((int(vm.group(1)), int(vm.group(2))), app))
+          if candidates:
+              candidates.sort()
+              chosen = candidates[-1][1]
+              subprocess.run(["sudo", "xcode-select", "-s", f"{chosen}/Contents/Developer"], check=True)
+          PY
+          xcodebuild -version
+      - name: Select iPhone Simulator
+        id: sim
+        run: |
+          SIM_ID="$(python3 - <<'PY'
+          import json, re, subprocess, sys
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"]))
+          candidates = []
+          for runtime, devices in data.get("devices", {}).items():
+              rm = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              if not rm or int(rm.group(1)) < 18:
+                  continue
+              ver = (int(rm.group(1)), int(rm.group(2)))
+              for dev in devices:
+                  if dev.get("isAvailable") and "iPhone" in dev.get("name", ""):
+                      candidates.append((ver, dev["name"], dev["udid"]))
+          if not candidates:
+              sys.exit("No available iOS 18+ iPhone simulator found")
+          candidates.sort()
+          print(candidates[-1][2])
+          PY
+          )"
+          echo "udid=${SIM_ID}" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "${SIM_ID}" || true
+      - name: Test prepare_web_ui.py
+        run: python3 -m unittest discover -s ios/scripts -p 'test_*.py'
+      - name: Verify placeholder build
+        run: |
+          xcodebuild build-for-testing \
+            -project ios/AgentProf.xcodeproj \
+            -scheme AgentProf \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Download staged AgentProfWeb bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: agentprof-ios-web-ui
+          path: ios/build/AgentProfWeb
+      - name: Run iOS unit and bundled UI tests
+        run: |
+          xcodebuild test \
+            -project ios/AgentProf.xcodeproj \
+            -scheme AgentProf \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO
 
   claude-plugin:
     name: Claude plugin installation and controls

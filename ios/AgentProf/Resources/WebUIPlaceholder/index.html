@@ -1,0 +1,28 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<!--
+  Bundled in place of the AgentProf UI until ios/build/AgentProfWeb has been
+  staged by ios/scripts/prepare_web_ui.py.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>AgentProf</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, system-ui, sans-serif; }
+    body { margin: 0; padding: 48px 24px; max-width: 560px; margin-inline: auto; line-height: 1.5; }
+    h1 { font-size: 28px; margin: 0 0 12px; }
+    code { font-size: 0.9em; }
+    a { color: #3979e8; }
+  </style>
+</head>
+<body>
+  <h1>AgentProf</h1>
+  <p>This build of the app doesn't include the AgentProf web UI yet.</p>
+  <p>Stage a UI build with <code>python3 ios/scripts/prepare_web_ui.py</code> (or
+    <code>python3 ios/scripts/prepare_web_ui.py --fetch</code>), then rebuild the app.</p>
+  <p><a href="/_diagnostics/index.html">Check this device's web view</a></p>
+</body>
+</html>

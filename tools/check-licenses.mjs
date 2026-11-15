@@ -6,7 +6,7 @@ import {readFileSync} from 'node:fs';
 import {extname} from 'node:path';
 
 const files = execFileSync('git', ['ls-files', '-z'], {encoding: 'utf8'}).split('\0').filter(Boolean);
-const extensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.py', '.scss', '.css', '.sh', '.sql', '.proto', '.html', '.svg']);
+const extensions = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.py', '.scss', '.css', '.sh', '.sql', '.proto', '.html', '.svg', '.swift', '.h', '.m']);
 const headers = new Set([
   '// SPDX-License-Identifier: Apache-2.0', '# SPDX-License-Identifier: Apache-2.0',
   '/* SPDX-License-Identifier: Apache-2.0 */', '<!-- SPDX-License-Identifier: Apache-2.0 -->',

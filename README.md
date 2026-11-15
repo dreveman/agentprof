@@ -22,7 +22,9 @@ The integrations let you:
 - Inspect child-launch identifiers and recording health.
 
 [Open the hosted UI](https://ui.agentprof.dev/) to explore the harness examples
-or load your recordings. Captured subagent sessions appear within their primary
+or load your recordings, or build the offline native
+[iPhone and iPad app](ios/README.md) to open `.pftrace` recordings directly from
+Files, AirDrop, or the Share Sheet on iOS. Captured subagent sessions appear within their primary
 session. Multiple files can be opened together with clock alignment from the
 recorded snapshots.
 
