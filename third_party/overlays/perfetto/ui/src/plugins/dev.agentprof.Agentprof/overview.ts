@@ -792,7 +792,7 @@ export class Overview implements m.ClassComponent<Attrs> {
               onclick: () => {
                 setOverviewCollapsed(true);
                 if (currentRoutePage === '/agentprof') {
-                  navigate(trace, '/');
+                  navigate(trace, '/viewer');
                 }
               },
             }))),

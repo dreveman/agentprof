@@ -110,13 +110,21 @@ test('switching Overview tabs while a split secondary pane is open keeps the sec
   expect(isOverviewCollapsed()).toBe(false);
 });
 
-test('closeSecondaryPane returns to home when the Overview rail is collapsed', () => {
-  const {trace, navigated} = fakeTrace({
+test('closeSecondaryPane returns to Timeline or re-expands Overview without splitting Welcome', () => {
+  const {trace, navigated, setRoute} = fakeTrace({
     page: '/settings',
     cacheKey: 'trace-uuid',
   });
   setOverviewCollapsed(true);
   closeSecondaryPane(trace);
 
-  expect(navigated).toEqual(['/#?'.startsWith('/') ? '#!/?local_cache_key=trace-uuid' : '']);
+  expect(navigated).toEqual(['#!/viewer?local_cache_key=trace-uuid']);
+  expect(isOverviewCollapsed()).toBe(true);
+
+  // Closing Timeline itself while collapsed re-expands Overview rather than
+  // opening the Welcome page in split screen.
+  setRoute('/viewer', '');
+  closeSecondaryPane(trace);
+  expect(navigated.at(-1)).toBe('#!/agentprof?local_cache_key=trace-uuid');
+  expect(isOverviewCollapsed()).toBe(false);
 });

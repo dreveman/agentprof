@@ -436,6 +436,9 @@ try {
   await overview().waitFor();
   await nav().getByRole('link', {name: 'Agent Profiler home', exact: true}).click();
   await home().waitFor();
+  assert.equal(await page.locator('.pf-page-split__primary').isVisible(), false,
+    'Welcome page never shows alongside a split primary pane');
+  assert.equal(await page.locator('.pf-page-split__secondary').evaluate(el => Math.round(el.getBoundingClientRect().width)), 1440);
   await nav().getByRole('button', {name: 'Overview', exact: true}).click();
   await overview().waitFor();
   await page.reload();
@@ -1149,6 +1152,13 @@ try {
   await iosPage.screenshot({path: 'artifacts/screenshots/agentprof-ios-collapsed.png'});
   const iosCollapsedWidth = await iosPage.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
   assert.ok(Math.abs(iosCollapsedWidth - 62) <= 2, `Collapsed rail matches nativeBarWidth=62 (got ${iosCollapsedWidth})`);
+  await iosPage.evaluate(() => window.agentprofHost.onRunAction('home'));
+  await iosPage.getByRole('heading', {name: 'Open agent recordings', exact: true}).waitFor();
+  assert.equal(await iosPage.locator('.pf-page-split__primary').isVisible(), false,
+    'iOS Welcome page renders full width without the collapsed Overview rail');
+  assert.equal(await iosPage.locator('.pf-page-split__secondary').evaluate(el => Math.round(el.getBoundingClientRect().width)), 932);
+  await iosPage.evaluate(() => window.agentprofHost.onRunAction('overview'));
+  await iosPage.getByRole('heading', {name: 'What your trace says about agent activity'}).waitFor();
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('search'));
   assert.equal(await iosPage.locator('.pf-ui-main > .pf-topbar').isVisible(), true,
     'Tapping native Search reveals the omnibox');
