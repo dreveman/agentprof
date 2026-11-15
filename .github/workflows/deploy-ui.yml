@@ -23,7 +23,8 @@ jobs:
   deploy:
     name: Test and deploy UI
     if: github.event_name == 'workflow_dispatch' || vars.CLOUDFLARE_DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-latest
+    # Perfetto v59.1 pins Playwright 1.58.2, which supports up to Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: ${{ github.event_name == 'push' && 'production' || inputs.target }}
     env:

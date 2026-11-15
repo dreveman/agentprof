@@ -5,6 +5,7 @@
 import argparse
 import os
 from pathlib import Path
+import platform
 import re
 import subprocess
 import sys
@@ -153,6 +154,22 @@ def main():
         return
     if args.command == "smoke-ui":
         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(ROOT / "artifacts/browsers")
+        if (
+            platform.system() == "Linux"
+            and "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE" not in os.environ
+            and Path("/etc/os-release").is_file()
+        ):
+            os_release = Path("/etc/os-release").read_text(encoding="utf-8", errors="ignore")
+            id_match = re.search(r"(?m)^ID=['\"]?([a-z0-9._-]+)", os_release)
+            ver_match = re.search(r"(?m)^VERSION_ID=['\"]?(\d+)", os_release)
+            if (
+                id_match
+                and ver_match
+                and id_match.group(1) == "ubuntu"
+                and int(ver_match.group(1)) >= 26
+            ):
+                arch = "arm64" if platform.machine() in ("aarch64", "arm64") else "x64"
+                os.environ["PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"] = f"ubuntu24.04-{arch}"
         run("ui/node_modules/.bin/playwright", "install", "chromium")
         run("node", ROOT / "tools/check-turns-ui.mjs",
             *(["--existing-server"] if args.existing_server else []), cwd=ROOT)
