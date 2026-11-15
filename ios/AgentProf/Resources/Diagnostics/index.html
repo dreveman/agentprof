@@ -1,0 +1,37 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!doctype html>
+<!--
+  Checks the web platform features the AgentProf UI relies on, from the app's
+  own origin and under the same Content-Security-Policy the UI sets for itself
+  (setupContentSecurityPolicy in ui/src/frontend/index.ts). Opened from the
+  placeholder page and by AgentProfTests, which calls window.runProbe().
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; object-src 'none'; connect-src 'self' https: blob: data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'">
+  <title>Web view check</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, system-ui, sans-serif; }
+    body { margin: 0; padding: 24px; max-width: 760px; margin-inline: auto; }
+    h1 { font-size: 24px; margin: 0 0 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: 14px; }
+    td { border-top: 1px solid rgba(127, 127, 127, 0.3); padding: 6px 8px; vertical-align: top; }
+    td.ok { color: #1f8a3b; }
+    td.fail { color: #d1242f; }
+    td.value { font-family: ui-monospace, monospace; word-break: break-all; }
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  </style>
+</head>
+<body>
+  <h1>Web view check</h1>
+  <p>What the AgentProf UI needs from this device's web view.</p>
+  <div class="controls">
+    <button id="run" type="button">Run again</button>
+    <label><input id="find-limit" type="checkbox"> Find the WebAssembly memory limit (slow)</label>
+  </div>
+  <table id="results"></table>
+  <script src="probe.js"></script>
+</body>
+</html>

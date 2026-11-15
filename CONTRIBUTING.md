@@ -18,6 +18,7 @@ the headers and package metadata. Preserve third-party copyright and license not
 | `packages/claude-tracing/`, `packages/codex-tracing/`, `packages/muse-tracing/` | Harness recording plugins and tests |
 | `packages/agent-tracing/` | Shared trace serialization |
 | `stdlib/dev/agentprof/` | Shared `dev.agentprof.*` PerfettoSQL analysis modules used by UI and AI workflows |
+| `ios/` | Offline native iPhone and iPad app (`WKWebView` + `window.agentprofHost`) and Swift tests |
 | `tools/` | Checkout manager and synthetic trace/browser validation |
 | `ai/skills/dev.agentprof/` | Portable workflows overlaid onto the upstream Perfetto skill |
 | `third_party/perfetto.toml` | Upstream Perfetto URL and initial revision pin |
