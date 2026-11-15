@@ -562,6 +562,10 @@ export class Overview implements m.ClassComponent<Attrs> {
     const currentRoutePage = trace.getCurrentRoute?.()?.page ?? '/agentprof';
     const isWideViewport = isWideSplitViewport();
     const splitEnabled = isSplitSecondaryEnabled(trace.settings);
+    const tabs: [Tab, string][] = [
+      ['Summary', 'dashboard'], ['Turns', 'forum'],
+      ['Tools', 'build'], ['Context', 'data_usage'], ['Sessions', 'account_tree'],
+    ];
     if (isWideViewport && isOverviewCollapsed()) {
       const expandOverview = () => {
         setOverviewCollapsed(false);
@@ -575,35 +579,49 @@ export class Overview implements m.ClassComponent<Attrs> {
       };
       const recordingTitle = trace.traceInfo.traceTitle || 'multiple traces';
       return m(
-        'main.ap-page.ap-page--collapsed',
+        'aside.ap-page.ap-page--collapsed',
         {
-          'role': 'button',
-          'tabindex': 0,
-          'title': 'Expand overview',
-          'aria-label': 'Expand overview',
+          'aria-label': `Collapsed overview (${recordingTitle})`,
           'onclick': expandOverview,
-          'onkeydown': (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              expandOverview();
-            }
-          },
         },
-        m(Button, {
-          'icon': 'left_panel_open',
-          'title': 'Expand overview',
-          'aria-label': 'Expand overview',
-          'variant': ButtonVariant.Minimal,
-          'onclick': (e: MouseEvent) => {
-            e.stopPropagation();
-            expandOverview();
-          },
-        }),
-        m('span.ap-page__collapsed-label', 'Overview'),
         m(
-          '.ap-page__collapsed-banner',
-          m(Icon, {icon: 'smart_toy'}),
-          m('span.ap-page__collapsed-file', recordingTitle),
+          '.ap-collapsed-bubble.ap-collapsed-bubble--single',
+          m(
+            'button.ap-collapsed-btn',
+            {
+              'type': 'button',
+              'title': `Expand overview · ${recordingTitle}`,
+              'aria-label': 'Expand overview',
+              'onclick': (e: MouseEvent) => {
+                e.stopPropagation();
+                expandOverview();
+              },
+            },
+            m(Icon, {icon: 'left_panel_open'}),
+          ),
+        ),
+        m(
+          '.ap-collapsed-bubble',
+          {'role': 'toolbar', 'aria-label': 'Overview sections'},
+          tabs.map(([tab, icon]) =>
+            m(
+              'button.ap-collapsed-btn',
+              {
+                'type': 'button',
+                'title': tab,
+                'aria-label': tab,
+                'aria-pressed': String(this.tab === tab),
+                'onclick': (e: MouseEvent) => {
+                  e.stopPropagation();
+                  this.tab = tab;
+                  this.loader?.open(tab);
+                  setOverviewCollapsed(false);
+                  navigate(trace, `/agentprof/${tab.toLowerCase()}`);
+                },
+              },
+              m(Icon, {icon, filled: this.tab === tab}),
+            ),
+          ),
         ),
       );
     }
@@ -740,10 +758,6 @@ export class Overview implements m.ClassComponent<Attrs> {
               rows, trace, aligned, activitySeries(seriesRows)),
           ]))),
       );
-    const tabs: [Tab, string][] = [
-      ['Summary', 'dashboard'], ['Turns', 'forum'],
-      ['Tools', 'build'], ['Context', 'data_usage'], ['Sessions', 'account_tree'],
-    ];
     const splitTimelineOpen =
       splitEnabled && isWideViewport && currentRoutePage === '/viewer';
     return m('main.ap-page', m('.ap-inner',

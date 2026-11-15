@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-$collapsed-width: var(--ap-native-bar-width, 48px);
+$collapsed-width: var(--ap-native-bar-width, 64px);
 
-.pf-page-split__primary:has(.ap-page--collapsed) {
+.pf-page-split__primary:not([style*="display: none"]):has(.ap-page--collapsed) {
   flex: 0 0 $collapsed-width !important;
   min-width: $collapsed-width !important;
   max-width: $collapsed-width !important;
@@ -32,51 +32,101 @@ $collapsed-width: var(--ap-native-bar-width, 48px);
   &--collapsed {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     align-items: center;
     gap: 12px;
     width: $collapsed-width;
     height: 100%;
-    padding: 12px 6px;
-    border-right: 1px solid var(--pf-color-border);
+    padding: 28px 8px 16px;
+    border: none;
     background: var(--pf-color-background);
     cursor: pointer;
     user-select: none;
     overflow: hidden;
+
+    html.ap-native-bar & {
+      align-items: flex-start;
+      padding-top: 38px;
+      padding-bottom: 22px;
+      padding-left: max(6px, calc((100% - 48px) * 0.68));
+      padding-right: max(6px, calc((100% - 48px) * 0.32));
+    }
+  }
+}
+
+.ap-collapsed-bubble {
+  box-sizing: border-box;
+  width: 48px;
+  padding: 2px 0;
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  background: color-mix(
+    in srgb,
+    var(--pf-color-background) 96%,
+    var(--pf-color-text) 4%
+  );
+  border: 1px solid color-mix(in srgb, var(--pf-color-text) 14%, transparent);
+  box-shadow:
+    0 2px 6px rgb(0 0 0 / 4%),
+    0 1px 2px rgb(0 0 0 / 3%),
+    inset 0 1px 0 rgb(255 255 255 / 60%);
+
+  &--single {
+    height: 48px;
+    padding: 0;
+  }
+}
+
+.ap-collapsed-btn {
+  box-sizing: border-box;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pf-color-text);
+  cursor: pointer;
+
+  @media (max-height: 440px) {
+    height: 42px;
   }
 
-  &__collapsed-label {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    flex-shrink: 0;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--pf-color-text);
+  .pf-icon {
+    font-size: 24px;
+    line-height: 1;
+    font-variation-settings:
+      'FILL' 0,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
   }
 
-  &__collapsed-banner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    min-height: 0;
-    padding: 10px 4px;
-    background: var(--pf-color-background-secondary);
-    border-radius: 3px;
-    font-size: var(--pf-font-size-m);
-    color: var(--pf-color-text);
-    overflow: hidden;
+  &[aria-pressed="true"] .pf-icon {
+    font-variation-settings:
+      'FILL' 1,
+      'wght' 400,
+      'GRAD' 0,
+      'opsz' 24;
   }
 
-  &__collapsed-file {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    min-height: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  &:hover {
+    background: color-mix(in srgb, var(--pf-color-text) 7%, transparent);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--pf-color-primary);
+    outline-offset: -2px;
+  }
+}
+
+.ap-page {
 
   .ap-inner {width: 95%; max-width: 1400px; margin: 0 auto; background: var(--pf-color-background); border-radius: 12px; box-shadow: 0 2px 6px var(--pf-color-box-shadow); overflow: hidden;}
   .ap-header {padding: 24px 28px 20px; border-bottom: 1px solid var(--pf-color-border);}
