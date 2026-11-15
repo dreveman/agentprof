@@ -37,10 +37,10 @@ try {
   };
   const more = () => page.getByRole('button', {name: 'More options', exact: true}).click();
   const action = async name => {
-    const direct = page.locator('.ap-navigation-actions').getByRole('button', {name, exact: true});
+    const direct = page.locator(`.ap-navigation-actions > button[aria-label="${name}"]`);
     if (await direct.isVisible()) return direct.click();
     await more();
-    return page.getByRole('button', {name, exact: true}).click();
+    return page.locator(`.pf-menu-item[aria-label="${name}"]`).click();
   };
   const nav = () => page.getByRole('navigation', {name: 'Main navigation'});
   const assertMainThreads = async expectedCount => {
@@ -127,9 +127,11 @@ try {
       assert.ok(control.right <= search.left || control.left >= search.right ||
         control.bottom <= search.top || control.top >= search.bottom, 'A control overlaps search');
     }
-    assert.equal(await nav().locator('.ap-navigation__open .pf-button__label').evaluate(el =>
-      el.clientWidth > 0 && el.scrollWidth > el.clientWidth), false, 'Open label is clipped');
-    assert.ok(Math.abs((search.left + search.right) / 2 - boxes.width / 2) < 1, 'Search is not centered');
+    if (boxes.width > 720) {
+      assert.ok(Math.abs((search.left + search.right) / 2 - boxes.width / 2) < 1, 'Search is not centered');
+    } else {
+      assert.equal(Math.round(search.right - search.left), 32, 'Phone search collapses to a 32px icon button when idle');
+    }
     for (const [i, a] of boxes.regions.entries()) for (const b of boxes.regions.slice(i + 1)) {
       assert.ok(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top,
         'Top bar controls overlap');
@@ -139,20 +141,34 @@ try {
   await assertFavicon();
   assert.equal(await page.title(), 'Agent Profiler');
   assert.equal(await page.locator('.ap-home h1').evaluate(el => getComputedStyle(el).fontSize), '36px');
+  assert.equal(await page.locator('.pf-omnibox input').evaluate(el => getComputedStyle(el).fontSize), '12px');
   assert.equal(await page.locator('.pf-sidebar').count(), 0);
-  assert.equal(await nav().getByRole('link', {name: 'Overview', exact: true}).count(), 0);
-  assert.equal(await nav().getByRole('link', {name: 'Timeline', exact: true}).count(), 0);
-  await page.locator('.ap-navigation-actions').getByRole('button', {name: 'Dark mode', exact: true}).waitFor();
+  assert.equal(await nav().getByRole('button', {name: 'Overview', exact: true}).count(), 0);
+  assert.equal(await page.locator('.ap-navigation-actions > button').count(), 1,
+    'Home top bar shows only More options on the right');
   await action('Dark mode');
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-dark.png'});
-  assert.equal(await page.getByRole('button', {name: 'Dark mode', exact: true}).getAttribute('aria-pressed'), 'true');
-  await action('Dark mode');
+  await more();
+  assert.equal(await page.locator('.pf-menu-item[aria-label="Dark mode"]').getAttribute('aria-checked'), 'true');
+  await page.locator('.pf-menu-item[aria-label="Dark mode"]').click();
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home.png'});
   for (const width of [1440, 1350, 1280, 1100, 1000, 900, 760, 390]) {
     await page.setViewportSize({width, height: 900});
     await assertTopbarFits();
     assert.equal(await page.locator('.ap-home').evaluate(el => el.scrollWidth > el.clientWidth), false);
   }
+  // Verify phone search expands across the top bar when focused and collapses on blur.
+  await page.locator('.pf-omnibox input').click();
+  await page.waitForFunction(() => {
+    const box = document.querySelector('.pf-topbar > .pf-omnibox');
+    return box && box.getBoundingClientRect().width > 340;
+  });
+  assert.equal(await page.locator('.pf-omnibox input').evaluate(el => getComputedStyle(el).opacity), '1');
+  await page.locator('.ap-home h1').click();
+  await page.waitForFunction(() => {
+    const box = document.querySelector('.pf-topbar > .pf-omnibox');
+    return box && Math.round(box.getBoundingClientRect().width) === 32;
+  });
   await page.screenshot({path: 'artifacts/screenshots/agentprof-home-narrow.png'});
   const recordingAgent = page.getByRole('group', {name: 'Recording agent'});
   assert.deepEqual(await recordingAgent.getByRole('button').allTextContents(), ['Claude Code', 'Codex', 'Muse Code', 'Pi']);
@@ -315,10 +331,10 @@ try {
   const overview = () => page.getByRole('heading', {name: 'What your trace says about agent activity'});
   await overview().waitFor({timeout: 60000});
   await page.waitForURL(/agentprof_example=1/);
-  assert.equal(await nav().getByRole('link', {name: 'Overview', exact: true}).getAttribute('aria-current'), 'page');
-  await nav().getByRole('link', {name: 'Timeline', exact: true}).click();
+  assert.equal(await nav().getByRole('button', {name: 'Overview', exact: true}).getAttribute('aria-pressed'), 'true');
+  await action('Timeline');
   await page.waitForURL(/#!\/viewer.*agentprof_example=1/);
-  await nav().locator('a[aria-current="page"][aria-label="Timeline"]').waitFor();
+  await page.locator('.ap-navigation-actions > button[aria-label="Timeline"][aria-pressed="true"]').waitFor();
   const tools = await page.evaluate(async () => {
     const trace = window.app.trace;
     const nodes = trace.currentWorkspace.flatTracks;
@@ -416,11 +432,11 @@ try {
   await showAll.click();
   assert.ok(!await showAll.locator('input').isChecked());
   await page.evaluate(() => window.app.trace.selection.clearSelection());
-  await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+  await action('Timeline');
   await overview().waitFor();
   await nav().getByRole('link', {name: 'Agent Profiler home', exact: true}).click();
   await home().waitFor();
-  await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+  await nav().getByRole('button', {name: 'Overview', exact: true}).click();
   await overview().waitFor();
   await page.reload();
   await overview().waitFor({timeout: 60000});
@@ -555,7 +571,7 @@ try {
   await capturedRows.first().getByRole('button', {name: /^Open prompt:/}).click();
   await page.waitForURL(/viewer/);
   assert.equal(await page.evaluate(() => window.sessionRowClicks), 0);
-  await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+  await action('Timeline');
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Summary', {exact: true}).click();
   await overview().waitFor();
@@ -580,14 +596,14 @@ try {
     const selection = window.app.trace.selection.selection;
     return selection.kind === 'track_event' && selection.eventId === id;
   }, recordedPromptId);
-  await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+  await action('Timeline');
   await overview().waitFor();
 
   // Independently exercise the file merger with the original real recordings.
   const previousEngine = await page.evaluate(() => window.app.trace.engine.engineId);
   const [recordedChooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    nav().getByRole('button', {name: 'Open trace file', exact: true}).click(),
+    action('Open trace files'),
   ]);
   const bundledRecordings = recorded.recordings.filter(r => recorded.bundledFiles.includes(r.file));
   await recordedChooser.setFiles(bundledRecordings.map(r => resolve('examples/pi-opus-5', r.file)));
@@ -603,6 +619,7 @@ try {
   await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/synthetic.pftrace'));
   await page.locator('.ap-banner').filter({hasText: 'synthetic.pftrace'}).waitFor({timeout: 60000});
   await page.getByText('Up to 2 tools ran at once.', {exact: true}).waitFor();
+  await runSummary.locator('.ap-prompt-link').waitFor();
   const runCells = await runSummary.locator('tbody tr td').allTextContents();
   assert.equal(runCells[2], 'Synthetic multi-cycle user requestopen_in_new');
   assert.deepEqual(runCells.slice(0, 2), ['', 'opus-5synthetic']);
@@ -633,7 +650,7 @@ try {
   await page.getByRole('button', {name: /^Expand turn /}).first().click();
   await page.locator('.ap-turn-event-link').first().click();
   await page.getByText('pi-example 1001', {exact: true}).waitFor();
-  await page.locator('a[href="#!/agentprof"]').click();
+  await action('Timeline');
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).waitFor();
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Tools', {exact: true}).click();
   await page.getByRole('button', {name: 'bash', exact: true}).first().click();
@@ -658,7 +675,11 @@ try {
     await assertTopbarFits();
     await action('Settings');
     await page.waitForURL(/#!\/settings/);
-    await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+    if (width <= 720) {
+      await nav().getByRole('button', {name: 'Overview', exact: true}).click();
+    } else {
+      await action('Settings');
+    }
     await overview().waitFor();
   }
   await page.setViewportSize({width: 900, height: 900});
@@ -667,7 +688,7 @@ try {
   await page.setViewportSize({width: 1440, height: 1000});
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    nav().getByRole('button', {name: 'Open trace file', exact: true}).click(),
+    action('Open trace files'),
   ]);
   await chooser.setFiles(['code-mode', 'classic', 'unknown'].map(name => resolve(`artifacts/examples/comparison/${name}.pftrace`)));
   await page.getByText('All traces line up on the shared timeline.', {exact: true}).waitFor({timeout: 60000});
@@ -795,13 +816,14 @@ try {
   assert.equal(shared[0].subtitle, undefined);
   assert.deepEqual(shared[0].captures.map(c => c.name).sort(), ['Session agent-a', 'Session agent-b']);
   assert.ok(shared[0].captures.every(c => c.uri === undefined));
-  await nav().getByRole('link', {name: 'Timeline', exact: true}).click();
+  await action('Timeline');
   await page.getByText('Session agent-a', {exact: true}).waitFor();
   await page.screenshot({path: 'artifacts/screenshots/agentprof-shared-process.png'});
   // A process containing both a root and workers stays expanded; only its
   // subagent capture groups start collapsed, including nested workers.
   await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/logical-agents/hierarchy.pftrace'));
   await page.locator('.ap-banner').filter({hasText: 'hierarchy.pftrace'}).waitFor({timeout: 60000});
+  await page.waitForFunction(() => Boolean(window.app.trace && !window.app.isLoadingTrace));
   await overview().waitFor();
   await comparison.getByText('parent-model', {exact: true}).waitFor();
   assert.equal(await comparison.locator('tbody tr').count(), 7);
@@ -826,6 +848,7 @@ try {
   // An agent with no OS process association must not gain a process row.
   await page.locator('input.trace_file').setInputFiles(resolve('artifacts/examples/logical-agents/unattached.pftrace'));
   await page.locator('.ap-banner').filter({hasText: 'unattached.pftrace'}).waitFor({timeout: 60000});
+  await page.waitForFunction(() => Boolean(window.app.trace && !window.app.isLoadingTrace));
   await overview().waitFor({timeout: 60000});
   const unattached = await page.evaluate(() => window.app.trace.currentWorkspace.children.map(node => ({
     uri: node.uri, name: node.name, subtitle: node.subtitle,
@@ -853,14 +876,14 @@ try {
   await page.waitForURL(/#!\/viewer/);
   await page.getByRole('button', {name: /workspaces/}).waitFor();
   assert.equal(await page.locator('.ap-page').count(), 0);
-  assert.equal(await nav().getByRole('link', {name: 'Overview', exact: true}).count(), 0);
-  await nav().locator('a[aria-current="page"][aria-label="Timeline"]').waitFor();
+  assert.equal(await nav().getByRole('button', {name: 'Overview', exact: true}).count(), 0);
+  await page.locator('.ap-navigation-actions > button[aria-label="Timeline"][aria-pressed="true"]').waitFor();
   await action('Query (SQL)');
   await page.waitForURL(/#!\/query/);
   await more();
   await page.getByRole('button', {name: 'Close recording', exact: true}).click();
   await home().waitFor();
-  assert.equal(await nav().getByRole('link', {name: 'Timeline', exact: true}).count(), 0);
+  assert.equal(await page.locator('.ap-navigation-actions > button[aria-label="Timeline"]').count(), 0);
   await page.reload();
   await home().waitFor();
   await recordingAgent.getByRole('button', {name: 'Pi', exact: true}).click();
@@ -961,7 +984,7 @@ try {
   await page.locator('.ap-script-expanded .ap-table-link').first().click();
   await page.waitForURL(/#!\/viewer/);
   await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
-  await nav().getByRole('link', {name: 'Overview', exact: true}).click();
+  await action('Timeline');
   await page.waitForURL(/#!\/agentprof/);
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Context', {exact: true}).click();
   await page.getByText('Category breakdown not recorded. Showing total context usage.', {exact: true}).waitFor();

@@ -16,13 +16,176 @@ html.ap-native-bar {
   &:not(.ap-search-open) .pf-ui-main > .pf-topbar {
     display: none;
   }
+}
 
-  &.ap-search-open .pf-topbar.pf-topbar--navigation {
+.pf-topbar.pf-topbar--navigation {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, min(42%, 600px)) minmax(
+      max-content,
+      1fr
+    );
+  gap: 12px;
+  padding: 4px 14px;
+  box-sizing: border-box;
+
+  > .pf-omnibox {
+    grid-row: auto;
+    grid-column: auto;
+    width: 100%;
+    min-width: 36px;
+    max-width: 600px;
+    height: 30px;
+    line-height: 28px;
+    justify-self: center;
+    align-items: center;
+    grid-template-columns: 28px minmax(0, 1fr) max-content;
+    overflow: hidden;
+
+    &:before {
+      margin: 0;
+      align-self: center;
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    input {
+      grid-column: 1 / 3;
+      grid-row: 1;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      padding: 0 8px 0 28px;
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      &::placeholder {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  > .pf-topbar__right {
+    position: static;
+    min-width: 0;
+    justify-content: flex-end;
+  }
+
+  .pf-omnibox--query-mode {
+    padding-left: 0;
+  }
+
+  @media (max-width: 720px) {
     display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    overflow: hidden;
+
+    > .pf-topbar__navigation {
+      flex: 0 0 auto;
+      max-width: 120px;
+      transition:
+        max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease,
+        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
 
     > .pf-omnibox {
-      flex: 1 1 100%;
-      max-width: 100%;
+      margin-left: auto;
+      flex: 0 0 32px;
+      width: 32px;
+      min-width: 32px;
+      max-width: 32px;
+      height: 32px;
+      line-height: 30px;
+      grid-template-columns: 32px minmax(0, 1fr) max-content;
+      background-color: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: none;
+
+      &:hover {
+        background-color: var(--pf-color-background);
+
+        &:before {
+          color: var(--pf-color-text);
+        }
+      }
+
+      input {
+        padding: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+    }
+
+    > .pf-topbar__right {
+      flex: 0 0 auto;
+      width: max-content;
+      max-width: 220px;
+      transition:
+        max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.2s ease,
+        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+      .ap-navigation-actions {
+        width: max-content;
+      }
+    }
+
+    &:has(
+      > .pf-omnibox:focus-within,
+      > .pf-omnibox.pf-omnibox--message-mode,
+      > .pf-omnibox.pf-omnibox--command-mode,
+      > .pf-omnibox.pf-omnibox--prompt-mode,
+      > .pf-omnibox.pf-omnibox--query-mode
+    ) {
+      > .pf-topbar__navigation {
+        max-width: 0;
+        margin-right: -4px;
+        opacity: 0;
+        transform: translateX(-100%);
+        pointer-events: none;
+      }
+
+      > .pf-topbar__right {
+        max-width: 0;
+        margin-left: -4px;
+        opacity: 0;
+        transform: translateX(100%);
+        pointer-events: none;
+      }
+
+      > .pf-omnibox {
+        margin-left: 0;
+        flex: 1 1 100%;
+        width: 100%;
+        max-width: 100%;
+        height: 30px;
+        line-height: 28px;
+        grid-template-columns: 28px minmax(0, 1fr) max-content;
+        background-color: var(--pf-color-background);
+        cursor: text;
+
+        input {
+          padding: 0 8px 0 28px;
+          opacity: 1;
+          cursor: text;
+        }
+      }
     }
   }
 }
@@ -34,83 +197,57 @@ html.ap-native-bar {
   gap: 4px;
   white-space: nowrap;
 }
+
 .ap-navigation {
   width: max-content;
+
   > * {
     flex-shrink: 0;
   }
-  &__brand {
+
+  &__brand.pf-anchor {
     display: flex;
     align-items: center;
+    height: 36px;
     margin-right: 4px;
-  }
-  &__open.pf-button {
-    width: max-content;
-    overflow: visible;
-    .pf-button__label {
-      overflow: visible;
-      text-overflow: clip;
-    }
-  }
-  &__link {
-    box-sizing: border-box;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border-radius: 5px;
-    color: var(--pf-color-text-muted);
+    background: transparent;
     text-decoration: none;
-    .pf-icon {
-      font-size: 20px;
-    }
+
     &:hover {
-      background: var(--pf-color-background);
-      color: var(--pf-color-text);
+      background: transparent;
     }
+
     &:focus-visible {
       outline: 2px solid var(--pf-color-primary);
       outline-offset: 2px;
     }
-    &[aria-current="page"] {
-      color: var(--pf-color-primary);
-      background: color-mix(in srgb, var(--pf-color-primary) 10%, transparent);
-    }
   }
-  @media (max-width: 1350px) {
-    &__open.pf-button {
-      width: 32px;
-      height: 32px;
-      padding: 4px;
-      justify-content: center;
-      .pf-button__label {
-        display: none;
-      }
-    }
-  }
-  @media (max-width: 1100px) {
-    &__brand .ap-brand {
-      width: 148px;
-    }
-  }
-  @media (max-width: 1000px) {
+
+  @media (max-width: 900px) {
     &__brand {
       width: 30px;
       overflow: hidden;
+
       .ap-brand {
         flex: 0 0 174px;
       }
     }
   }
 }
+
 .ap-navigation-actions {
   flex: 1;
   min-width: 32px;
   justify-content: flex-end;
+}
+
+.ap-navigation,
+.ap-navigation-actions {
   > .pf-button .pf-icon {
     font-size: 18px;
   }
+
   > .pf-button,
   > .pf-popup > .pf-button {
     box-sizing: border-box;

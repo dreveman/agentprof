@@ -95,7 +95,7 @@ export async function checkTurns(page) {
   await first.locator('.ap-turn-event-link').first().click();
   await page.waitForURL(/#!\/viewer/);
   await page.waitForFunction(() => window.app.trace.selection.selection.kind === 'track_event');
-  await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('link', {name: 'Overview', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('button', {name: 'Overview', exact: true}).click();
   await page.locator('.ap-tabs .pf-tab-strip__tab-title').getByText('Turns', {exact: true}).click();
   await page.locator('.ap-turn').first().waitFor();
   assert.equal(await page.locator('.ap-error').count(), 0, 'Setup survives remount after timeline navigation');
@@ -103,9 +103,11 @@ export async function checkTurns(page) {
   if (await expandAgain.count()) await expandAgain.click();
   await page.locator('.ap-turn-event-link').first().waitFor();
   await page.setViewportSize({width: 1440, height: 1000});
-  await page.getByRole('button', {name: 'Dark mode', exact: true}).click();
+  await page.getByRole('button', {name: 'More options', exact: true}).click();
+  await page.locator('.pf-menu-item[aria-label="Dark mode"]').click();
   await page.screenshot({path: resolve(root, 'artifacts/screenshots/turns-dark.png'), fullPage: true});
-  await page.getByRole('button', {name: 'Dark mode', exact: true}).click();
+  await page.getByRole('button', {name: 'More options', exact: true}).click();
+  await page.locator('.pf-menu-item[aria-label="Dark mode"]').click();
 }
 
 async function checkSetupRetry(page) {

@@ -3,8 +3,8 @@ import m from 'mithril';
 import type {App} from '../../public/app';
 import {AppImpl} from '../app_impl';
 import {downloadTrace} from '../../frontend/trace_actions';
+import {Anchor} from '../../widgets/anchor';
 import {Button} from '../../widgets/button';
-import {Icon} from '../../widgets/icon';
 import {MenuDivider, MenuItem, PopupMenu} from '../../widgets/menu';
 import {PopupPosition} from '../../widgets/popup';
 import {AgentprofBrand} from './agentprof_brand';
@@ -12,7 +12,7 @@ import {
   syncNativeBar,
   type NativeBarAction,
 } from './agentprof_native_bar';
-import {openTraceFiles} from './agentprof_open_trace';
+import {inIOSApp, openTraceFiles} from './agentprof_open_trace';
 import {
   closeSecondaryPane,
   isOverviewCollapsed,
@@ -36,9 +36,34 @@ function getSidePanel(): {visible: boolean; currentTabUri?: string} | undefined 
   }
 }
 
-export function goHome(app: App): void {
+function overviewState(app: App) {
+  const trace = app.trace;
+  const {page} = app.getCurrentRoute();
+  const splitEnabled = isSplitSecondaryEnabled(trace?.settings ?? app.settings);
+  const isWide = isWideSplitViewport();
   const sidePanel = getSidePanel();
-  if (!isWideSplitViewport() && sidePanel) {
+  const sidePanelOpen = !isWide && Boolean(sidePanel?.visible);
+  const hasOverview = Boolean(trace?.commands.hasCommand(OVERVIEW_COMMAND));
+  const overviewExpanded =
+    hasOverview &&
+    !isOverviewCollapsed() &&
+    !sidePanelOpen &&
+    (page === '/agentprof' || (splitEnabled && isWide));
+  return {
+    trace,
+    page,
+    splitEnabled,
+    isWide,
+    sidePanel,
+    sidePanelOpen,
+    hasOverview,
+    overviewExpanded,
+  };
+}
+
+export function goHome(app: App): void {
+  const {isWide, sidePanel} = overviewState(app);
+  if (!isWide && sidePanel) {
     sidePanel.visible = false;
   }
   if (app.trace) {
@@ -48,12 +73,9 @@ export function goHome(app: App): void {
 }
 
 function toggleOverviewFromBar(app: App): void {
-  const trace = app.trace;
+  const {trace, page, splitEnabled, isWide, sidePanel, overviewExpanded} =
+    overviewState(app);
   if (!trace) return;
-  const {page} = app.getCurrentRoute();
-  const isWide = isWideSplitViewport();
-  const splitEnabled = isSplitSecondaryEnabled(trace.settings);
-  const sidePanel = getSidePanel();
   if (!isWide && sidePanel?.visible) {
     sidePanel.visible = false;
     setOverviewCollapsed(false);
@@ -62,10 +84,7 @@ function toggleOverviewFromBar(app: App): void {
     }
     return;
   }
-  const overviewVisible =
-    !isOverviewCollapsed() &&
-    (page === '/agentprof' || (splitEnabled && isWide));
-  if (overviewVisible) {
+  if (overviewExpanded) {
     setOverviewCollapsed(true);
     if (page === '/agentprof') {
       navigate(trace, '/');
@@ -86,44 +105,14 @@ function toggleOverviewFromBar(app: App): void {
 
 export class AgentprofNavigation implements m.ClassComponent<{app: App}> {
   view({attrs: {app}}: m.CVnode<{app: App}>) {
-    const trace = app.trace;
-    const page = app.getCurrentRoute().page;
-    const hasOverview = Boolean(trace?.commands.hasCommand(OVERVIEW_COMMAND));
-    const link = (
-      label: string,
-      route: string,
-      icon: string,
-      active: boolean,
-      onActivate: () => void,
-    ) =>
-      m(
-        'a.ap-navigation__link',
-        {
-          'href': `#!${route}`,
-          'title': label,
-          'aria-label': label,
-          'aria-current': active ? 'page' : undefined,
-          'onclick': (event: MouseEvent) => {
-            if (
-              event.ctrlKey ||
-              event.metaKey ||
-              event.shiftKey ||
-              event.altKey
-            ) {
-              return;
-            }
-            event.preventDefault();
-            onActivate();
-          },
-        },
-        m(Icon, {icon}),
-      );
+    const {trace, hasOverview, overviewExpanded} = overviewState(app);
     return m(
       'nav.ap-navigation',
       {'aria-label': 'Main navigation'},
       m(
-        'a.ap-navigation__brand',
+        Anchor,
         {
+          'className': 'ap-navigation__brand',
           'href': '#!/?local_cache_key=',
           'aria-label': 'Agent Profiler home',
           'onclick': (event: MouseEvent) => {
@@ -141,46 +130,21 @@ export class AgentprofNavigation implements m.ClassComponent<{app: App}> {
         },
         m(AgentprofBrand),
       ),
-      m(Button, {
-        'label': 'Open trace file',
-        'aria-label': 'Open trace file',
-        'icon': 'folder_open',
-        'className': 'ap-navigation__open',
-        'title': 'Open trace file (one or more recordings)',
-        'onclick': () => openTraceFiles(app),
-      }),
       trace &&
         hasOverview &&
-        link(
-          'Overview',
-          '/agentprof',
-          'dashboard',
-          page === '/agentprof' && !isOverviewCollapsed(),
-          () => {
-            setOverviewCollapsed(false);
-            closeSecondaryPane(trace);
-          },
-        ),
-      trace &&
-        link('Timeline', '/viewer', 'line_style', page === '/viewer', () => {
-          if (page === '/viewer' && hasOverview) {
-            closeSecondaryPane(trace);
-          } else {
-            navigate(trace, '/viewer');
-          }
+        m(Button, {
+          'icon': 'dashboard',
+          'title': 'Overview',
+          'aria-label': 'Overview',
+          'aria-pressed': String(overviewExpanded),
+          'active': overviewExpanded,
+          'onclick': () => toggleOverviewFromBar(app),
         }),
     );
   }
 }
 
-interface Action {
-  id: string;
-  label: string;
-  icon: string;
-  run: () => unknown;
-  checked?: boolean;
-  active?: boolean;
-}
+type Action = NativeBarAction;
 
 export class AgentprofActions implements m.ClassComponent<{app: App}> {
   private width = 0;
@@ -226,7 +190,7 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
   oncreate({dom, attrs: {app}}: m.CVnodeDOM<{app: App}>) {
     this.observer = new ResizeObserver(([entry]) => {
       const width = Math.floor(entry.contentRect.width);
-      if (width !== this.width) {
+      if (width > 0 && width !== this.width) {
         this.width = width;
         app.raf.scheduleFullRedraw();
       }
@@ -244,19 +208,9 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
   }
 
   view({attrs: {app}}: m.CVnode<{app: App}>) {
-    const trace = app.trace;
+    const {trace, page, isWide, sidePanel, sidePanelOpen, hasOverview, overviewExpanded} =
+      overviewState(app);
     const theme = app.settings.get<string>('theme');
-    const isWide = isWideSplitViewport();
-    const sidePanel = getSidePanel();
-    const sidePanelOpen = !isWide && Boolean(sidePanel?.visible);
-    const {page} = app.getCurrentRoute();
-    const hasOverview = Boolean(trace?.commands.hasCommand(OVERVIEW_COMMAND));
-    const splitEnabled = isSplitSecondaryEnabled(trace?.settings ?? app.settings);
-    const overviewExpanded =
-      hasOverview &&
-      !isOverviewCollapsed() &&
-      !sidePanelOpen &&
-      (page === '/agentprof' || (splitEnabled && isWide));
     const go = (route: string) => {
       if (!isWide && sidePanel?.visible) {
         sidePanel.visible = false;
@@ -281,43 +235,58 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
     };
     const external = (path: string) =>
       window.open(`${REPO}${path}`, '_blank', 'noopener');
+
     const actions: Action[] = [];
     if (trace) {
-      if (trace.traceInfo.downloadable) {
-        actions.push({
-          id: 'download',
-          label: 'Download recording',
-          icon: 'download',
-          run: () => {
-            const current = AppImpl.instance.trace;
-            return current ? downloadTrace(current) : undefined;
-          },
-        });
-      }
       actions.push(
+        {
+          id: 'timeline',
+          label: 'Timeline',
+          icon: 'line_style',
+          checked: !sidePanelOpen && page === '/viewer',
+          run: () => go('/viewer'),
+        },
         {
           id: 'query',
           label: 'Query (SQL)',
           icon: 'terminal',
-          active: !sidePanelOpen && page === '/query',
+          checked: !sidePanelOpen && page === '/query',
           run: () => go('/query'),
-        },
-        {
-          id: 'trace-details',
-          label: 'Trace details',
-          icon: 'info',
-          active: !sidePanelOpen && page === '/info',
-          run: () => go('/info'),
         },
       );
     }
-    actions.push(
+
+    const menuActions: Action[] = [
       {
-        id: 'help',
-        label: 'Help',
-        icon: 'help_outline',
-        run: () => external('/blob/main/docs/investigating-agents.md'),
+        id: 'open',
+        label: 'Open trace files',
+        icon: 'folder_open',
+        run: () => openTraceFiles(app),
       },
+      ...(trace
+        ? [
+            ...(trace.traceInfo.downloadable
+              ? [
+                  {
+                    id: 'download',
+                    label: 'Download recording',
+                    icon: 'download',
+                    run: () => {
+                      const current = AppImpl.instance.trace;
+                      return current ? downloadTrace(current) : undefined;
+                    },
+                  },
+                ]
+              : []),
+            {
+              id: 'trace-details',
+              label: 'Trace details',
+              icon: 'info',
+              checked: !sidePanelOpen && page === '/info',
+              run: () => go('/info'),
+            },
+          ]
+        : []),
       {
         id: 'dark-mode',
         label: 'Dark mode',
@@ -329,87 +298,7 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
         id: 'settings',
         label: 'Settings',
         icon: 'settings',
-        active: !sidePanelOpen && page === '/settings',
-        run: () => go('/settings'),
-      },
-      {id: 'github', label: 'GitHub', icon: 'code', run: () => external('')},
-      {
-        id: 'report-bug',
-        label: 'Report a bug',
-        icon: 'bug_report',
-        run: () => external('/issues/new'),
-      },
-    );
-
-    const nativeActions: NativeBarAction[] = [
-      {
-        id: 'home',
-        label: 'Agent Profiler home',
-        icon: 'home',
-        run: () => goHome(app),
-      },
-      ...(trace && hasOverview
-        ? [
-            {
-              id: 'overview',
-              label: 'Overview',
-              icon: 'dashboard',
-              checked: overviewExpanded,
-              run: () => toggleOverviewFromBar(app),
-            },
-          ]
-        : []),
-      ...(trace
-        ? [
-            {
-              id: 'timeline',
-              label: 'Timeline',
-              icon: 'line_style',
-              checked: !sidePanelOpen && page === '/viewer',
-              run: () => go('/viewer'),
-            },
-            {
-              id: 'query',
-              label: 'Query (SQL)',
-              icon: 'terminal',
-              checked: !sidePanelOpen && page === '/query',
-              run: () => go('/query'),
-            },
-          ]
-        : []),
-      {
-        id: 'open',
-        label: 'Open trace files',
-        icon: 'folder_open',
-        group: 'more',
-        run: () => openTraceFiles(app),
-      },
-      ...(trace
-        ? [
-            {
-              id: 'trace-details',
-              label: 'Trace details',
-              icon: 'info',
-              checked: !sidePanelOpen && page === '/info',
-              group: 'more' as const,
-              run: () => go('/info'),
-            },
-          ]
-        : []),
-      {
-        id: 'dark-mode',
-        label: 'Toggle dark mode',
-        icon: 'dark_mode',
-        checked: theme?.get() === 'dark',
-        group: 'more',
-        run: () => theme?.set(theme.get() === 'dark' ? 'light' : 'dark'),
-      },
-      {
-        id: 'settings',
-        label: 'Settings',
-        icon: 'settings',
         checked: !sidePanelOpen && page === '/settings',
-        group: 'more',
         run: () => go('/settings'),
       },
       ...(trace
@@ -418,32 +307,76 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
               id: 'close',
               label: 'Close recording',
               icon: 'close',
-              group: 'more' as const,
               run: closeRecording,
             },
           ]
         : []),
     ];
-    syncNativeBar(app, nativeActions, () => {
-      try {
-        AppImpl.instance.omnibox.focus();
-      } catch {
-        document.querySelector<HTMLInputElement>('.pf-omnibox input')?.focus();
-      }
-    });
 
-    // Each icon occupies 32px plus a 4px gap. Reserve a slot for the menu.
-    const visible = Math.max(0, Math.floor((this.width - 32) / 36));
+    syncNativeBar(
+      app,
+      [
+        {
+          id: 'home',
+          label: 'Agent Profiler home',
+          icon: 'home',
+          run: () => goHome(app),
+        },
+        ...(trace && hasOverview
+          ? [
+              {
+                id: 'overview',
+                label: 'Overview',
+                icon: 'dashboard',
+                checked: overviewExpanded,
+                run: () => toggleOverviewFromBar(app),
+              },
+            ]
+          : []),
+        ...actions,
+        ...menuActions.map((action) => ({...action, group: 'more' as const})),
+      ],
+      () => {
+        try {
+          AppImpl.instance.omnibox.focus();
+        } catch {
+          document.querySelector<HTMLInputElement>('.pf-omnibox input')?.focus();
+        }
+      },
+    );
+
+    const visible =
+      !isWide || this.width === 0
+        ? actions.length
+        : Math.max(0, Math.floor((this.width - 32) / 36));
     const menuItem = (action: Omit<Action, 'id'>) =>
       m(MenuItem, {
         'label': action.label,
         'aria-label': action.label,
-        'icon': action.checked || action.active ? 'check' : action.icon,
+        'icon': action.checked ? 'check' : action.icon,
         'role': action.checked !== undefined ? 'menuitemcheckbox' : undefined,
         'aria-checked':
           action.checked !== undefined ? String(action.checked) : undefined,
+        'disabled': action.disabled,
         'onclick': action.run,
       });
+
+    const webExternalLinks: ReadonlyArray<Omit<Action, 'id'>> = inIOSApp()
+      ? []
+      : [
+          {
+            label: 'Help',
+            icon: 'help_outline',
+            run: () => external('/blob/main/docs/investigating-agents.md'),
+          },
+          {label: 'GitHub', icon: 'code', run: () => external('')},
+          {
+            label: 'Report a bug',
+            icon: 'bug_report',
+            run: () => external('/issues/new'),
+          },
+        ];
+
     return m(
       '.ap-navigation-actions',
       ...actions.slice(0, visible).map((action) =>
@@ -453,12 +386,8 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
           'title': action.label,
           'aria-label': action.label,
           'aria-pressed':
-            action.checked !== undefined
-              ? String(action.checked)
-              : action.active
-                ? 'true'
-                : undefined,
-          'active': action.checked ?? action.active,
+            action.checked !== undefined ? String(action.checked) : undefined,
+          'active': action.checked,
           'onclick': action.run,
         }),
       ),
@@ -475,6 +404,8 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
         },
         actions.slice(visible).map(menuItem),
         visible < actions.length && m(MenuDivider),
+        menuActions.map(menuItem),
+        m(MenuDivider),
         Object.values(EXAMPLES).map((example) =>
           menuItem({
             label: example.title,
@@ -482,12 +413,8 @@ export class AgentprofActions implements m.ClassComponent<{app: App}> {
             run: () => app.commands.runCommand(example.commandId),
           }),
         ),
-        trace &&
-          menuItem({
-            label: 'Close recording',
-            icon: 'close',
-            run: closeRecording,
-          }),
+        webExternalLinks.length > 0 && m(MenuDivider),
+        webExternalLinks.map(menuItem),
       ),
     );
   }
