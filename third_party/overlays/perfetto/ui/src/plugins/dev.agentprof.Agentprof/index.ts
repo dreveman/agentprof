@@ -19,6 +19,7 @@ import {
 } from './overview_queries';
 import {AGENTPROF_SQL_PACKAGE} from './sql_package';
 import {AppImpl} from '../../core/app_impl';
+import {registerHostOpenTrace} from '../../core/embedder/agentprof_open_trace';
 import type {App} from '../../public/app';
 import type {Trace} from '../../public/trace';
 import {cacheTrace} from '../../core/cache_manager';
@@ -50,6 +51,7 @@ export default class implements PerfettoPlugin {
     } catch {
       // Minimal unit-test harnesses may invoke onActivate without AppImpl.
     }
+    registerHostOpenTrace(app);
     const splitSetting = app.settings?.get<boolean>('splitSecondaryPages');
     if (splitSetting && splitSetting.isDefault !== false) {
       splitSetting.set(true);
