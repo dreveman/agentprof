@@ -77,7 +77,8 @@ jobs:
   ui:
     name: Build and test UI
     needs: traces
-    runs-on: ubuntu-latest
+    # Perfetto v59.1 pins Playwright 1.58.2, which supports up to Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
