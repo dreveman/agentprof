@@ -1063,9 +1063,25 @@ try {
     'Switching Overview tabs keeps the Timeline split pane open');
   await page.getByRole('button', {name: 'Collapse overview', exact: true}).click();
   await page.locator('.ap-page--collapsed').waitFor();
-  const collapsedWidth = await page.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
-  assert.ok(Math.abs(collapsedWidth - 48) <= 2, `Collapsed Overview rail is 48px wide (got ${collapsedWidth})`);
-  await page.getByRole('button', {name: 'Expand overview', exact: true}).first().click();
+  const collapsedMetrics = await page.locator('.ap-page--collapsed').evaluate(el => {
+    const bubbles = [...el.querySelectorAll('.ap-collapsed-bubble')].map(b => b.getBoundingClientRect());
+    const iconSize = getComputedStyle(el.querySelector('.ap-collapsed-btn .pf-icon')).fontSize;
+    const borderRight = getComputedStyle(el).borderRightWidth;
+    return {
+      width: el.closest('.pf-page-split__primary').getBoundingClientRect().width,
+      bubbleWidths: bubbles.map(b => Math.round(b.width)),
+      bottomAligned: bubbles.length === 2 && bubbles[1].bottom >= el.getBoundingClientRect().bottom - 20,
+      iconSize,
+      borderRight,
+    };
+  });
+  assert.ok(Math.abs(collapsedMetrics.width - 64) <= 2, `Collapsed Overview rail is 64px wide (got ${collapsedMetrics.width})`);
+  assert.deepEqual(collapsedMetrics.bubbleWidths, [48, 48]);
+  assert.equal(collapsedMetrics.bottomAligned, true);
+  assert.equal(collapsedMetrics.iconSize, '24px');
+  assert.equal(collapsedMetrics.borderRight, '0px');
+  assert.equal(await page.locator('.ap-page--collapsed').getByRole('button', {name: 'Sessions', exact: true}).getAttribute('aria-pressed'), 'true');
+  await page.locator('.ap-page--collapsed').getByRole('button', {name: 'Expand overview', exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
   await action('Settings');
   await page.waitForURL(/#!\/settings/);
@@ -1130,6 +1146,7 @@ try {
   await iosPage.waitForURL(/#!\/viewer/);
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('overview'));
   await iosPage.locator('.ap-page--collapsed').waitFor();
+  await iosPage.screenshot({path: 'artifacts/screenshots/agentprof-ios-collapsed.png'});
   const iosCollapsedWidth = await iosPage.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
   assert.ok(Math.abs(iosCollapsedWidth - 62) <= 2, `Collapsed rail matches nativeBarWidth=62 (got ${iosCollapsedWidth})`);
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('search'));
