@@ -5,16 +5,16 @@ Subject: [PATCH 10/12] ui: Support opening secondary pages in a split pane
  alongside primary page
 
 ---
- ui/src/core/page_manager.ts          | 119 +++++++++++++++++++++++++--
- ui/src/core/page_manager_unittest.ts | 111 +++++++++++++++++++++++++
+ ui/src/core/page_manager.ts          | 122 +++++++++++++++++++++++++--
+ ui/src/core/page_manager_unittest.ts | 112 ++++++++++++++++++++++++
  ui/src/frontend/index.ts             |  12 +++
  ui/src/frontend/ui_main.scss         |  17 ++++
  ui/src/frontend/ui_main.ts           |  25 +++++-
- 5 files changed, 274 insertions(+), 10 deletions(-)
+ 5 files changed, 278 insertions(+), 10 deletions(-)
  create mode 100644 ui/src/core/page_manager_unittest.ts
 
 diff --git a/ui/src/core/page_manager.ts b/ui/src/core/page_manager.ts
-index 02f4e68162..1849de434c 100644
+index 02f4e68162..df4b250fee 100644
 --- a/ui/src/core/page_manager.ts
 +++ b/ui/src/core/page_manager.ts
 @@ -19,6 +19,9 @@ import type {PageHandler, PageManager} from '../public/page';
@@ -76,7 +76,7 @@ index 02f4e68162..1849de434c 100644
        subpage: route.subpage,
      });
  
-@@ -61,18 +85,95 @@ export class PageManagerImpl implements PageManager {
+@@ -61,18 +85,98 @@ export class PageManagerImpl implements PageManager {
      // scrolling position is retained between page flips, which can be handy
      // when quickly switching between pages that have long scrolling content
      // such as the timeline page.
@@ -106,8 +106,11 @@ index 02f4e68162..1849de434c 100644
 +    const hasSecondaryActive =
 +      activePage !== primaryPage &&
 +      this.registry.tryGet(activePage) !== undefined;
-+    const isSplitOpen = splitOpenAllowed && hasSecondaryActive;
-+    const showPrimary = !hasSecondaryActive || splitOpenAllowed;
++    // The root '/' Welcome page sits at the bottom of the navigation stack and
++    // always renders full width rather than alongside a primary split pane.
++    const effectiveSplitAllowed = splitOpenAllowed && activePage !== '/';
++    const isSplitOpen = effectiveSplitAllowed && hasSecondaryActive;
++    const showPrimary = !hasSecondaryActive || effectiveSplitAllowed;
 +
 +    return m(
 +      '.pf-page-split',
@@ -180,10 +183,10 @@ index 02f4e68162..1849de434c 100644
    // Will return undefined if either: (1) the route does not exist; (2) the
 diff --git a/ui/src/core/page_manager_unittest.ts b/ui/src/core/page_manager_unittest.ts
 new file mode 100644
-index 0000000000..3053951ab1
+index 0000000000..9fdc115c51
 --- /dev/null
 +++ b/ui/src/core/page_manager_unittest.ts
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,112 @@
 +// Copyright (C) 2026 The Android Open Source Project
 +//
 +// Licensed under the Apache License, Version 2.0 (the "License");
@@ -261,13 +264,14 @@ index 0000000000..3053951ab1
 +  ).toBe('Timeline');
 +
 +  // Navigating to '#!/?local_cache_key=' (where Router.parseFragment returns
-+  // page === '') opens the '/' Welcome page in the secondary pane alongside
-+  // the primary page.
++  // page === '') renders the '/' Welcome page full width with the primary
++  // container hidden in the tree rather than in split screen.
 +  location.hash = '#!/?local_cache_key=';
 +  m.render(root, pages.renderPageForCurrentRoute('/overview'));
-+  expect(root.querySelector('.pf-page-split__primary')?.textContent).toBe(
-+    'Overview:/summary',
-+  );
++  expect(
++    (root.querySelector('.pf-page-split__primary') as HTMLElement)?.style
++      .display,
++  ).toBe('none');
 +  expect(
 +    root.querySelector('.pf-page-split__secondary .home-page')?.textContent,
 +  ).toBe('Home');

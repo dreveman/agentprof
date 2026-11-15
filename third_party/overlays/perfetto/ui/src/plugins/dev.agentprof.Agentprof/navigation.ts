@@ -94,10 +94,19 @@ export function overviewSubpage(
 }
 
 export function closeSecondaryPane(trace: Trace): void {
-  if (overviewCollapsed) {
-    trace.navigate(traceHref(trace, '/'));
+  const currentPage = trace.getCurrentRoute?.()?.page;
+  if (
+    overviewCollapsed &&
+    currentPage !== undefined &&
+    currentPage !== '' &&
+    currentPage !== '/' &&
+    currentPage !== OVERVIEW_BASE &&
+    currentPage !== '/viewer'
+  ) {
+    trace.navigate(traceHref(trace, '/viewer'));
     return;
   }
+  overviewCollapsed = false;
   const target = overviewRoute(trace);
   trace.navigate(traceHref(trace, target));
 }

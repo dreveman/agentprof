@@ -44,8 +44,10 @@ function overviewState(app: App) {
   const sidePanel = getSidePanel();
   const sidePanelOpen = !isWide && Boolean(sidePanel?.visible);
   const hasOverview = Boolean(trace?.commands.hasCommand(OVERVIEW_COMMAND));
+  const onWelcomePage = page === '' || page === '/';
   const overviewExpanded =
     hasOverview &&
+    !onWelcomePage &&
     !isOverviewCollapsed() &&
     !sidePanelOpen &&
     (page === '/agentprof' || (splitEnabled && isWide));
@@ -66,9 +68,6 @@ export function goHome(app: App): void {
   if (!isWide && sidePanel) {
     sidePanel.visible = false;
   }
-  if (app.trace) {
-    setOverviewCollapsed(true);
-  }
   navigateHome(app);
 }
 
@@ -87,7 +86,7 @@ function toggleOverviewFromBar(app: App): void {
   if (overviewExpanded) {
     setOverviewCollapsed(true);
     if (page === '/agentprof') {
-      navigate(trace, '/');
+      navigate(trace, '/viewer');
     }
   } else {
     setOverviewCollapsed(false);
