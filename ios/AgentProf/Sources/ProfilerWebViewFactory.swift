@@ -25,9 +25,10 @@ enum ProfilerWebViewFactory {
     configuration.websiteDataStore = .default()
     configuration.applicationNameForUserAgent = "AgentProf/\(appVersion)"
     configuration.dataDetectorTypes = []
+    let idiom = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone"
     configuration.userContentController.addUserScript(
       WKUserScript(
-        source: HostBridge.bootstrapScript(appVersion: appVersion),
+        source: HostBridge.bootstrapScript(appVersion: appVersion, idiom: idiom),
         injectionTime: .atDocumentStart,
         forMainFrameOnly: true,
         in: .page

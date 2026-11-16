@@ -17,9 +17,10 @@ import Foundation
 /// store duplicate copies of recordings in WebKit data storage.
 enum HostBridge {
   /// The JavaScript run in the page world at document start.
-  static func bootstrapScript(appVersion: String) -> String {
+  static func bootstrapScript(appVersion: String, idiom: String = "phone") -> String {
     let config: [String: Any] = [
       "platform": "ios",
+      "idiom": idiom,
       "appVersion": appVersion,
     ]
     let json =
@@ -87,6 +88,7 @@ enum HostBridge {
 
       const host = {
         platform: config.platform,
+        idiom: config.idiom,
         appVersion: config.appVersion,
         onOpenTrace: undefined,
         nativeBar: false,

@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-$collapsed-width: var(--ap-native-bar-width, 64px);
-
 .pf-page-split__primary:not([style*="display: none"]):has(.ap-page--collapsed) {
-  flex: 0 0 $collapsed-width !important;
-  min-width: $collapsed-width !important;
-  max-width: $collapsed-width !important;
+  --ap-collapsed-rail-width: var(--ap-native-bar-width, 44px);
+  flex: 0 0 var(--ap-collapsed-rail-width) !important;
+  min-width: var(--ap-collapsed-rail-width) !important;
+  max-width: var(--ap-collapsed-rail-width) !important;
   overflow: hidden;
+
+  &:has(.ap-page--collapsed-iphone) {
+    --ap-collapsed-rail-width: var(--ap-native-bar-width, 64px);
+  }
+
+  html.ap-native-bar & {
+    --ap-collapsed-rail-width: var(--ap-native-bar-width, 64px);
+  }
 
   + .pf-resize-handle {
     display: none;
@@ -13,7 +20,76 @@ $collapsed-width: var(--ap-native-bar-width, 64px);
 
   ~ .pf-page-split__secondary {
     flex: 1 1 auto !important;
-    max-width: calc(100% - #{$collapsed-width}) !important;
+    max-width: calc(100% - var(--ap-collapsed-rail-width)) !important;
+  }
+}
+
+@mixin iphone-collapsed-rail {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 28px 8px 16px;
+  border-right: none;
+  background: var(--pf-color-background);
+
+  .ap-collapsed-bubble {
+    width: 48px;
+    padding: 2px 0;
+    border-radius: 999px;
+    gap: 0;
+    background: color-mix(
+      in srgb,
+      var(--pf-color-background) 96%,
+      var(--pf-color-text) 4%
+    );
+    border: 1px solid color-mix(in srgb, var(--pf-color-text) 14%, transparent);
+    box-shadow:
+      0 2px 6px rgb(0 0 0 / 4%),
+      0 1px 2px rgb(0 0 0 / 3%),
+      inset 0 1px 0 rgb(255 255 255 / 60%);
+
+    &--single {
+      height: 48px;
+      padding: 0;
+      border-bottom: none;
+    }
+  }
+
+  .ap-collapsed-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    color: var(--pf-color-text);
+
+    @media (max-height: 440px) {
+      height: 42px;
+    }
+
+    .pf-icon {
+      font-size: 24px;
+      font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
+    }
+
+    &[aria-pressed="true"] {
+      color: var(--pf-color-text);
+      background: transparent;
+
+      .pf-icon {
+        font-variation-settings:
+          'FILL' 1,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+      }
+    }
+
+    &:hover {
+      color: var(--pf-color-text);
+      background: color-mix(in srgb, var(--pf-color-text) 7%, transparent);
+    }
   }
 }
 
@@ -32,19 +108,24 @@ $collapsed-width: var(--ap-native-bar-width, 64px);
   &--collapsed {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    gap: 12px;
-    width: $collapsed-width;
+    gap: 8px;
+    width: 100%;
     height: 100%;
-    padding: 28px 8px 16px;
-    border: none;
-    background: var(--pf-color-background);
+    padding: 8px 6px;
+    border-right: 1px solid var(--pf-color-border);
+    background: var(--pf-color-background-secondary);
     cursor: pointer;
     user-select: none;
     overflow: hidden;
 
+    &.ap-page--collapsed-iphone {
+      @include iphone-collapsed-rail;
+    }
+
     html.ap-native-bar & {
+      @include iphone-collapsed-rail;
       align-items: flex-start;
       padding-top: 38px;
       padding-bottom: 22px;
@@ -56,73 +137,61 @@ $collapsed-width: var(--ap-native-bar-width, 64px);
 
 .ap-collapsed-bubble {
   box-sizing: border-box;
-  width: 48px;
-  padding: 2px 0;
-  border-radius: 999px;
+  width: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 4px;
   flex-shrink: 0;
-  background: color-mix(
-    in srgb,
-    var(--pf-color-background) 96%,
-    var(--pf-color-text) 4%
-  );
-  border: 1px solid color-mix(in srgb, var(--pf-color-text) 14%, transparent);
-  box-shadow:
-    0 2px 6px rgb(0 0 0 / 4%),
-    0 1px 2px rgb(0 0 0 / 3%),
-    inset 0 1px 0 rgb(255 255 255 / 60%);
 
   &--single {
-    height: 48px;
-    padding: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--pf-color-border);
   }
 }
 
 .ap-collapsed-btn {
   box-sizing: border-box;
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: 5px;
   background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--pf-color-text);
+  color: var(--pf-color-text-muted);
   cursor: pointer;
 
-  @media (max-height: 440px) {
-    height: 42px;
-  }
-
   .pf-icon {
-    font-size: 24px;
+    font-size: 18px;
     line-height: 1;
     font-variation-settings:
       'FILL' 0,
       'wght' 400,
       'GRAD' 0,
-      'opsz' 24;
-  }
-
-  &[aria-pressed="true"] .pf-icon {
-    font-variation-settings:
-      'FILL' 1,
-      'wght' 400,
-      'GRAD' 0,
-      'opsz' 24;
+      'opsz' 20;
   }
 
   &:hover {
-    background: color-mix(in srgb, var(--pf-color-text) 7%, transparent);
+    background: var(--pf-color-background);
+    color: var(--pf-color-text);
+  }
+
+  &[aria-pressed="true"] {
+    color: var(--pf-color-primary);
+    background: color-mix(in srgb, var(--pf-color-primary) 12%, transparent);
   }
 
   &:focus-visible {
     outline: 2px solid var(--pf-color-primary);
-    outline-offset: -2px;
+    outline-offset: 2px;
   }
 }
 

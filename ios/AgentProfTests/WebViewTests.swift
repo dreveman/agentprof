@@ -84,6 +84,7 @@ struct WebViewTests {
 
   private struct Host: Decodable {
     let platform: String
+    let idiom: String
     let appVersion: String
     let replaced: Bool
     let cacheAPI: Bool
@@ -188,6 +189,7 @@ struct WebViewTests {
           try { delete window.agentprofHost; } catch (e) {}
           return {
             platform: host.platform,
+            idiom: host.idiom,
             appVersion: host.appVersion,
             replaced: window.agentprofHost !== host,
             cacheAPI: typeof caches !== 'undefined',
@@ -196,6 +198,7 @@ struct WebViewTests {
         """
     )
     #expect(host.platform == "ios")
+    #expect(host.idiom == "phone" || host.idiom == "pad")
     #expect(host.appVersion == version)
     #expect(!host.replaced)
     #expect(!host.cacheAPI)

@@ -41,6 +41,26 @@ export function inIOSApp(): boolean {
   return getAgentprofHost()?.platform === 'ios';
 }
 
+export function isIPhone(): boolean {
+  const host = getAgentprofHost<{
+    platform?: unknown;
+    idiom?: unknown;
+    nativeBar?: unknown;
+  }>();
+  if (host?.nativeBar === true) return true;
+  if (host?.platform === 'ios' && typeof host.idiom === 'string') {
+    return host.idiom === 'phone';
+  }
+  if (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.userAgent === 'string' &&
+    /\b(?:iPhone|iPod)\b/i.test(navigator.userAgent)
+  ) {
+    return true;
+  }
+  return host?.platform === 'ios';
+}
+
 export function isTouchDevice(): boolean {
   if (inIOSApp()) return true;
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {

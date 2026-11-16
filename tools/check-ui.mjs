@@ -1066,6 +1066,7 @@ try {
     'Switching Overview tabs keeps the Timeline split pane open');
   await page.getByRole('button', {name: 'Collapse overview', exact: true}).click();
   await page.locator('.ap-page--collapsed').waitFor();
+  await page.screenshot({path: 'artifacts/screenshots/agentprof-web-collapsed.png'});
   const collapsedMetrics = await page.locator('.ap-page--collapsed').evaluate(el => {
     const bubbles = [...el.querySelectorAll('.ap-collapsed-bubble')].map(b => b.getBoundingClientRect());
     const iconSize = getComputedStyle(el.querySelector('.ap-collapsed-btn .pf-icon')).fontSize;
@@ -1073,16 +1074,16 @@ try {
     return {
       width: el.closest('.pf-page-split__primary').getBoundingClientRect().width,
       bubbleWidths: bubbles.map(b => Math.round(b.width)),
-      bottomAligned: bubbles.length === 2 && bubbles[1].bottom >= el.getBoundingClientRect().bottom - 20,
+      iphoneClass: el.classList.contains('ap-page--collapsed-iphone'),
       iconSize,
       borderRight,
     };
   });
-  assert.ok(Math.abs(collapsedMetrics.width - 64) <= 2, `Collapsed Overview rail is 64px wide (got ${collapsedMetrics.width})`);
-  assert.deepEqual(collapsedMetrics.bubbleWidths, [48, 48]);
-  assert.equal(collapsedMetrics.bottomAligned, true);
-  assert.equal(collapsedMetrics.iconSize, '24px');
-  assert.equal(collapsedMetrics.borderRight, '0px');
+  assert.ok(Math.abs(collapsedMetrics.width - 44) <= 2, `Web collapsed Overview rail is 44px wide (got ${collapsedMetrics.width})`);
+  assert.deepEqual(collapsedMetrics.bubbleWidths, [32, 32]);
+  assert.equal(collapsedMetrics.iphoneClass, false);
+  assert.equal(collapsedMetrics.iconSize, '18px');
+  assert.equal(collapsedMetrics.borderRight, '1px');
   assert.equal(await page.locator('.ap-page--collapsed').getByRole('button', {name: 'Sessions', exact: true}).getAttribute('aria-pressed'), 'true');
   await page.locator('.ap-page--collapsed').getByRole('button', {name: 'Expand overview', exact: true}).click();
   await page.getByRole('heading', {name: 'Captured sessions', exact: true}).waitFor();
@@ -1150,8 +1151,23 @@ try {
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('overview'));
   await iosPage.locator('.ap-page--collapsed').waitFor();
   await iosPage.screenshot({path: 'artifacts/screenshots/agentprof-ios-collapsed.png'});
-  const iosCollapsedWidth = await iosPage.locator('.pf-page-split__primary').evaluate(el => el.getBoundingClientRect().width);
-  assert.ok(Math.abs(iosCollapsedWidth - 62) <= 2, `Collapsed rail matches nativeBarWidth=62 (got ${iosCollapsedWidth})`);
+  const iosCollapsedMetrics = await iosPage.locator('.ap-page--collapsed').evaluate(el => {
+    const bubbles = [...el.querySelectorAll('.ap-collapsed-bubble')].map(b => b.getBoundingClientRect());
+    return {
+      width: el.closest('.pf-page-split__primary').getBoundingClientRect().width,
+      bubbleWidths: bubbles.map(b => Math.round(b.width)),
+      bottomAligned: bubbles.length === 2 && bubbles[1].bottom >= el.getBoundingClientRect().bottom - 26,
+      iphoneClass: el.classList.contains('ap-page--collapsed-iphone'),
+      iconSize: getComputedStyle(el.querySelector('.ap-collapsed-btn .pf-icon')).fontSize,
+      borderRight: getComputedStyle(el).borderRightWidth,
+    };
+  });
+  assert.ok(Math.abs(iosCollapsedMetrics.width - 62) <= 2, `Collapsed rail matches nativeBarWidth=62 (got ${iosCollapsedMetrics.width})`);
+  assert.deepEqual(iosCollapsedMetrics.bubbleWidths, [48, 48]);
+  assert.equal(iosCollapsedMetrics.bottomAligned, true);
+  assert.equal(iosCollapsedMetrics.iphoneClass, true);
+  assert.equal(iosCollapsedMetrics.iconSize, '24px');
+  assert.equal(iosCollapsedMetrics.borderRight, '0px');
   await iosPage.evaluate(() => window.agentprofHost.onRunAction('home'));
   await iosPage.getByRole('heading', {name: 'Open agent recordings', exact: true}).waitFor();
   assert.equal(await iosPage.locator('.pf-page-split__primary').isVisible(), false,
