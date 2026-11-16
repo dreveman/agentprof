@@ -14,6 +14,7 @@ import {
   IOS_TRACE_FILE_ACCEPT,
   OPEN_TRACE_COMMAND,
   inIOSApp,
+  isIPhone,
   openTraceFiles,
   registerHostOpenTrace,
   shouldInstallServiceWorker,
@@ -107,6 +108,56 @@ afterEach(() => {
   delete (globalThis as {window?: unknown}).window;
   delete (globalThis as {document?: unknown}).document;
   delete (globalThis as {location?: unknown}).location;
+});
+
+test('isIPhone distinguishes iPhone browsers and phone host idiom from desktop web and iPad', () => {
+  const originalNavigator = globalThis.navigator;
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgent:
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+      },
+    });
+    expect(isIPhone()).toBe(false);
+
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+      },
+    });
+    expect(isIPhone()).toBe(true);
+
+    // Native iPad app uses generic style unless a vertical native bar is active.
+    (globalThis as {agentprofHost?: unknown}).agentprofHost = {
+      platform: 'ios',
+      idiom: 'pad',
+      nativeBar: false,
+    };
+    expect(isIPhone()).toBe(false);
+
+    (globalThis as {agentprofHost?: unknown}).agentprofHost = {
+      platform: 'ios',
+      idiom: 'pad',
+      nativeBar: true,
+    };
+    expect(isIPhone()).toBe(true);
+
+    (globalThis as {agentprofHost?: unknown}).agentprofHost = {
+      platform: 'ios',
+      idiom: 'phone',
+      nativeBar: false,
+    };
+    expect(isIPhone()).toBe(true);
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: originalNavigator,
+    });
+  }
 });
 
 test('openTraceFiles asks for arbitrary data files in the iOS app and leaves web untouched', () => {

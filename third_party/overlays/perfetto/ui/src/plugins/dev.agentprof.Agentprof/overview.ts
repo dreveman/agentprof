@@ -7,6 +7,7 @@ import {Card} from '../../widgets/card';
 import {Callout} from '../../widgets/callout';
 import {Intent} from '../../widgets/common';
 import {Icon} from '../../widgets/icon';
+import {isIPhone} from '../../core/embedder/agentprof_open_trace';
 import {PopupMenu, MenuItem} from '../../widgets/menu';
 import {
   closeSecondaryPane,
@@ -578,9 +579,11 @@ export class Overview implements m.ClassComponent<Attrs> {
         }
       };
       const recordingTitle = trace.traceInfo.traceTitle || 'multiple traces';
+      const iphoneStyle = isIPhone();
       return m(
         'aside.ap-page.ap-page--collapsed',
         {
+          'className': iphoneStyle ? 'ap-page--collapsed-iphone' : undefined,
           'aria-label': `Collapsed overview (${recordingTitle})`,
           'onclick': expandOverview,
         },
